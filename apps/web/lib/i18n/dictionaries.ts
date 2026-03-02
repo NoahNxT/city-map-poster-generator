@@ -69,6 +69,8 @@ export type Dictionary = {
     width: string;
     height: string;
     dimensionHelp: string;
+    dimensionHelpCentimeters: string;
+    dimensionHelpInches: string;
     explainDimensions: string;
     mapLayersTitle: string;
     mapLayersDescription: string;
@@ -253,6 +255,10 @@ const en: Dictionary = {
     height: "Height",
     dimensionHelp:
       "Type decimals with comma or dot (for example 40,6 or 40.6). Allowed range: {min} to {max} {unit}.",
+    dimensionHelpCentimeters:
+      "Type decimals with comma or dot (for example 40,6 or 40.6). Allowed range: {min} to {max} cm.",
+    dimensionHelpInches:
+      "Type decimals with comma or dot (for example 12,5 or 12.5). Allowed range: {min} to {max} in.",
     explainDimensions: "Explain size input",
     mapLayersTitle: "Map Layers (Export)",
     mapLayersDescription: "Applies to both live preview and final generation.",

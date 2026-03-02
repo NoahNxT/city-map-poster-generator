@@ -100,9 +100,11 @@ type SizeUnit = "cm" | "in";
 type DimensionField = "width" | "height";
 
 const CM_PER_INCH = 2.54;
-const MIN_POSTER_INCHES = 1;
+const MIN_POSTER_INCHES_INCH_MODE = 5;
 const MAX_POSTER_INCHES = 80;
+const MIN_POSTER_CENTIMETERS = 10;
 const MAX_POSTER_CENTIMETERS = 200;
+const MIN_POSTER_INCHES = MIN_POSTER_CENTIMETERS / CM_PER_INCH;
 const MIN_DISTANCE_METERS = 1000;
 const MAX_DISTANCE_METERS = 18000;
 const MAX_LOCAL_PREVIEW_LONG_EDGE_PX = 2048;
@@ -239,8 +241,10 @@ function maxDimensionInInchesForUnit(unit: SizeUnit): number {
     : MAX_POSTER_INCHES;
 }
 
-function minDimensionInInchesForUnit(_unit: SizeUnit): number {
-  return MIN_POSTER_INCHES;
+function minDimensionInInchesForUnit(unit: SizeUnit): number {
+  return unit === "cm"
+    ? centimetersToInches(MIN_POSTER_CENTIMETERS)
+    : MIN_POSTER_INCHES_INCH_MODE;
 }
 
 function parseDecimalInput(rawValue: string): number | null {
@@ -1265,10 +1269,13 @@ export function PosterGenerator({
     locale,
   );
   const dimensionRangePlaceholder = `${dimensionDisplayMin} - ${dimensionDisplayMax}`;
-  const dimensionHelpText = d.controls.dimensionHelp
+  const dimensionHelpTemplate =
+    sizeUnit === "cm"
+      ? d.controls.dimensionHelpCentimeters
+      : d.controls.dimensionHelpInches;
+  const dimensionHelpText = dimensionHelpTemplate
     .replace("{min}", dimensionDisplayMin)
-    .replace("{max}", dimensionDisplayMax)
-    .replace("{unit}", dimensionUnitLabel);
+    .replace("{max}", dimensionDisplayMax);
   const autoCityFontSize = computeAutoCityFontSize(values.city);
   const autoCountryFontSize = DEFAULT_COUNTRY_FONT_SIZE;
   const cityFontSizeInputValue =
