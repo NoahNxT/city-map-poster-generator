@@ -24,6 +24,8 @@ class PosterRequest(BaseModel):
     fontFamily: str | None = Field(default=None, max_length=80)
     theme: str = Field(default="terracotta", min_length=1, max_length=60)
     allThemes: bool = False
+    includeWater: bool = True
+    includeParks: bool = True
     distance: int = Field(default=18000, ge=1000, le=50000)
     width: float = Field(default=12, ge=1, le=20)
     height: float = Field(default=16, ge=1, le=20)

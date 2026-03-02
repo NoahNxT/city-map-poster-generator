@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import json
-import shutil
 import traceback
 import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from uuid import uuid4
-
-from redis import Redis
 
 from app.config import settings
 from app.models import Artifact, JobStatus, OutputFormat, PosterRequest
@@ -74,6 +69,8 @@ def run_generation_job(job_id: str, payload_dict: dict, client_ip: str) -> None:
                     theme_name=theme_name,
                     output_path=output_path,
                     output_format=payload.format,
+                    include_water=payload.includeWater,
+                    include_parks=payload.includeParks,
                 )
 
                 key = _artifact_key(job_id, file_name)
