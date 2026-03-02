@@ -530,6 +530,12 @@ function toPayload(values: FormValues): PosterRequest {
 
 export function PosterGenerator() {
   const showDevRateLimitToggle = process.env.NODE_ENV !== "production";
+  const locationInputId = "location-search";
+  const locationHintId = "location-search-help";
+  const locationStatusId = "location-search-status";
+  const locationListboxId = "location-search-listbox";
+  const fontDescriptionId = "font-family-help";
+  const generationStatusLiveId = "generation-status-live";
   const [jobId, setJobId] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(
     undefined,
@@ -559,6 +565,7 @@ export function PosterGenerator() {
   const [fontSearchQuery, setFontSearchQuery] = useState<string>(
     defaultValues.fontFamily ?? "",
   );
+  const [activeLocationIndex, setActiveLocationIndex] = useState<number>(-1);
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
 
   const form = useForm<FormValues>({
@@ -639,6 +646,7 @@ export function PosterGenerator() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedLocationQuery(locationQuery.trim());
+      setActiveLocationIndex(-1);
     }, 450);
     return () => clearTimeout(timer);
   }, [locationQuery]);
@@ -733,6 +741,7 @@ export function PosterGenerator() {
   function handleLocationSelect(suggestion: LocationSuggestion) {
     setLocationQuery(suggestion.displayName);
     setLocationAutocompleteOpen(false);
+    setActiveLocationIndex(-1);
     form.setValue("city", suggestion.city, { shouldValidate: true });
     form.setValue("country", suggestion.country, { shouldValidate: true });
     form.setValue("latitude", suggestion.latitude, { shouldValidate: true });
@@ -867,6 +876,62 @@ export function PosterGenerator() {
   }, [fontSearchQuery]);
   const fontCommandItemClassName =
     "data-[selected=true]:bg-muted data-[selected=true]:text-foreground";
+  const locationSuggestions = locationSuggestionsQuery.data ?? [];
+  const activeLocationSuggestion =
+    activeLocationIndex >= 0 && activeLocationIndex < locationSuggestions.length
+      ? locationSuggestions[activeLocationIndex]
+      : null;
+
+  function handleLocationInputKeyDown(
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ): void {
+    if (!locationSuggestions.length) {
+      if (event.key === "Escape") {
+        setLocationAutocompleteOpen(false);
+      }
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setLocationAutocompleteOpen(true);
+      setActiveLocationIndex((current) => {
+        if (current < 0) return 0;
+        return Math.min(current + 1, locationSuggestions.length - 1);
+      });
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setLocationAutocompleteOpen(true);
+      setActiveLocationIndex((current) => {
+        if (current < 0) return locationSuggestions.length - 1;
+        return Math.max(current - 1, 0);
+      });
+      return;
+    }
+
+    if (event.key === "Enter" && activeLocationSuggestion) {
+      event.preventDefault();
+      handleLocationSelect(activeLocationSuggestion);
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setLocationAutocompleteOpen(false);
+      setActiveLocationIndex(-1);
+    }
+  }
+
+  const locationStatusMessage = locationSuggestionsQuery.isLoading
+    ? "Searching location suggestions."
+    : locationAutocompleteOpen && debouncedLocationQuery.length >= 3
+      ? locationSuggestions.length
+        ? `${locationSuggestions.length} location suggestions available.`
+        : "No location suggestions found."
+      : "";
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6 lg:px-8">
@@ -911,36 +976,73 @@ export function PosterGenerator() {
                 onSubmit={form.handleSubmit(handleGenerate)}
               >
                 <div className="space-y-2">
-                  <Label htmlFor="location-search">Location</Label>
+                  <Label htmlFor={locationInputId}>Location</Label>
                   <div className="relative">
                     <Input
-                      id="location-search"
+                      id={locationInputId}
                       value={locationQuery}
                       placeholder="Search city, district, landmark..."
-                      onFocus={() => setLocationAutocompleteOpen(true)}
-                      onBlur={() =>
-                        setTimeout(
-                          () => setLocationAutocompleteOpen(false),
-                          120,
-                        )
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={
+                        locationAutocompleteOpen &&
+                        debouncedLocationQuery.length >= 3
                       }
+                      aria-controls={
+                        locationAutocompleteOpen &&
+                        debouncedLocationQuery.length >= 3
+                          ? locationListboxId
+                          : undefined
+                      }
+                      aria-activedescendant={
+                        activeLocationSuggestion
+                          ? `location-option-${activeLocationSuggestion.placeId}`
+                          : undefined
+                      }
+                      aria-describedby={`${locationHintId} ${locationStatusId}`}
+                      onFocus={() => {
+                        setLocationAutocompleteOpen(true);
+                      }}
+                      onBlur={() =>
+                        setTimeout(() => {
+                          setLocationAutocompleteOpen(false);
+                          setActiveLocationIndex(-1);
+                        }, 120)
+                      }
+                      onKeyDown={handleLocationInputKeyDown}
                       onChange={(event) => {
                         setLocationQuery(event.currentTarget.value);
+                        setLocationAutocompleteOpen(true);
+                        setActiveLocationIndex(-1);
                       }}
                     />
                     {locationAutocompleteOpen &&
                     debouncedLocationQuery.length >= 3 ? (
-                      <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
+                      <div
+                        id={locationListboxId}
+                        role="listbox"
+                        aria-label="Location suggestions"
+                        className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg"
+                      >
                         {locationSuggestionsQuery.isLoading ? (
                           <p className="px-3 py-2 text-xs text-muted-foreground">
                             Searching locations...
                           </p>
-                        ) : locationSuggestionsQuery.data?.length ? (
-                          locationSuggestionsQuery.data.map((suggestion) => (
+                        ) : locationSuggestions.length ? (
+                          locationSuggestions.map((suggestion, index) => (
                             <button
                               key={suggestion.placeId}
                               type="button"
-                              className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
+                              id={`location-option-${suggestion.placeId}`}
+                              role="option"
+                              aria-selected={index === activeLocationIndex}
+                              tabIndex={-1}
+                              className={`w-full rounded-sm px-3 py-2 text-left text-sm ${
+                                index === activeLocationIndex
+                                  ? "bg-muted text-foreground"
+                                  : "hover:bg-muted"
+                              }`}
+                              onMouseEnter={() => setActiveLocationIndex(index)}
                               onMouseDown={(event) => {
                                 event.preventDefault();
                                 handleLocationSelect(suggestion);
@@ -962,9 +1064,19 @@ export function PosterGenerator() {
                       </div>
                     ) : null}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p
+                    id={locationHintId}
+                    className="text-xs text-muted-foreground"
+                  >
                     Select a suggestion to auto-fill city/country and precise
                     coordinates.
+                  </p>
+                  <p
+                    id={locationStatusId}
+                    className="sr-only"
+                    aria-live="polite"
+                  >
+                    {locationStatusMessage}
                   </p>
                 </div>
 
@@ -974,16 +1086,39 @@ export function PosterGenerator() {
                     <Input
                       id="city"
                       placeholder="Paris"
+                      aria-invalid={Boolean(form.formState.errors.city)}
+                      aria-describedby={
+                        form.formState.errors.city ? "city-error" : undefined
+                      }
                       {...form.register("city")}
                     />
+                    {form.formState.errors.city ? (
+                      <p id="city-error" className="text-xs text-destructive">
+                        {form.formState.errors.city.message}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="country">Country</Label>
                     <Input
                       id="country"
                       placeholder="France"
+                      aria-invalid={Boolean(form.formState.errors.country)}
+                      aria-describedby={
+                        form.formState.errors.country
+                          ? "country-error"
+                          : undefined
+                      }
                       {...form.register("country")}
                     />
+                    {form.formState.errors.country ? (
+                      <p
+                        id="country-error"
+                        className="text-xs text-destructive"
+                      >
+                        {form.formState.errors.country.message}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -1555,6 +1690,7 @@ export function PosterGenerator() {
                                 variant="outline"
                                 role="combobox"
                                 aria-expanded={fontComboboxOpen}
+                                aria-describedby={fontDescriptionId}
                                 className="w-full justify-between font-normal hover:bg-muted hover:text-foreground"
                               >
                                 <span
@@ -1578,6 +1714,7 @@ export function PosterGenerator() {
                                 <CommandInput
                                   value={fontSearchQuery}
                                   placeholder="Search Google Fonts..."
+                                  aria-label="Search Google Font family"
                                   onValueChange={setFontSearchQuery}
                                 />
                                 <CommandList>
@@ -1709,7 +1846,10 @@ export function PosterGenerator() {
                               </Command>
                             </PopoverContent>
                           </Popover>
-                          <p className="text-xs text-muted-foreground">
+                          <p
+                            id={fontDescriptionId}
+                            className="text-xs text-muted-foreground"
+                          >
                             Search and select from Google Fonts results only.
                           </p>
                         </div>
@@ -1754,7 +1894,10 @@ export function PosterGenerator() {
                   </Button>
                 </div>
                 {createJobMutation.error ? (
-                  <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  <p
+                    role="alert"
+                    className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+                  >
                     {createJobMutation.error.message}
                   </p>
                 ) : null}
@@ -1942,7 +2085,12 @@ export function PosterGenerator() {
                 ) : null}
               </div>
 
-              <div className="rounded-lg border border-dashed px-3 py-3">
+              <div
+                className="rounded-lg border border-dashed px-3 py-3"
+                aria-live="polite"
+                aria-atomic="true"
+                id={generationStatusLiveId}
+              >
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-foreground">
                     Generation Status
