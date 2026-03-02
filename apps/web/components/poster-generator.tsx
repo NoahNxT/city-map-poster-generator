@@ -1705,6 +1705,62 @@ export function PosterGenerator({
         </p>
       </motion.header>
 
+      {showDevRateLimitToggle && showDevSettingsCard ? (
+        <section aria-label={d.preview.devSettingsTitle} className="mb-6">
+          <Card>
+            <CardHeader>
+              <h3 className="font-semibold tracking-tight text-sm uppercase text-muted-foreground">
+                {d.preview.devSettingsTitle}
+              </h3>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-lg border border-dashed px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label
+                      htmlFor={rateLimitToggleId}
+                      className="text-sm font-medium text-foreground"
+                    >
+                      {d.preview.disableRateLimitTitle}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {d.preview.disableRateLimitDescription}
+                    </p>
+                  </div>
+                  <Switch
+                    id={rateLimitToggleId}
+                    checked={disableRateLimit}
+                    onCheckedChange={setDisableRateLimit}
+                    aria-label={d.preview.disableRateLimitTitle}
+                  />
+                </div>
+              </div>
+              <div className="rounded-lg border border-dashed px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label
+                      htmlFor={captchaToggleId}
+                      className="text-sm font-medium text-foreground"
+                    >
+                      {d.preview.disableCaptchaTitle}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {d.preview.disableCaptchaDescription}
+                    </p>
+                  </div>
+                  <Switch
+                    id={captchaToggleId}
+                    checked={disableCaptchaCheck}
+                    onCheckedChange={setDisableCaptchaCheck}
+                    aria-label={d.preview.disableCaptchaTitle}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
+
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
         <motion.div
           initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
@@ -1714,61 +1770,6 @@ export function PosterGenerator({
             delay: shouldReduceMotion ? 0 : 0.05,
           }}
         >
-          {showDevRateLimitToggle && showDevSettingsCard ? (
-            <section aria-label={d.preview.devSettingsTitle} className="mb-4">
-              <Card>
-                <CardHeader>
-                  <h3 className="font-semibold tracking-tight text-sm uppercase text-muted-foreground">
-                    {d.preview.devSettingsTitle}
-                  </h3>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="rounded-lg border border-dashed px-3 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <Label
-                          htmlFor={rateLimitToggleId}
-                          className="text-sm font-medium text-foreground"
-                        >
-                          {d.preview.disableRateLimitTitle}
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
-                          {d.preview.disableRateLimitDescription}
-                        </p>
-                      </div>
-                      <Switch
-                        id={rateLimitToggleId}
-                        checked={disableRateLimit}
-                        onCheckedChange={setDisableRateLimit}
-                        aria-label={d.preview.disableRateLimitTitle}
-                      />
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-dashed px-3 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <Label
-                          htmlFor={captchaToggleId}
-                          className="text-sm font-medium text-foreground"
-                        >
-                          {d.preview.disableCaptchaTitle}
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
-                          {d.preview.disableCaptchaDescription}
-                        </p>
-                      </div>
-                      <Switch
-                        id={captchaToggleId}
-                        checked={disableCaptchaCheck}
-                        onCheckedChange={setDisableCaptchaCheck}
-                        aria-label={d.preview.disableCaptchaTitle}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </section>
-          ) : null}
           <section aria-labelledby="map-controls-title">
             <Card>
               <CardHeader>
