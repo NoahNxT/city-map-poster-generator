@@ -80,6 +80,8 @@ def main() -> int:
             network_type="drive",
             include_water=True,
             include_parks=True,
+            include_labels=False,
+            include_attribution=False,
         )
 
     print("Done.")
