@@ -30,6 +30,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Overwrite existing preview files.",
     )
+    parser.add_argument(
+        "--format",
+        choices=[OutputFormat.png.value, OutputFormat.svg.value],
+        default=OutputFormat.svg.value,
+        help="Output format for generated theme previews.",
+    )
     return parser
 
 
@@ -39,10 +45,10 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     base_payload = PosterRequest(
-        city="Paris",
-        country="France",
-        latitude="48.8534951",
-        longitude="2.3483915",
+        city="Antwerp",
+        country="Belgium",
+        latitude="51.2211097",
+        longitude="4.3997081",
         theme="terracotta",
         allThemes=False,
         includeWater=True,
@@ -50,13 +56,15 @@ def main() -> int:
         distance=12000,
         width=6,
         height=8,
-        format=OutputFormat.png,
+        format=OutputFormat(args.format),
     )
 
     themes = load_themes()
-    print(f"Generating {len(themes)} theme previews into {output_dir}")
+    print(
+        f"Generating {len(themes)} theme previews in {args.format.upper()} into {output_dir}"
+    )
     for theme in themes:
-        output_path = output_dir / f"{theme.id}.png"
+        output_path = output_dir / f"{theme.id}.{args.format}"
         if output_path.exists() and not args.force:
             print(f"Skipping {theme.id} (already exists)")
             continue
@@ -67,8 +75,8 @@ def main() -> int:
             payload,
             theme_name=theme.id,
             output_path=output_path,
-            output_format=OutputFormat.png,
-            raster_dpi=160,
+            output_format=OutputFormat(args.format),
+            raster_dpi=160 if args.format == OutputFormat.png.value else None,
             network_type="drive",
             include_water=True,
             include_parks=True,

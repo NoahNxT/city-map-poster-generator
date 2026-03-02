@@ -11,7 +11,7 @@
     "dev:web": "turbo run dev --filter=web",
     "dev:api": "turbo run dev --filter=api",
     "dev:worker": "bun run --cwd apps/api worker",
-    "generate:theme-previews": "apps/api/.venv/bin/python scripts/generate_theme_previews.py --force",
+    "generate:theme-previews": "apps/api/.venv/bin/python scripts/generate_theme_previews.py --format svg --force",
     "lint": "turbo run lint --filter=web --filter=api",
     "format": "biome format --write .",
     "check-types": "turbo run check-types --filter=web --filter=api",

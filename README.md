@@ -137,7 +137,7 @@ bun run format        # biome format
 
 The web app includes a static gallery preview for all built-in themes at:
 
-- `apps/web/public/theme-previews/<theme-id>.png`
+- `apps/web/public/theme-previews/<theme-id>.svg`
 
 Regenerate all theme previews:
 
