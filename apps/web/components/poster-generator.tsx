@@ -171,6 +171,29 @@ function formatPreviewCity(value: string): string {
   return trimmed;
 }
 
+function sanitizeFontFamily(value: string | undefined): string {
+  return (value ?? "").trim().replace(/["']/g, "");
+}
+
+function buildGoogleFontsStylesheetUrl(
+  value: string | undefined,
+): string | null {
+  const family = sanitizeFontFamily(value);
+  if (!family) return null;
+
+  const familyToken = family.split(/\s+/).join("+");
+  const encodedFamily = encodeURIComponent(familyToken).replace(/%2B/g, "+");
+  return `https://fonts.googleapis.com/css2?family=${encodedFamily}:wght@300;400;700&display=swap`;
+}
+
+function buildPreviewFontStack(value: string | undefined): string {
+  const family = sanitizeFontFamily(value);
+  if (!family) {
+    return "var(--font-heading)";
+  }
+  return `"${family}", var(--font-heading)`;
+}
+
 function getPreviewTextMetrics(
   displayCity: string,
   widthInches: number,
@@ -612,6 +635,26 @@ export function PosterGenerator() {
   }, [values.fontFamily]);
 
   useEffect(() => {
+    const href = buildGoogleFontsStylesheetUrl(values.fontFamily);
+    if (!href) {
+      return;
+    }
+
+    const linkId = "preview-google-font-family";
+    let link = document.getElementById(linkId) as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement("link");
+      link.id = linkId;
+      link.rel = "stylesheet";
+      document.head.append(link);
+    }
+
+    if (link.getAttribute("href") !== href) {
+      link.setAttribute("href", href);
+    }
+  }, [values.fontFamily]);
+
+  useEffect(() => {
     const firstTheme = themesQuery.data?.[0];
     if (
       firstTheme &&
@@ -726,8 +769,7 @@ export function PosterGenerator() {
     values.labelPaddingScale,
   );
   const previewDisplayCountry = (values.country || "").toUpperCase();
-  const previewTypographyFontFamily =
-    values.fontFamily?.trim() || "var(--font-heading)";
+  const previewTypographyFontFamily = buildPreviewFontStack(values.fontFamily);
   const previewCoords = formatPreviewCoords(values.latitude, values.longitude);
   const previewUrl = `/theme-previews/${values.theme}.svg`;
   const previewThemeBackground =
