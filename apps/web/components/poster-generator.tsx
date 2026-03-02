@@ -1762,7 +1762,7 @@ export function PosterGenerator() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.1 }}
-          className="space-y-6 lg:sticky lg:top-6 lg:max-h-[calc(100vh-1.5rem)] lg:self-start lg:overflow-y-auto lg:pr-1"
+          className="space-y-6 lg:sticky lg:top-6 lg:self-start"
         >
           <Card>
             <CardHeader>
@@ -1775,7 +1775,7 @@ export function PosterGenerator() {
                 API calls.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 lg:pb-8">
+            <CardContent className="space-y-4">
               {showDevRateLimitToggle ? (
                 <div className="rounded-lg border border-dashed px-3 py-3">
                   <div className="flex items-center justify-between gap-3">
@@ -1936,74 +1936,83 @@ export function PosterGenerator() {
                   </>
                 ) : null}
               </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Generation Status</CardTitle>
-              <CardDescription>
-                Queued jobs update automatically every two seconds.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {jobId ? (
-                <>
-                  <div className="flex items-center justify-between">
+              <div className="rounded-lg border border-dashed px-3 py-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    Generation Status
+                  </p>
+                  {jobId ? (
                     <Badge variant={statusTone}>
                       {jobQuery.data?.status ?? "queued"}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      Job: {jobId.slice(0, 8)}
-                    </span>
-                  </div>
-                  <Progress value={jobQuery.data?.progress ?? 0} />
-                  <ul className="space-y-1 text-xs text-muted-foreground">
-                    {(jobQuery.data?.steps ?? []).slice(-4).map((step) => (
-                      <li key={step}>• {step}</li>
-                    ))}
-                  </ul>
-                  {jobQuery.data?.status === "failed" ? (
-                    <p className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                      <AlertCircle className="h-4 w-4" />
-                      {jobQuery.data.error ?? "Generation failed"}
-                    </p>
-                  ) : null}
-                  {jobQuery.data?.status === "complete" ? (
-                    <div className="space-y-2">
-                      <p className="flex items-center gap-2 text-xs text-emerald-700">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Generation complete
-                      </p>
-                      <div className="space-y-1 text-xs text-muted-foreground">
-                        {jobQuery.data.artifacts.map((artifact) => (
-                          <p key={artifact.key}>{artifact.fileName}</p>
-                        ))}
+                  ) : (
+                    <Badge variant="secondary">idle</Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Queued jobs update automatically every two seconds.
+                </p>
+                <div className="mt-3 space-y-3">
+                  {jobId ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          Job: {jobId.slice(0, 8)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {jobQuery.data?.progress ?? 0}%
+                        </span>
                       </div>
-                      <Button
-                        variant="secondary"
-                        className="w-full"
-                        onClick={() => downloadMutation.mutate(jobId)}
-                        disabled={downloadMutation.isPending}
-                      >
-                        <Download className="h-4 w-4" />
-                        {downloadMutation.isPending
-                          ? "Preparing download..."
-                          : "Download"}
-                      </Button>
-                      {downloadUrl ? (
-                        <p className="break-all text-xs text-muted-foreground">
-                          {downloadUrl}
+                      <Progress value={jobQuery.data?.progress ?? 0} />
+                      <ul className="space-y-1 text-xs text-muted-foreground">
+                        {(jobQuery.data?.steps ?? []).slice(-4).map((step) => (
+                          <li key={step}>• {step}</li>
+                        ))}
+                      </ul>
+                      {jobQuery.data?.status === "failed" ? (
+                        <p className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                          <AlertCircle className="h-4 w-4" />
+                          {jobQuery.data.error ?? "Generation failed"}
                         </p>
                       ) : null}
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No active generation job.
-                </p>
-              )}
+                      {jobQuery.data?.status === "complete" ? (
+                        <div className="space-y-2">
+                          <p className="flex items-center gap-2 text-xs text-emerald-700">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Generation complete
+                          </p>
+                          <div className="space-y-1 text-xs text-muted-foreground">
+                            {jobQuery.data.artifacts.map((artifact) => (
+                              <p key={artifact.key}>{artifact.fileName}</p>
+                            ))}
+                          </div>
+                          <Button
+                            variant="secondary"
+                            className="w-full"
+                            onClick={() => downloadMutation.mutate(jobId)}
+                            disabled={downloadMutation.isPending}
+                          >
+                            <Download className="h-4 w-4" />
+                            {downloadMutation.isPending
+                              ? "Preparing download..."
+                              : "Download"}
+                          </Button>
+                          {downloadUrl ? (
+                            <p className="break-all text-xs text-muted-foreground">
+                              {downloadUrl}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No active generation job.
+                    </p>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </motion.aside>
