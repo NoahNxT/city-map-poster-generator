@@ -495,6 +495,7 @@ function toPayload(values: FormValues): PosterRequest {
 }
 
 export function PosterGenerator() {
+  const showDevRateLimitToggle = process.env.NODE_ENV !== "production";
   const [jobId, setJobId] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(
     undefined,
@@ -504,6 +505,7 @@ export function PosterGenerator() {
   const [activePreviewHint, setActivePreviewHint] =
     useState<AdvancedHelpFieldKey | null>(null);
   const [previewZoomEnabled, setPreviewZoomEnabled] = useState(false);
+  const [disablePreviewRateLimit, setDisablePreviewRateLimit] = useState(false);
   const [previewZoomLevel, setPreviewZoomLevel] =
     useState(DEFAULT_PREVIEW_ZOOM);
   const [previewPointer, setPreviewPointer] = useState<PreviewPointer | null>(
@@ -542,15 +544,21 @@ export function PosterGenerator() {
     queryFn: fetchThemes,
   });
   const locationSuggestionsQuery = useQuery({
-    queryKey: ["locations", debouncedLocationQuery],
-    queryFn: () => fetchLocations(debouncedLocationQuery),
+    queryKey: ["locations", debouncedLocationQuery, disablePreviewRateLimit],
+    queryFn: () =>
+      fetchLocations(debouncedLocationQuery, {
+        disableRateLimit: disablePreviewRateLimit,
+      }),
     enabled: locationAutocompleteOpen && debouncedLocationQuery.length >= 3,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
   const fontSuggestionsQuery = useQuery({
-    queryKey: ["fonts", debouncedFontQuery],
-    queryFn: () => fetchFonts(debouncedFontQuery),
+    queryKey: ["fonts", debouncedFontQuery, disablePreviewRateLimit],
+    queryFn: () =>
+      fetchFonts(debouncedFontQuery, {
+        disableRateLimit: disablePreviewRateLimit,
+      }),
     enabled: fontAutocompleteOpen,
     staleTime: 60 * 60_000,
     refetchOnWindowFocus: false,
@@ -618,6 +626,26 @@ export function PosterGenerator() {
       setPreviewPointer(null);
     }
   }, [previewZoomEnabled]);
+
+  useEffect(() => {
+    if (!showDevRateLimitToggle) {
+      return;
+    }
+    const rawValue = window.localStorage.getItem("disablePreviewRateLimit");
+    if (rawValue === "1") {
+      setDisablePreviewRateLimit(true);
+    }
+  }, [showDevRateLimitToggle]);
+
+  useEffect(() => {
+    if (!showDevRateLimitToggle) {
+      return;
+    }
+    window.localStorage.setItem(
+      "disablePreviewRateLimit",
+      disablePreviewRateLimit ? "1" : "0",
+    );
+  }, [disablePreviewRateLimit, showDevRateLimitToggle]);
 
   const statusTone = useMemo(() => {
     const status = jobQuery.data?.status;
@@ -1592,6 +1620,25 @@ export function PosterGenerator() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {showDevRateLimitToggle ? (
+                <div className="rounded-lg border border-dashed px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        Disable preview rate limit
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Development only.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={disablePreviewRateLimit}
+                      onCheckedChange={setDisablePreviewRateLimit}
+                      aria-label="Disable preview rate limit in development"
+                    />
+                  </div>
+                </div>
+              ) : null}
               <div className="rounded-lg border border-dashed px-3 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>

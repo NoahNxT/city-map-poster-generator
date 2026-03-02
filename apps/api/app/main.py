@@ -98,12 +98,13 @@ async def get_locations(request: Request, q: str, limit: int = 8) -> dict:
 
     redis = get_redis()
     ip = request.client.host if request.client else "unknown"
-    check_window_limit(
-        redis,
-        key=f"ratelimit:locations:{ip}",
-        limit=settings.rate_limit_locations_count,
-        window_seconds=settings.rate_limit_locations_window_seconds,
-    )
+    if not _should_bypass_preview_rate_limit(request):
+        check_window_limit(
+            redis,
+            key=f"ratelimit:locations:{ip}",
+            limit=settings.rate_limit_locations_count,
+            window_seconds=settings.rate_limit_locations_window_seconds,
+        )
 
     suggestions = await search_locations(query, limit=limit)
     return {"suggestions": [suggestion.model_dump() for suggestion in suggestions]}
@@ -113,12 +114,13 @@ async def get_locations(request: Request, q: str, limit: int = 8) -> dict:
 async def get_fonts(request: Request, q: str = "", limit: int = 12) -> dict:
     redis = get_redis()
     ip = request.client.host if request.client else "unknown"
-    check_window_limit(
-        redis,
-        key=f"ratelimit:fonts:{ip}",
-        limit=settings.rate_limit_fonts_count,
-        window_seconds=settings.rate_limit_fonts_window_seconds,
-    )
+    if not _should_bypass_preview_rate_limit(request):
+        check_window_limit(
+            redis,
+            key=f"ratelimit:fonts:{ip}",
+            limit=settings.rate_limit_fonts_count,
+            window_seconds=settings.rate_limit_fonts_window_seconds,
+        )
 
     suggestions = await search_fonts(q, limit=limit)
     return {"suggestions": [suggestion.model_dump() for suggestion in suggestions]}

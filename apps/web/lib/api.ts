@@ -37,6 +37,9 @@ export async function fetchThemes(): Promise<Theme[]> {
 
 export async function fetchLocations(
   query: string,
+  options?: {
+    disableRateLimit?: boolean;
+  },
 ): Promise<LocationSuggestion[]> {
   const params = new URLSearchParams({
     q: query,
@@ -46,6 +49,9 @@ export async function fetchLocations(
     `${API_BASE}/v1/locations?${params.toString()}`,
     {
       cache: "no-store",
+      headers: options?.disableRateLimit
+        ? { "x-dev-preview-no-rate-limit": "1" }
+        : undefined,
     },
   );
   const payload = await parseResponse<{ suggestions: LocationSuggestion[] }>(
@@ -54,13 +60,21 @@ export async function fetchLocations(
   return payload.suggestions;
 }
 
-export async function fetchFonts(query: string): Promise<FontSuggestion[]> {
+export async function fetchFonts(
+  query: string,
+  options?: {
+    disableRateLimit?: boolean;
+  },
+): Promise<FontSuggestion[]> {
   const params = new URLSearchParams({
     q: query,
     limit: "12",
   });
   const response = await fetch(`${API_BASE}/v1/fonts?${params.toString()}`, {
     cache: "no-store",
+    headers: options?.disableRateLimit
+      ? { "x-dev-preview-no-rate-limit": "1" }
+      : undefined,
   });
   const payload = await parseResponse<{ suggestions: FontSuggestion[] }>(
     response,
