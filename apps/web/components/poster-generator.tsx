@@ -90,6 +90,12 @@ import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 
 type AdvancedHelpFieldKey = "fontFamily";
+type SizeUnit = "cm" | "in";
+
+const CM_PER_INCH = 2.54;
+const MIN_POSTER_INCHES = 1;
+const MAX_POSTER_INCHES = 80;
+const MAX_LOCAL_PREVIEW_LONG_EDGE_PX = 2048;
 
 const schema = z
   .object({
@@ -113,8 +119,8 @@ const schema = z
     textBlurSize: z.number().min(0.6).max(2.5),
     textBlurStrength: z.number().min(0).max(30),
     distance: z.number().min(1000).max(50000),
-    width: z.number().min(1).max(20),
-    height: z.number().min(1).max(20),
+    width: z.number().min(MIN_POSTER_INCHES).max(MAX_POSTER_INCHES),
+    height: z.number().min(MIN_POSTER_INCHES).max(MAX_POSTER_INCHES),
     format: z.enum(["png", "svg", "pdf"]),
   })
   .superRefine((data, ctx) => {
@@ -203,6 +209,14 @@ async function withTimeout<T>(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function inchesToCentimeters(inches: number): number {
+  return inches * CM_PER_INCH;
+}
+
+function centimetersToInches(centimeters: number): number {
+  return centimeters / CM_PER_INCH;
 }
 
 function normalizeHexColor(value: string | undefined): string | null {
@@ -380,6 +394,7 @@ export function PosterGenerator({
   const distanceSliderId = "distance-slider";
   const themeSelectId = "theme-select";
   const formatSelectId = "format-select";
+  const sizeUnitSelectId = "size-unit-select";
   const includeWaterId = "include-water-switch";
   const includeParksId = "include-parks-switch";
   const blurEnabledId = "text-blur-switch";
@@ -405,6 +420,7 @@ export function PosterGenerator({
     useState<AdvancedHelpFieldKey | null>(null);
   const [previewZoomEnabled, setPreviewZoomEnabled] = useState(false);
   const [disableRateLimit, setDisableRateLimit] = useState(false);
+  const [sizeUnit, setSizeUnit] = useState<SizeUnit>("cm");
   const [previewZoomLevel, setPreviewZoomLevel] =
     useState(DEFAULT_PREVIEW_ZOOM);
   const [debouncedSnapshotRequest, setDebouncedSnapshotRequest] =
@@ -941,6 +957,24 @@ export function PosterGenerator({
     selectedFontFamily.length > 0 &&
     fontBundleQuery.isFetching &&
     !fontBundleQuery.data;
+  const dimensionUnitLabel = sizeUnit === "cm" ? "cm" : "in";
+  const dimensionDisplayMin =
+    sizeUnit === "cm"
+      ? Number(inchesToCentimeters(MIN_POSTER_INCHES).toFixed(2))
+      : MIN_POSTER_INCHES;
+  const dimensionDisplayMax =
+    sizeUnit === "cm"
+      ? Number(inchesToCentimeters(MAX_POSTER_INCHES).toFixed(2))
+      : MAX_POSTER_INCHES;
+  const dimensionDisplayStep = sizeUnit === "cm" ? 0.1 : 0.1;
+  const widthDisplayValue =
+    sizeUnit === "cm"
+      ? Number(inchesToCentimeters(values.width).toFixed(2))
+      : Number(values.width.toFixed(2));
+  const heightDisplayValue =
+    sizeUnit === "cm"
+      ? Number(inchesToCentimeters(values.height).toFixed(2))
+      : Number(values.height.toFixed(2));
   const previewWidthInches =
     Number.isFinite(values.width) && values.width > 0
       ? values.width
@@ -949,13 +983,26 @@ export function PosterGenerator({
     Number.isFinite(values.height) && values.height > 0
       ? values.height
       : defaultValues.height;
-  const previewPixelWidth = Math.max(
+  const rawPreviewPixelWidth = Math.max(
     320,
     Math.round(previewWidthInches * PREVIEW_RENDER_DPI),
   );
-  const previewPixelHeight = Math.max(
+  const rawPreviewPixelHeight = Math.max(
     320,
     Math.round(previewHeightInches * PREVIEW_RENDER_DPI),
+  );
+  const previewScale = Math.min(
+    1,
+    MAX_LOCAL_PREVIEW_LONG_EDGE_PX /
+      Math.max(rawPreviewPixelWidth, rawPreviewPixelHeight),
+  );
+  const previewPixelWidth = Math.max(
+    320,
+    Math.round(rawPreviewPixelWidth * previewScale),
+  );
+  const previewPixelHeight = Math.max(
+    320,
+    Math.round(rawPreviewPixelHeight * previewScale),
   );
   const previewUrl =
     rendererMode === "local-wasm" ? localPreviewUrl : latestPreviewUrl;
@@ -1612,43 +1659,93 @@ export function PosterGenerator({
                             </div>
                           </div>
 
+                          <div className="space-y-2">
+                            <Label htmlFor={sizeUnitSelectId}>
+                              {d.controls.sizeUnit}
+                            </Label>
+                            <Select
+                              value={sizeUnit}
+                              onValueChange={(value) =>
+                                setSizeUnit(value as SizeUnit)
+                              }
+                            >
+                              <SelectTrigger
+                                id={sizeUnitSelectId}
+                                aria-label={d.controls.sizeUnit}
+                                className="w-full sm:w-56"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="cm">
+                                  {d.controls.centimeters}
+                                </SelectItem>
+                                <SelectItem value="in">
+                                  {d.controls.inches}
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
-                              <Label htmlFor="width">{d.controls.width}</Label>
+                              <Label htmlFor="width">
+                                {d.controls.width} ({dimensionUnitLabel})
+                              </Label>
                               <Input
                                 id="width"
                                 type="number"
-                                min={1}
-                                max={20}
-                                step={0.1}
-                                value={values.width}
-                                onChange={(event) =>
+                                min={dimensionDisplayMin}
+                                max={dimensionDisplayMax}
+                                step={dimensionDisplayStep}
+                                value={widthDisplayValue}
+                                onChange={(event) => {
+                                  const nextRaw = Number(event.target.value);
+                                  if (!Number.isFinite(nextRaw)) return;
+                                  const nextInches =
+                                    sizeUnit === "cm"
+                                      ? centimetersToInches(nextRaw)
+                                      : nextRaw;
                                   form.setValue(
                                     "width",
-                                    Number(event.target.value),
+                                    clamp(
+                                      nextInches,
+                                      MIN_POSTER_INCHES,
+                                      MAX_POSTER_INCHES,
+                                    ),
                                     { shouldValidate: true },
-                                  )
-                                }
+                                  );
+                                }}
                               />
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="height">
-                                {d.controls.height}
+                                {d.controls.height} ({dimensionUnitLabel})
                               </Label>
                               <Input
                                 id="height"
                                 type="number"
-                                min={1}
-                                max={20}
-                                step={0.1}
-                                value={values.height}
-                                onChange={(event) =>
+                                min={dimensionDisplayMin}
+                                max={dimensionDisplayMax}
+                                step={dimensionDisplayStep}
+                                value={heightDisplayValue}
+                                onChange={(event) => {
+                                  const nextRaw = Number(event.target.value);
+                                  if (!Number.isFinite(nextRaw)) return;
+                                  const nextInches =
+                                    sizeUnit === "cm"
+                                      ? centimetersToInches(nextRaw)
+                                      : nextRaw;
                                   form.setValue(
                                     "height",
-                                    Number(event.target.value),
+                                    clamp(
+                                      nextInches,
+                                      MIN_POSTER_INCHES,
+                                      MAX_POSTER_INCHES,
+                                    ),
                                     { shouldValidate: true },
-                                  )
-                                }
+                                  );
+                                }}
                               />
                             </div>
                           </div>

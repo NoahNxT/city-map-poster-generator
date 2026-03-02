@@ -59,6 +59,9 @@ export type Dictionary = {
     advancedOptions: string;
     latitude: string;
     longitude: string;
+    sizeUnit: string;
+    centimeters: string;
+    inches: string;
     width: string;
     height: string;
     mapLayersTitle: string;
@@ -224,8 +227,11 @@ const en: Dictionary = {
     advancedOptions: "Advanced Options",
     latitude: "Latitude",
     longitude: "Longitude",
-    width: "Width (inches, max 20)",
-    height: "Height (inches, max 20)",
+    sizeUnit: "Units",
+    centimeters: "Centimeters (cm)",
+    inches: "Inches (in)",
+    width: "Width",
+    height: "Height",
     mapLayersTitle: "Map Layers (Export)",
     mapLayersDescription: "Applies to both live preview and final generation.",
     includeWater: "Include water",
@@ -469,8 +475,8 @@ const nl: Dictionary = {
     advancedOptions: "Geavanceerde opties",
     latitude: "Breedtegraad",
     longitude: "Lengtegraad",
-    width: "Breedte (inch, max 20)",
-    height: "Hoogte (inch, max 20)",
+    width: "Breedte",
+    height: "Hoogte",
     mapLayersTitle: "Kaartlagen (export)",
     mapLayersDescription:
       "Van toepassing op zowel de live preview als de uiteindelijke generatie.",
@@ -723,8 +729,8 @@ const fr: Dictionary = {
     advancedOptions: "Options avancées",
     latitude: "Latitude",
     longitude: "Longitude",
-    width: "Largeur (pouces, max 20)",
-    height: "Hauteur (pouces, max 20)",
+    width: "Largeur",
+    height: "Hauteur",
     mapLayersTitle: "Couches de carte (export)",
     mapLayersDescription:
       "S'applique à la fois à l'aperçu en direct et à la génération finale.",
@@ -979,8 +985,8 @@ const de: Dictionary = {
     advancedOptions: "Erweiterte Optionen",
     latitude: "Breitengrad",
     longitude: "Längengrad",
-    width: "Breite (Zoll, max. 20)",
-    height: "Höhe (Zoll, max. 20)",
+    width: "Breite",
+    height: "Höhe",
     mapLayersTitle: "Kartenebenen (Export)",
     mapLayersDescription:
       "Gilt sowohl für die Live-Vorschau als auch für die finale Generierung.",
@@ -1235,8 +1241,8 @@ const es: Dictionary = {
     advancedOptions: "Opciones avanzadas",
     latitude: "Latitud",
     longitude: "Longitud",
-    width: "Ancho (pulgadas, máx. 20)",
-    height: "Alto (pulgadas, máx. 20)",
+    width: "Ancho",
+    height: "Alto",
     mapLayersTitle: "Capas del mapa (exportación)",
     mapLayersDescription:
       "Se aplica solo a la generación final. La vista previa mantiene ajustes rápidos del servidor.",

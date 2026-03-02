@@ -11,6 +11,11 @@ import (
 
 var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
+const (
+	minPosterSizeInches = 1.0
+	maxPosterSizeInches = 80.0
+)
+
 func ValidateGenerateRequest(req *types.GenerateRequest) error {
 	req.City = strings.TrimSpace(req.City)
 	req.Country = strings.TrimSpace(req.Country)
@@ -80,11 +85,11 @@ func ValidateGenerateRequest(req *types.GenerateRequest) error {
 	if req.Distance < 1000 || req.Distance > 50000 {
 		return fmt.Errorf("distance must be between 1000 and 50000")
 	}
-	if req.Width < 1 || req.Width > 20 {
-		return fmt.Errorf("width must be between 1 and 20")
+	if req.Width < minPosterSizeInches || req.Width > maxPosterSizeInches {
+		return fmt.Errorf("width must be between %.0f and %.0f", minPosterSizeInches, maxPosterSizeInches)
 	}
-	if req.Height < 1 || req.Height > 20 {
-		return fmt.Errorf("height must be between 1 and 20")
+	if req.Height < minPosterSizeInches || req.Height > maxPosterSizeInches {
+		return fmt.Errorf("height must be between %.0f and %.0f", minPosterSizeInches, maxPosterSizeInches)
 	}
 	if !req.Format.IsValid() {
 		return fmt.Errorf("format must be one of png, svg, pdf")
@@ -121,11 +126,11 @@ func ValidateRenderSnapshotRequest(req *types.RenderSnapshotRequest) error {
 	if req.Distance < 1000 || req.Distance > 50000 {
 		return fmt.Errorf("distance must be between 1000 and 50000")
 	}
-	if req.Width < 1 || req.Width > 20 {
-		return fmt.Errorf("width must be between 1 and 20")
+	if req.Width < minPosterSizeInches || req.Width > maxPosterSizeInches {
+		return fmt.Errorf("width must be between %.0f and %.0f", minPosterSizeInches, maxPosterSizeInches)
 	}
-	if req.Height < 1 || req.Height > 20 {
-		return fmt.Errorf("height must be between 1 and 20")
+	if req.Height < minPosterSizeInches || req.Height > maxPosterSizeInches {
+		return fmt.Errorf("height must be between %.0f and %.0f", minPosterSizeInches, maxPosterSizeInches)
 	}
 	return nil
 }

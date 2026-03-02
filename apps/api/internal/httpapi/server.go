@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -38,6 +39,12 @@ import (
 	"city-map-poster-generator/apps/api/internal/validation"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+)
+
+const (
+	maxPreviewLongEdgePx = 2048
+	minPreviewRasterDPI  = 24
+	maxPreviewPixelCount = 4_000_000
 )
 
 type Server struct {
@@ -395,7 +402,8 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	result, err := s.renderer.Render(r.Context(), payload, lat, lon, render.RenderProfile{RasterDPI: s.cfg.PreviewRasterDPI})
+	previewDPI := cappedPreviewRasterDPI(payload, s.cfg.PreviewRasterDPI)
+	result, err := s.renderer.Render(r.Context(), payload, lat, lon, render.RenderProfile{RasterDPI: previewDPI})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -861,6 +869,34 @@ func (s *Server) previewProxyURL(r *http.Request, objectKey string) string {
 		return fmt.Sprintf("/v2/previews/%s", previewID)
 	}
 	return fmt.Sprintf("%s://%s/v2/previews/%s", scheme, host, previewID)
+}
+
+func cappedPreviewRasterDPI(payload types.GenerateRequest, requested int) int {
+	dpi := requested
+	if dpi <= 0 {
+		dpi = 120
+	}
+
+	longEdgeInches := math.Max(payload.Width, payload.Height)
+	if longEdgeInches > 0 {
+		edgeLimited := int(math.Floor(float64(maxPreviewLongEdgePx) / longEdgeInches))
+		if edgeLimited > 0 && edgeLimited < dpi {
+			dpi = edgeLimited
+		}
+	}
+	if dpi < minPreviewRasterDPI {
+		dpi = minPreviewRasterDPI
+	}
+
+	widthPx := math.Max(64, math.Round(payload.Width*float64(dpi)))
+	heightPx := math.Max(64, math.Round(payload.Height*float64(dpi)))
+	for dpi > minPreviewRasterDPI && widthPx*heightPx > maxPreviewPixelCount {
+		dpi -= 1
+		widthPx = math.Max(64, math.Round(payload.Width*float64(dpi)))
+		heightPx = math.Max(64, math.Round(payload.Height*float64(dpi)))
+	}
+
+	return dpi
 }
 
 func parseFontWeights(raw string) []string {
