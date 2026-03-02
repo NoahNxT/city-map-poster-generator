@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -44,7 +45,7 @@ type Client struct {
 
 func New(cfg config.Config) *Client {
 	return &Client{
-		cfg: cfg,
+		cfg:  cfg,
 		http: &http.Client{Timeout: time.Duration(cfg.RequestTimeoutSeconds) * time.Second},
 	}
 }
@@ -55,11 +56,11 @@ func (c *Client) cachePath(query string) string {
 	return filepath.Join(c.cfg.CacheDir, name)
 }
 
-func (c *Client) Fetch(ctx context.Context, lat, lon float64, dist int, includeWater bool, includeParks bool, networkType string) (*FeatureSet, error) {
+func (c *Client) Fetch(ctx context.Context, lat, lon float64, dist int, targetAspect float64, includeWater bool, includeParks bool, networkType string) (*FeatureSet, error) {
 	if networkType == "" {
 		networkType = "all"
 	}
-	query := buildQuery(lat, lon, dist, includeWater, includeParks, networkType)
+	query := buildQuery(lat, lon, dist, targetAspect, includeWater, includeParks, networkType)
 
 	if err := os.MkdirAll(c.cfg.CacheDir, 0o755); err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func (c *Client) Fetch(ctx context.Context, lat, lon float64, dist int, includeW
 	return parseFeatureSet(body, lat, lon), nil
 }
 
-func buildQuery(lat, lon float64, dist int, includeWater, includeParks bool, networkType string) string {
+func buildQuery(lat, lon float64, dist int, targetAspect float64, includeWater, includeParks bool, networkType string) string {
 	highwayFilter := "[highway]"
 	switch strings.ToLower(networkType) {
 	case "drive":
@@ -110,23 +111,58 @@ func buildQuery(lat, lon float64, dist int, includeWater, includeParks bool, net
 		highwayFilter = "[highway][highway!~\"motorway|trunk\"]"
 	}
 
+	south, west, north, east := viewportBBox(lat, lon, dist, targetAspect, 1.10)
+
 	parts := []string{
-		fmt.Sprintf("way(around:%d,%f,%f)%s;", dist, lat, lon, highwayFilter),
+		fmt.Sprintf("way(%f,%f,%f,%f)%s;", south, west, north, east, highwayFilter),
 	}
 	if includeWater {
 		parts = append(parts,
-			fmt.Sprintf("way(around:%d,%f,%f)[natural=water];", dist, lat, lon),
-			fmt.Sprintf("way(around:%d,%f,%f)[waterway=riverbank];", dist, lat, lon),
+			fmt.Sprintf("way(%f,%f,%f,%f)[natural=water];", south, west, north, east),
+			fmt.Sprintf("way(%f,%f,%f,%f)[waterway=riverbank];", south, west, north, east),
 		)
 	}
 	if includeParks {
 		parts = append(parts,
-			fmt.Sprintf("way(around:%d,%f,%f)[leisure=park];", dist, lat, lon),
-			fmt.Sprintf("way(around:%d,%f,%f)[landuse=grass];", dist, lat, lon),
+			fmt.Sprintf("way(%f,%f,%f,%f)[leisure=park];", south, west, north, east),
+			fmt.Sprintf("way(%f,%f,%f,%f)[landuse=grass];", south, west, north, east),
 		)
 	}
 
 	return fmt.Sprintf(`[out:json][timeout:45];(%s);(._;>;);out body;`, strings.Join(parts, ""))
+}
+
+func viewportBBox(centerLat, centerLon float64, dist int, targetAspect float64, overscan float64) (south, west, north, east float64) {
+	const metersPerDegreeLat = 111_320.0
+
+	if targetAspect <= 0 {
+		targetAspect = 1
+	}
+	if dist <= 0 {
+		dist = 1000
+	}
+	if overscan <= 0 {
+		overscan = 1
+	}
+
+	halfHeightMeters := float64(dist)
+	halfWidthMeters := float64(dist)
+	if targetAspect >= 1 {
+		halfHeightMeters = halfHeightMeters / targetAspect
+	} else {
+		halfWidthMeters = halfWidthMeters * targetAspect
+	}
+	halfHeightMeters *= overscan
+	halfWidthMeters *= overscan
+
+	latScale := math.Cos(centerLat * math.Pi / 180)
+	if math.Abs(latScale) < 0.0001 {
+		latScale = 0.0001
+	}
+	halfLat := halfHeightMeters / metersPerDegreeLat
+	halfLon := halfWidthMeters / (metersPerDegreeLat * latScale)
+
+	return centerLat - halfLat, centerLon - halfLon, centerLat + halfLat, centerLon + halfLon
 }
 
 func parseFeatureSet(body []byte, lat, lon float64) *FeatureSet {

@@ -122,8 +122,6 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
-const PREVIEW_VIEWBOX_WIDTH = 439.2;
-const PREVIEW_VIEWBOX_HEIGHT = 583.2;
 const DEFAULT_PREVIEW_ZOOM = 2.5;
 
 type PreviewPointer = {
@@ -661,25 +659,35 @@ export function PosterGenerator({
   const selectedFontFamily = values.fontFamily?.trim() ?? "";
   const previewUrl = latestPreviewUrl;
   const hasServerPreview = Boolean(previewUrl);
+  const previewWidthInches =
+    Number.isFinite(values.width) && values.width > 0
+      ? values.width
+      : defaultValues.width;
+  const previewHeightInches =
+    Number.isFinite(values.height) && values.height > 0
+      ? values.height
+      : defaultValues.height;
+  const previewViewboxWidth = previewWidthInches * 100;
+  const previewViewboxHeight = previewHeightInches * 100;
   const previewZoomAnchor = previewPointer ?? { x: 0.5, y: 0.5 };
-  const zoomViewWidth = PREVIEW_VIEWBOX_WIDTH / previewZoomLevel;
-  const zoomViewHeight = PREVIEW_VIEWBOX_HEIGHT / previewZoomLevel;
-  const zoomCenterX = previewZoomAnchor.x * PREVIEW_VIEWBOX_WIDTH;
-  const zoomCenterY = previewZoomAnchor.y * PREVIEW_VIEWBOX_HEIGHT;
+  const zoomViewWidth = previewViewboxWidth / previewZoomLevel;
+  const zoomViewHeight = previewViewboxHeight / previewZoomLevel;
+  const zoomCenterX = previewZoomAnchor.x * previewViewboxWidth;
+  const zoomCenterY = previewZoomAnchor.y * previewViewboxHeight;
   const zoomViewX = clamp(
     zoomCenterX - zoomViewWidth / 2,
     0,
-    PREVIEW_VIEWBOX_WIDTH - zoomViewWidth,
+    previewViewboxWidth - zoomViewWidth,
   );
   const zoomViewY = clamp(
     zoomCenterY - zoomViewHeight / 2,
     0,
-    PREVIEW_VIEWBOX_HEIGHT - zoomViewHeight,
+    previewViewboxHeight - zoomViewHeight,
   );
-  const zoomLensLeft = (zoomViewX / PREVIEW_VIEWBOX_WIDTH) * 100;
-  const zoomLensTop = (zoomViewY / PREVIEW_VIEWBOX_HEIGHT) * 100;
-  const zoomLensWidth = (zoomViewWidth / PREVIEW_VIEWBOX_WIDTH) * 100;
-  const zoomLensHeight = (zoomViewHeight / PREVIEW_VIEWBOX_HEIGHT) * 100;
+  const zoomLensLeft = (zoomViewX / previewViewboxWidth) * 100;
+  const zoomLensTop = (zoomViewY / previewViewboxHeight) * 100;
+  const zoomLensWidth = (zoomViewWidth / previewViewboxWidth) * 100;
+  const zoomLensHeight = (zoomViewHeight / previewViewboxHeight) * 100;
   const fallbackFontSuggestions = useMemo(() => {
     const query = fontSearchQuery.trim().toLowerCase();
     if (!query) {
@@ -1932,7 +1940,10 @@ export function PosterGenerator({
                 <figure
                   id={previewFrameId}
                   ref={previewFrameRef}
-                  className="group relative aspect-[439.2/583.2] touch-none select-none overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100"
+                  className="group relative touch-none select-none overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100"
+                  style={{
+                    aspectRatio: `${previewWidthInches} / ${previewHeightInches}`,
+                  }}
                   tabIndex={previewZoomEnabled ? 0 : -1}
                   aria-label={`${d.preview.title}: ${values.city}, ${values.country}`}
                   aria-describedby={previewKeyboardHintId}
@@ -1999,7 +2010,12 @@ export function PosterGenerator({
                             previewZoomLevel.toFixed(1),
                           )}
                         </div>
-                        <div className="relative aspect-[439.2/583.2]">
+                        <div
+                          className="relative"
+                          style={{
+                            aspectRatio: `${previewWidthInches} / ${previewHeightInches}`,
+                          }}
+                        >
                           <svg
                             className="absolute inset-0 h-full w-full"
                             viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
@@ -2011,8 +2027,8 @@ export function PosterGenerator({
                               href={previewUrl ?? ""}
                               x={0}
                               y={0}
-                              width={PREVIEW_VIEWBOX_WIDTH}
-                              height={PREVIEW_VIEWBOX_HEIGHT}
+                              width={previewViewboxWidth}
+                              height={previewViewboxHeight}
                               preserveAspectRatio="none"
                             />
                           </svg>

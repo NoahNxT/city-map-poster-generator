@@ -120,7 +120,11 @@ func (r *Renderer) Render(ctx context.Context, req types.GenerateRequest, lat, l
 		profile.RasterDPI = 300
 	}
 
-	features, err := r.osmClient.Fetch(ctx, lat, lon, req.Distance, req.IncludeWater, req.IncludeParks, "all")
+	targetAspect := req.Width / req.Height
+	if targetAspect <= 0 {
+		targetAspect = 1
+	}
+	features, err := r.osmClient.Fetch(ctx, lat, lon, req.Distance, targetAspect, req.IncludeWater, req.IncludeParks, "all")
 	if err != nil {
 		return RenderResult{}, err
 	}
@@ -159,7 +163,7 @@ func renderPNG(req types.GenerateRequest, pal palette, features *osm.FeatureSet,
 	dc.SetHexColor(pal.BG)
 	dc.Clear()
 
-	projected, _, _, _, _ := projectNodes(features, float64(widthPx)/float64(heightPx), lat)
+	projected := projectNodes(features, float64(widthPx)/float64(heightPx), lat, lon, req.Distance)
 	drawMapPolygonsRaster(dc, req, pal, features, projected)
 	drawRoadsRaster(dc, req, pal, features, projected, dpi)
 	drawGradientRaster(dc, pal.GradientColor, float64(widthPx), float64(heightPx))
@@ -177,7 +181,7 @@ func renderPNG(req types.GenerateRequest, pal palette, features *osm.FeatureSet,
 func renderSVG(req types.GenerateRequest, pal palette, features *osm.FeatureSet, lat, lon float64, fontPaths fonts.FontPaths) ([]byte, error) {
 	width := req.Width * 72
 	height := req.Height * 72
-	projected, _, _, _, _ := projectNodes(features, width/height, lat)
+	projected := projectNodes(features, width/height, lat, lon, req.Distance)
 	labels := computeLabelSpec(req, pal, lat, lon)
 
 	fontDefs := buildSVGFontDefs(fontPaths)
@@ -238,7 +242,7 @@ func renderSVG(req types.GenerateRequest, pal palette, features *osm.FeatureSet,
 func renderPDF(req types.GenerateRequest, pal palette, features *osm.FeatureSet, lat, lon float64, fontPaths fonts.FontPaths) ([]byte, error) {
 	width := req.Width * 72
 	height := req.Height * 72
-	projected, _, _, _, _ := projectNodes(features, width/height, lat)
+	projected := projectNodes(features, width/height, lat, lon, req.Distance)
 	labels := computeLabelSpec(req, pal, lat, lon)
 
 	pdf := gofpdf.NewCustom(&gofpdf.InitType{
@@ -687,67 +691,53 @@ func drawWayLine(dc *gg.Context, way osm.Way, nodes map[int64]projectedNode) {
 	}
 }
 
-func projectNodes(features *osm.FeatureSet, targetAspect float64, centerLat float64) (map[int64]projectedNode, float64, float64, float64, float64) {
+func projectNodes(features *osm.FeatureSet, targetAspect float64, centerLat, centerLon float64, distanceMeters int) map[int64]projectedNode {
 	out := make(map[int64]projectedNode, len(features.Nodes))
 	if len(features.Nodes) == 0 {
-		return out, 0, 0, 1, 1
+		return out
 	}
+	if targetAspect <= 0 {
+		targetAspect = 1
+	}
+	if distanceMeters <= 0 {
+		distanceMeters = 1000
+	}
+
+	halfHeightMeters := float64(distanceMeters)
+	halfWidthMeters := float64(distanceMeters)
+	if targetAspect >= 1 {
+		halfHeightMeters = halfHeightMeters / targetAspect
+	} else {
+		halfWidthMeters = halfWidthMeters * targetAspect
+	}
+
+	const metersPerDegreeLat = 111_320.0
 	latScale := math.Cos(centerLat * math.Pi / 180)
-	if latScale < 0.0001 {
+	if math.Abs(latScale) < 0.0001 {
 		latScale = 0.0001
 	}
-	first := true
-	var minX, maxX, minY, maxY float64
+
+	halfLat := halfHeightMeters / metersPerDegreeLat
+	halfLon := halfWidthMeters / (metersPerDegreeLat * latScale)
+	minLon := centerLon - halfLon
+	maxLon := centerLon + halfLon
+	minLat := centerLat - halfLat
+	maxLat := centerLat + halfLat
+	spanLon := maxLon - minLon
+	spanLat := maxLat - minLat
+	if spanLon <= 0 {
+		spanLon = 1e-6
+	}
+	if spanLat <= 0 {
+		spanLat = 1e-6
+	}
+
 	for id, node := range features.Nodes {
-		x := node.Lon * latScale
-		y := node.Lat
-		out[id] = projectedNode{x: x, y: y}
-		if first {
-			minX, maxX, minY, maxY = x, x, y, y
-			first = false
-		} else {
-			if x < minX {
-				minX = x
-			}
-			if x > maxX {
-				maxX = x
-			}
-			if y < minY {
-				minY = y
-			}
-			if y > maxY {
-				maxY = y
-			}
-		}
-	}
-	spanX := maxX - minX
-	spanY := maxY - minY
-	if spanX <= 0 {
-		spanX = 1e-6
-	}
-	if spanY <= 0 {
-		spanY = 1e-6
-	}
-	dataAspect := spanX / spanY
-	if dataAspect > targetAspect {
-		desiredY := spanX / targetAspect
-		delta := (desiredY - spanY) / 2
-		minY -= delta
-		maxY += delta
-	} else {
-		desiredX := spanY * targetAspect
-		delta := (desiredX - spanX) / 2
-		minX -= delta
-		maxX += delta
-	}
-	spanX = maxX - minX
-	spanY = maxY - minY
-	for id, node := range out {
-		nx := (node.x - minX) / spanX
-		ny := (node.y - minY) / spanY
+		nx := (node.Lon - minLon) / spanLon
+		ny := (node.Lat - minLat) / spanLat
 		out[id] = projectedNode{x: nx, y: 1 - ny}
 	}
-	return out, minX, minY, spanX, spanY
+	return out
 }
 
 func wayPointsNormalized(way osm.Way, nodes map[int64]projectedNode, width, height float64) [][2]float64 {
