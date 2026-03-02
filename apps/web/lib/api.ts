@@ -158,10 +158,12 @@ async function parseGzipJSON<T>(response: Response): Promise<T> {
   }
   const raw = await response.arrayBuffer();
   const ds = new DecompressionStream("gzip");
+  // Start reading before writing to avoid stream backpressure deadlocks.
+  const readPromise = new Response(ds.readable).arrayBuffer();
   const writer = ds.writable.getWriter();
-  await writer.write(raw);
+  await writer.write(new Uint8Array(raw));
   await writer.close();
-  const decompressed = await new Response(ds.readable).arrayBuffer();
+  const decompressed = await readPromise;
   const text = new TextDecoder().decode(decompressed);
   return JSON.parse(text) as T;
 }
