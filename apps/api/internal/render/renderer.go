@@ -169,7 +169,7 @@ func renderPNG(req types.GenerateRequest, pal palette, features *osm.FeatureSet,
 	drawGradientRaster(dc, pal.GradientColor, float64(widthPx), float64(heightPx))
 
 	labels := computeLabelSpec(req, pal, lat, lon)
-	drawLabelsRaster(dc, req, labels, pal, fontPaths, float64(widthPx), float64(heightPx), dpi)
+	drawLabelsRaster(dc, labels, pal, fontPaths, float64(widthPx), float64(heightPx), dpi)
 
 	var out bytes.Buffer
 	if err := png.Encode(&out, dc.Image()); err != nil {
@@ -361,7 +361,7 @@ func drawGradientRaster(dc *gg.Context, color string, width, height float64) {
 	}
 }
 
-func drawLabelsRaster(dc *gg.Context, req types.GenerateRequest, labels labelSpec, pal palette, fontPaths fonts.FontPaths, width, height float64, dpi int) {
+func drawLabelsRaster(dc *gg.Context, labels labelSpec, pal palette, fontPaths fonts.FontPaths, width, height float64, dpi int) {
 	if labels.Blur != nil {
 		drawBlurRaster(dc, labels.Blur, pal.BG, width, height)
 	}
@@ -374,41 +374,44 @@ func drawLabelsRaster(dc *gg.Context, req types.GenerateRequest, labels labelSpe
 	dividerWidth := labels.DividerWidthPt * ptToPx
 
 	if err := dc.LoadFontFace(filepath.Clean(fontPaths.Bold), citySize); err == nil {
-		dc.SetHexColor(labels.Color)
-		dc.DrawStringAnchored(labels.DisplayCity, width*0.5, axisToCanvasY(labels.CityY, height), 0.5, 0.5)
+		setHexColorAlpha(dc, labels.Color, 1)
+		drawRasterCenteredBaseline(dc, labels.DisplayCity, width*0.5, axisToCanvasY(labels.CityY, height))
 	}
 	if err := dc.LoadFontFace(filepath.Clean(fontPaths.Light), countrySize); err == nil {
-		dc.SetHexColor(labels.Color)
-		dc.DrawStringAnchored(labels.DisplayCountry, width*0.5, axisToCanvasY(labels.CountryY, height), 0.5, 0.5)
+		setHexColorAlpha(dc, labels.Color, 1)
+		drawRasterCenteredBaseline(dc, labels.DisplayCountry, width*0.5, axisToCanvasY(labels.CountryY, height))
 	}
 	if err := dc.LoadFontFace(filepath.Clean(fontPaths.Regular), coordsSize); err == nil {
-		dc.SetHexColor(labels.Color)
-		dc.SetRGBA(0.2, 0.2, 0.2, 0.7)
-		dc.DrawStringAnchored(labels.Coords, width*0.5, axisToCanvasY(labels.CoordsY, height), 0.5, 0.5)
+		setHexColorAlpha(dc, labels.Color, 0.72)
+		drawRasterCenteredBaseline(dc, labels.Coords, width*0.5, axisToCanvasY(labels.CoordsY, height))
 	}
 
-	dc.SetHexColor(labels.Color)
-	dc.SetLineWidth(math.Max(0.5, dividerWidth))
+	setHexColorAlpha(dc, labels.Color, 1)
+	underDividerWidth := math.Max(1.2, dividerWidth*2.2)
+	dc.SetLineWidth(underDividerWidth)
 	y := axisToCanvasY(labels.DividerY, height)
+	setHexColorAlpha(dc, pal.BG, 0.82)
+	dc.DrawLine(width*0.4, y, width*0.6, y)
+	dc.Stroke()
+
+	setHexColorAlpha(dc, labels.Color, 0.95)
+	dc.SetLineWidth(math.Max(0.9, dividerWidth))
 	dc.DrawLine(width*0.4, y, width*0.6, y)
 	dc.Stroke()
 
 	if err := dc.LoadFontFace(filepath.Clean(fontPaths.Light), attrSize); err == nil {
-		dc.SetHexColor(labels.Color)
-		dc.SetRGBA(0.2, 0.2, 0.2, 0.35)
-		dc.DrawStringAnchored("© OpenStreetMap contributors", width*0.995, axisToCanvasY(0.006, height), 1, 1)
+		setHexColorAlpha(dc, labels.Color, 0.35)
+		drawRasterRightBaseline(dc, "© OpenStreetMap contributors", width*0.995, axisToCanvasY(0.006, height))
 	}
-
-	_ = req
 }
 
 func drawBlurRaster(dc *gg.Context, blur *blurSpec, bgColor string, width, height float64) {
+	fillR, fillG, fillB := blurFillColor(bgColor)
 	for layer := blur.Layers; layer > 0; layer-- {
 		t := float64(layer) / float64(blur.Layers)
 		spread := (1 - t) * (0.06 * blur.BlurSize)
 		alpha := (blur.EdgeAlpha * (t * t)) / float64(blur.Layers)
-		dc.SetHexColor(bgColor)
-		dc.SetRGBA(0.96, 0.93, 0.88, alpha)
+		dc.SetRGBA(fillR, fillG, fillB, clamp(alpha, 0, 1))
 		x := (blur.PanelX - spread) * width
 		y := axisToCanvasY(blur.PanelY+blur.PanelH+spread, height)
 		w := (blur.PanelW + (spread * 2)) * width
@@ -417,8 +420,7 @@ func drawBlurRaster(dc *gg.Context, blur *blurSpec, bgColor string, width, heigh
 		dc.DrawRoundedRectangle(x, y, w, h, r)
 		dc.Fill()
 	}
-	dc.SetHexColor(bgColor)
-	dc.SetRGBA(0.96, 0.93, 0.88, blur.CoreAlpha)
+	dc.SetRGBA(fillR, fillG, fillB, clamp(blur.CoreAlpha, 0, 1))
 	x := blur.PanelX * width
 	y := axisToCanvasY(blur.PanelY+blur.PanelH, height)
 	w := blur.PanelW * width
@@ -441,6 +443,8 @@ func drawGradientSVG(b *strings.Builder, color string, width, height float64) {
 }
 
 func drawLabelsSVG(b *strings.Builder, labels labelSpec, pal palette, width, height float64, familyLight, familyRegular, familyBold string) {
+	fillR, fillG, fillB := blurFillColor(pal.BG)
+	fillHex := rgbToHex(fillR, fillG, fillB)
 	if labels.Blur != nil {
 		for layer := labels.Blur.Layers; layer > 0; layer-- {
 			t := float64(layer) / float64(labels.Blur.Layers)
@@ -451,23 +455,24 @@ func drawLabelsSVG(b *strings.Builder, labels labelSpec, pal palette, width, hei
 			w := (labels.Blur.PanelW + spread*2) * width
 			h := (labels.Blur.PanelH + spread*2) * height
 			r := (labels.Blur.CornerRadius + spread) * math.Min(width, height)
-			fmt.Fprintf(b, `<rect x="%.3f" y="%.3f" width="%.3f" height="%.3f" rx="%.3f" ry="%.3f" fill="%s" fill-opacity="%.4f"/>`, x, y, w, h, r, r, pal.BG, alpha)
+			fmt.Fprintf(b, `<rect x="%.3f" y="%.3f" width="%.3f" height="%.3f" rx="%.3f" ry="%.3f" fill="%s" fill-opacity="%.4f"/>`, x, y, w, h, r, r, fillHex, alpha)
 		}
 		x := labels.Blur.PanelX * width
 		y := axisToCanvasY(labels.Blur.PanelY+labels.Blur.PanelH, height)
 		w := labels.Blur.PanelW * width
 		h := labels.Blur.PanelH * height
 		r := labels.Blur.CornerRadius * math.Min(width, height)
-		fmt.Fprintf(b, `<rect x="%.3f" y="%.3f" width="%.3f" height="%.3f" rx="%.3f" ry="%.3f" fill="%s" fill-opacity="%.4f"/>`, x, y, w, h, r, r, pal.BG, labels.Blur.CoreAlpha)
+		fmt.Fprintf(b, `<rect x="%.3f" y="%.3f" width="%.3f" height="%.3f" rx="%.3f" ry="%.3f" fill="%s" fill-opacity="%.4f"/>`, x, y, w, h, r, r, fillHex, labels.Blur.CoreAlpha)
 	}
 
-	fmt.Fprintf(b, `<text x="%.3f" y="%.3f" text-anchor="middle" dominant-baseline="middle" font-family="%s" font-size="%.3f" fill="%s">%s</text>`, width*0.5, axisToCanvasY(labels.CityY, height), familyBold, labels.CitySizePt, labels.Color, html.EscapeString(labels.DisplayCity))
-	fmt.Fprintf(b, `<text x="%.3f" y="%.3f" text-anchor="middle" dominant-baseline="middle" font-family="%s" font-size="%.3f" fill="%s">%s</text>`, width*0.5, axisToCanvasY(labels.CountryY, height), familyLight, labels.CountrySizePt, labels.Color, html.EscapeString(labels.DisplayCountry))
-	fmt.Fprintf(b, `<text x="%.3f" y="%.3f" text-anchor="middle" dominant-baseline="middle" font-family="%s" font-size="%.3f" fill="%s" fill-opacity="0.7">%s</text>`, width*0.5, axisToCanvasY(labels.CoordsY, height), familyRegular, labels.CoordsSizePt, labels.Color, html.EscapeString(labels.Coords))
+	fmt.Fprintf(b, `<text x="%.3f" y="%.3f" text-anchor="middle" dominant-baseline="alphabetic" font-family="%s" font-size="%.3f" fill="%s">%s</text>`, width*0.5, axisToCanvasY(labels.CityY, height), familyBold, labels.CitySizePt, labels.Color, html.EscapeString(labels.DisplayCity))
+	fmt.Fprintf(b, `<text x="%.3f" y="%.3f" text-anchor="middle" dominant-baseline="alphabetic" font-family="%s" font-size="%.3f" fill="%s">%s</text>`, width*0.5, axisToCanvasY(labels.CountryY, height), familyLight, labels.CountrySizePt, labels.Color, html.EscapeString(labels.DisplayCountry))
+	fmt.Fprintf(b, `<text x="%.3f" y="%.3f" text-anchor="middle" dominant-baseline="alphabetic" font-family="%s" font-size="%.3f" fill="%s" fill-opacity="0.72">%s</text>`, width*0.5, axisToCanvasY(labels.CoordsY, height), familyRegular, labels.CoordsSizePt, labels.Color, html.EscapeString(labels.Coords))
 
 	dividerY := axisToCanvasY(labels.DividerY, height)
-	fmt.Fprintf(b, `<line x1="%.3f" y1="%.3f" x2="%.3f" y2="%.3f" stroke="%s" stroke-width="%.3f"/>`, width*0.4, dividerY, width*0.6, dividerY, labels.Color, labels.DividerWidthPt)
-	fmt.Fprintf(b, `<text x="%.3f" y="%.3f" text-anchor="end" dominant-baseline="ideographic" font-family="%s" font-size="%.3f" fill="%s" fill-opacity="0.35">© OpenStreetMap contributors</text>`, width*0.995, axisToCanvasY(0.006, height), familyLight, labels.AttrSizePt, labels.Color)
+	fmt.Fprintf(b, `<line x1="%.3f" y1="%.3f" x2="%.3f" y2="%.3f" stroke="%s" stroke-width="%.3f" stroke-opacity="0.82"/>`, width*0.4, dividerY, width*0.6, dividerY, pal.BG, labels.DividerWidthPt*2.2)
+	fmt.Fprintf(b, `<line x1="%.3f" y1="%.3f" x2="%.3f" y2="%.3f" stroke="%s" stroke-width="%.3f" stroke-opacity="0.95"/>`, width*0.4, dividerY, width*0.6, dividerY, labels.Color, labels.DividerWidthPt)
+	fmt.Fprintf(b, `<text x="%.3f" y="%.3f" text-anchor="end" dominant-baseline="alphabetic" font-family="%s" font-size="%.3f" fill="%s" fill-opacity="0.35">© OpenStreetMap contributors</text>`, width*0.995, axisToCanvasY(0.006, height), familyLight, labels.AttrSizePt, labels.Color)
 }
 
 func drawGradientPDF(pdf *gofpdf.Fpdf, color string, width, height float64) {
@@ -488,7 +493,12 @@ func drawGradientPDF(pdf *gofpdf.Fpdf, color string, width, height float64) {
 
 func drawLabelsPDF(pdf *gofpdf.Fpdf, labels labelSpec, pal palette, width, height float64, fontLight, fontRegular, fontBold string) {
 	if labels.Blur != nil {
-		bg := parseHexColor(pal.BG)
+		fillR, fillG, fillB := blurFillColor(pal.BG)
+		bg := rgb{
+			R: int(math.Round(fillR * 255)),
+			G: int(math.Round(fillG * 255)),
+			B: int(math.Round(fillB * 255)),
+		}
 		for layer := labels.Blur.Layers; layer > 0; layer-- {
 			t := float64(layer) / float64(labels.Blur.Layers)
 			spread := (1 - t) * (0.06 * labels.Blur.BlurSize)
@@ -519,11 +529,18 @@ func drawLabelsPDF(pdf *gofpdf.Fpdf, labels labelSpec, pal palette, width, heigh
 	setPDFFont(pdf, fontLight, labels.CountrySizePt)
 	drawPDFTextCentered(pdf, labels.DisplayCountry, width*0.5, axisToCanvasY(labels.CountryY, height), color, 1)
 	setPDFFont(pdf, fontRegular, labels.CoordsSizePt)
-	drawPDFTextCentered(pdf, labels.Coords, width*0.5, axisToCanvasY(labels.CoordsY, height), color, 0.7)
+	drawPDFTextCentered(pdf, labels.Coords, width*0.5, axisToCanvasY(labels.CoordsY, height), color, 0.72)
 
 	pdf.SetDrawColor(color.R, color.G, color.B)
-	pdf.SetLineWidth(labels.DividerWidthPt)
+	under := parseHexColor(pal.BG)
 	y := axisToCanvasY(labels.DividerY, height)
+	pdf.SetAlpha(0.82, "Normal")
+	pdf.SetDrawColor(under.R, under.G, under.B)
+	pdf.SetLineWidth(labels.DividerWidthPt * 2.2)
+	pdf.Line(width*0.4, y, width*0.6, y)
+	pdf.SetAlpha(1, "Normal")
+	pdf.SetDrawColor(color.R, color.G, color.B)
+	pdf.SetLineWidth(labels.DividerWidthPt)
 	pdf.Line(width*0.4, y, width*0.6, y)
 
 	setPDFFont(pdf, fontLight, labels.AttrSizePt)
@@ -538,8 +555,7 @@ func drawPDFTextCentered(pdf *gofpdf.Fpdf, text string, xCenter, yCenter float64
 	pdf.SetAlpha(alpha, "Normal")
 	pdf.SetTextColor(color.R, color.G, color.B)
 	width := pdf.GetStringWidth(text)
-	fontSize := currentPDFFontSize(pdf)
-	pdf.Text(xCenter-width/2, yCenter+(fontSize*0.35), text)
+	pdf.Text(xCenter-width/2, yCenter, text)
 	pdf.SetAlpha(1, "Normal")
 }
 
@@ -547,14 +563,8 @@ func drawPDFTextRight(pdf *gofpdf.Fpdf, text string, xRight, yBase float64, colo
 	pdf.SetAlpha(alpha, "Normal")
 	pdf.SetTextColor(color.R, color.G, color.B)
 	width := pdf.GetStringWidth(text)
-	fontSize := currentPDFFontSize(pdf)
-	pdf.Text(xRight-width, yBase+(fontSize*0.35), text)
+	pdf.Text(xRight-width, yBase, text)
 	pdf.SetAlpha(1, "Normal")
-}
-
-func currentPDFFontSize(pdf *gofpdf.Fpdf) float64 {
-	_, size := pdf.GetFontSize()
-	return size
 }
 
 func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) labelSpec {
@@ -588,21 +598,36 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 	attrSize := math.Max(4, 5*scaleFactor)
 
 	dynamicGapScale := math.Max(math.Max(mainSize/math.Max(baseMain*scaleFactor, 1e-6), countrySize/math.Max(baseSub*scaleFactor, 1e-6)), 1.0)
-	minGap := 0.004 * req.LabelPadding * dynamicGapScale
+	gap := 0.0036 * req.LabelPadding * dynamicGapScale
 	pointToAxis := 1.0 / (req.Height * 72.0)
-	cityDesc := mainSize * 0.22 * pointToAxis
+	cityAscent := mainSize * 0.74 * pointToAxis
+	cityDesc := mainSize * 0.26 * pointToAxis
 	countryAscent := countrySize * 0.72 * pointToAxis
-	countryDesc := countrySize * 0.22 * pointToAxis
-	coordsAscent := coordsSize * 0.72 * pointToAxis
+	countryDesc := countrySize * 0.28 * pointToAxis
+	coordsAscent := coordsSize * 0.70 * pointToAxis
+	coordsDesc := coordsSize * 0.30 * pointToAxis
 
-	coordsY := 0.07
-	countryY := 0.10
-	coordsTop := coordsY + coordsAscent
-	if countryY-countryDesc < coordsTop+minGap {
-		countryY = coordsTop + minGap + countryDesc
+	coordsY := 0.058
+	countryY := coordsY + coordsAscent + countryDesc + gap
+	dividerY := countryY + countryAscent + (gap * 1.15)
+	cityY := dividerY + cityDesc + (gap * 1.2)
+
+	top := cityY + cityAscent
+	if top > 0.34 {
+		shiftDown := top - 0.34
+		cityY -= shiftDown
+		dividerY -= shiftDown
+		countryY -= shiftDown
+		coordsY -= shiftDown
 	}
-	dividerY := math.Max(0.125, countryY+countryAscent+minGap)
-	cityY := math.Min(math.Max(0.14, dividerY+cityDesc+minGap), 0.32)
+	bottom := coordsY - coordsDesc
+	if bottom < 0.038 {
+		shiftUp := 0.038 - bottom
+		cityY += shiftUp
+		dividerY += shiftUp
+		countryY += shiftUp
+		coordsY += shiftUp
+	}
 
 	label := labelSpec{
 		Color:          labelColor,
@@ -617,27 +642,34 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 		CountrySizePt:  countrySize,
 		CoordsSizePt:   coordsSize,
 		AttrSizePt:     attrSize,
-		DividerWidthPt: math.Max(0.5, 1*scaleFactor),
+		DividerWidthPt: math.Max(1.1, 1.9*scaleFactor),
 	}
 
 	if req.TextBlurEnabled {
-		blurSize := req.TextBlurSize
-		blurStrength := req.TextBlurStrength
-		panelW := clamp(0.52*blurSize, 0.34, 0.9)
-		panelH := clamp(0.14*blurSize, 0.08, 0.34)
-		centerY := (cityY + coordsY) / 2.0
-		panelX := 0.5 - panelW/2
-		panelY := clamp(centerY-panelH/2, 0, 1-panelH)
+		blurSize := clamp(req.TextBlurSize, 0.6, 2.5)
+		blurStrength := clamp(req.TextBlurStrength, 0, 30)
 		blurScale := clamp(blurStrength/30.0, 0, 1)
+
+		cityRuneCount := maxInt(len([]rune(strings.TrimSpace(req.City))), 4)
+		sizeScale := clamp(mainSize/math.Max(baseMain*scaleFactor, 1e-6), 0.7, 2.2)
+		textWidthEstimate := clamp(0.34+(float64(cityRuneCount)*0.018*sizeScale), 0.42, 0.9)
+		panelW := clamp(textWidthEstimate+(0.10*blurSize), 0.44, 0.94)
+
+		blockBottom := (coordsY - coordsDesc) - (gap * 1.8)
+		blockTop := (cityY + cityAscent) + (gap * 1.6)
+		panelH := clamp((blockTop-blockBottom)+(0.045*blurSize), 0.12, 0.42)
+		centerY := (blockTop + blockBottom) / 2.0
+		panelX := 0.5 - panelW/2
+		panelY := clamp(centerY-panelH/2, 0.01, 1-panelH-0.01)
 		label.Blur = &blurSpec{
 			PanelX:       panelX,
 			PanelY:       panelY,
 			PanelW:       panelW,
 			PanelH:       panelH,
-			CornerRadius: 0.02 * blurSize,
-			Layers:       maxInt(2, int(math.Round(4+blurScale*10))),
-			EdgeAlpha:    0.04 + 0.14*blurScale,
-			CoreAlpha:    0.10 + 0.22*blurScale,
+			CornerRadius: 0.026 * blurSize,
+			Layers:       maxInt(6, int(math.Round(10+blurScale*12))),
+			EdgeAlpha:    0.18 + (0.32 * blurScale),
+			CoreAlpha:    0.42 + (0.40 * blurScale),
 			BlurSize:     blurSize,
 		}
 	}
@@ -836,6 +868,38 @@ func parseHexColor(hex string) rgb {
 		return rgb{R: 0, G: 0, B: 0}
 	}
 	return rgb{R: r, G: g, B: b}
+}
+
+func blurFillColor(hex string) (float64, float64, float64) {
+	base := parseHexColor(hex)
+	r := float64(base.R) / 255.0
+	g := float64(base.G) / 255.0
+	b := float64(base.B) / 255.0
+	// Lift toward white so backdrop blur remains visible on light themes.
+	return clamp(r*0.92+0.08, 0, 1), clamp(g*0.92+0.08, 0, 1), clamp(b*0.92+0.08, 0, 1)
+}
+
+func rgbToHex(r, g, b float64) string {
+	return fmt.Sprintf("#%02x%02x%02x",
+		int(clamp(math.Round(r*255), 0, 255)),
+		int(clamp(math.Round(g*255), 0, 255)),
+		int(clamp(math.Round(b*255), 0, 255)),
+	)
+}
+
+func setHexColorAlpha(dc *gg.Context, hex string, alpha float64) {
+	c := parseHexColor(hex)
+	dc.SetRGBA(float64(c.R)/255.0, float64(c.G)/255.0, float64(c.B)/255.0, clamp(alpha, 0, 1))
+}
+
+func drawRasterCenteredBaseline(dc *gg.Context, text string, xCenter, yBaseline float64) {
+	width, _ := dc.MeasureString(text)
+	dc.DrawString(text, xCenter-(width/2), yBaseline)
+}
+
+func drawRasterRightBaseline(dc *gg.Context, text string, xRight, yBaseline float64) {
+	width, _ := dc.MeasureString(text)
+	dc.DrawString(text, xRight-width, yBaseline)
 }
 
 func buildSVGFontDefs(paths fonts.FontPaths) string {

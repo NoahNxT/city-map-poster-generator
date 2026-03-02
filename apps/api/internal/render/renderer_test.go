@@ -87,3 +87,74 @@ func TestRenderPDFIsNativePDF(t *testing.T) {
 		t.Fatalf("expected PDF header")
 	}
 }
+
+func TestComputeLabelSpecMaintainsVerticalOrder(t *testing.T) {
+	req := sampleRequest(types.OutputPNG)
+	req.Width = 12
+	req.Height = 16
+	req.LabelPadding = 1.55
+	req.TextBlurEnabled = false
+
+	labels := computeLabelSpec(req, samplePalette(), 51.22, 4.39)
+
+	if !(labels.CityY > labels.DividerY && labels.DividerY > labels.CountryY && labels.CountryY > labels.CoordsY) {
+		t.Fatalf(
+			"invalid label stack order city=%.4f divider=%.4f country=%.4f coords=%.4f",
+			labels.CityY,
+			labels.DividerY,
+			labels.CountryY,
+			labels.CoordsY,
+		)
+	}
+}
+
+func TestComputeLabelSpecPaddingExpandsGaps(t *testing.T) {
+	baseReq := sampleRequest(types.OutputPNG)
+	baseReq.Width = 12
+	baseReq.Height = 16
+	baseReq.TextBlurEnabled = false
+	baseReq.LabelPadding = 1
+
+	spaciousReq := baseReq
+	spaciousReq.LabelPadding = 2.5
+
+	base := computeLabelSpec(baseReq, samplePalette(), 51.22, 4.39)
+	spacious := computeLabelSpec(spaciousReq, samplePalette(), 51.22, 4.39)
+
+	baseCityGap := base.CityY - base.DividerY
+	spaciousCityGap := spacious.CityY - spacious.DividerY
+	if spaciousCityGap <= baseCityGap {
+		t.Fatalf("expected larger city/divider gap when padding increases: base=%.5f spacious=%.5f", baseCityGap, spaciousCityGap)
+	}
+
+	baseCountryGap := base.CountryY - base.CoordsY
+	spaciousCountryGap := spacious.CountryY - spacious.CoordsY
+	if spaciousCountryGap <= baseCountryGap {
+		t.Fatalf("expected larger country/coords gap when padding increases: base=%.5f spacious=%.5f", baseCountryGap, spaciousCountryGap)
+	}
+}
+
+func TestComputeLabelSpecBlurStrengthAffectsBackdrop(t *testing.T) {
+	weakReq := sampleRequest(types.OutputPNG)
+	weakReq.TextBlurEnabled = true
+	weakReq.TextBlurStrength = 2
+
+	strongReq := weakReq
+	strongReq.TextBlurStrength = 26
+
+	weak := computeLabelSpec(weakReq, samplePalette(), 51.22, 4.39)
+	strong := computeLabelSpec(strongReq, samplePalette(), 51.22, 4.39)
+
+	if weak.Blur == nil || strong.Blur == nil {
+		t.Fatalf("expected blur spec to be present")
+	}
+	if strong.Blur.CoreAlpha <= weak.Blur.CoreAlpha {
+		t.Fatalf("expected stronger blur core alpha to increase: weak=%.4f strong=%.4f", weak.Blur.CoreAlpha, strong.Blur.CoreAlpha)
+	}
+	if strong.Blur.EdgeAlpha <= weak.Blur.EdgeAlpha {
+		t.Fatalf("expected stronger blur edge alpha to increase: weak=%.4f strong=%.4f", weak.Blur.EdgeAlpha, strong.Blur.EdgeAlpha)
+	}
+	if strong.Blur.Layers <= weak.Blur.Layers {
+		t.Fatalf("expected stronger blur to use more layers: weak=%d strong=%d", weak.Blur.Layers, strong.Blur.Layers)
+	}
+}
