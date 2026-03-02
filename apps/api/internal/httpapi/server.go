@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -242,6 +243,9 @@ func (s *Server) handleFontBundle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRenderSnapshot(w http.ResponseWriter, r *http.Request) {
+	responseEncoding := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("encoding")))
+	wantJSON := responseEncoding == "json"
+
 	var payload types.RenderSnapshotRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -280,6 +284,13 @@ func (s *Server) handleRenderSnapshot(w http.ResponseWriter, r *http.Request) {
 	if err == nil && cachedObjectKey != "" && s.storage.ObjectExists(r.Context(), s.cfg.S3BucketPreviews, cachedObjectKey) {
 		content, err := s.storage.GetObjectBytes(r.Context(), s.cfg.S3BucketPreviews, cachedObjectKey)
 		if err == nil {
+			if wantJSON {
+				rawJSON, err := ungzipBytes(content)
+				if err == nil {
+					writeSnapshotJSON(w, snapshotID, lat, lon, rawJSON)
+					return
+				}
+			}
 			writeSnapshotBinary(w, snapshotID, lat, lon, content)
 			return
 		}
@@ -308,6 +319,10 @@ func (s *Server) handleRenderSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.store.SetPreviewCache(r.Context(), cacheKey, objectKey, s.cfg.PreviewTTLSeconds)
 
+	if wantJSON {
+		writeSnapshotJSON(w, snapshotID, lat, lon, encoded)
+		return
+	}
 	writeSnapshotBinary(w, snapshotID, lat, lon, compressed)
 }
 
@@ -875,6 +890,17 @@ func writeSnapshotBinary(w http.ResponseWriter, snapshotID string, lat float64, 
 	_, _ = w.Write(payload)
 }
 
+func writeSnapshotJSON(w http.ResponseWriter, snapshotID string, lat float64, lon float64, payload []byte) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Snapshot-Id", snapshotID)
+	w.Header().Set("X-Resolved-Lat", fmt.Sprintf("%.7f", lat))
+	w.Header().Set("X-Resolved-Lon", fmt.Sprintf("%.7f", lon))
+	w.Header().Set("ETag", fmt.Sprintf(`"%s"`, snapshotID))
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(payload)
+}
+
 func buildSnapshotPayload(
 	snapshotID string,
 	req types.RenderSnapshotRequest,
@@ -960,6 +986,15 @@ func gzipBytes(raw []byte) ([]byte, error) {
 		return nil, err
 	}
 	return out.Bytes(), nil
+}
+
+func ungzipBytes(raw []byte) ([]byte, error) {
+	zr, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	defer zr.Close()
+	return io.ReadAll(zr)
 }
 
 func parseQueryInt(r *http.Request, key string, fallback int) int {
