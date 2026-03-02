@@ -3,12 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from app.models import OutputFormat, PosterRequest
-
-if TYPE_CHECKING:
-    from app.vendor.maptoposter import create_map_poster as maptoposter_module
 
 VENDOR_ROOT = Path(__file__).parent / "vendor" / "maptoposter"
 CACHE_ROOT = Path("/tmp/map-cache")
