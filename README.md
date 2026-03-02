@@ -3,18 +3,17 @@
 Public, no-auth city poster generator built with a **Bun + Turborepo** monorepo:
 
 - `apps/web`: Next.js (App Router) + Tailwind + `shadcn/ui`-style components + TanStack Query
-- `apps/api`: FastAPI + Redis queue (RQ) + vendored `maptoposter` renderer
+- `apps/api-go`: Go API + Redis queue + MinIO/S3 artifact storage + pure-Go renderer
 - `docker-compose.yml`: web, api, worker, redis, minio
 
 ## Stack
 
 - Frontend: Next.js 16, React 19, Tailwind, `react-hook-form`, `zod`, `framer-motion`
-- Backend: FastAPI, Redis, RQ worker, MinIO/S3, Cloudflare Turnstile verification
-- Tooling: Bun workspaces, Turborepo, Biome, TypeScript, Pyright, Ruff, Pytest
+- Backend: Go (`chi`, `go-redis`, AWS SDK S3), Redis queue worker, MinIO/S3, Cloudflare Turnstile
+- Rendering: OpenStreetMap vector fetch (Overpass + Nominatim), layered map poster renderer
+- Tooling: Bun workspaces, Turborepo, Biome, TypeScript
 
 ## Node Runtime (nvm + latest LTS)
-
-This repo is pinned to Node LTS with `.nvmrc`.
 
 ```bash
 nvm install --lts
@@ -38,7 +37,7 @@ bun install
 cp .env.example .env
 ```
 
-3. Start full stack (recommended):
+3. Start full stack:
 
 ```bash
 docker compose up --build
@@ -50,27 +49,14 @@ docker compose up --build
 - API: `http://localhost:8000`
 - MinIO Console: `http://localhost:9001`
 
-## Local Dev (Frontend HMR, No Web Image Rebuilds)
+## Local Dev
 
-Use Docker only for backend services and run the frontend dev server on host.
-This gives you instant HMR via `next dev --turbopack`.
-
-1. Start backend stack:
+Use Docker for backend infra/services and run frontend on host for HMR:
 
 ```bash
 bun run dev:backend
-```
-
-2. Run frontend dev server (HMR enabled):
-
-```bash
 bun run dev:web
 ```
-
-3. Open:
-
-- Web: `http://localhost:3000`
-- API: `http://localhost:8000`
 
 One-command variant:
 
@@ -85,90 +71,55 @@ bun run dev:backend:logs
 bun run dev:backend:down
 ```
 
-## Local Dev Without Docker
-
-Run services in separate terminals:
-
-```bash
-# terminal 1: web
-bun run dev:web
-
-# terminal 2: api
-bun run dev:api
-
-# terminal 3: worker
-bun run dev:worker
-```
-
-You also need a local Redis + S3-compatible storage (or MinIO).
-
 ## Scripts
 
 ```bash
-bun run dev           # turbo: web + api
+bun run dev           # docker backend + web HMR
 bun run dev:web
-bun run dev:api
-bun run dev:worker
+bun run dev:api       # go API (requires local Go toolchain)
+bun run dev:worker    # go worker (requires local Go toolchain)
 
-bun run lint          # biome (web) + ruff (api)
-bun run check-types   # tsc/next + pyright
+bun run lint          # biome (web) + go vet (api-go)
+bun run check-types   # tsc/next + go test
 bun run format        # biome format
 ```
 
 ## API Endpoints
 
 - `GET /health`
-- `GET /v1/themes`
-- `POST /v1/preview`
-- `POST /v1/jobs`
-- `GET /v1/jobs/{jobId}`
-- `GET /v1/jobs/{jobId}/download`
-- `GET /v1/fonts`
+- `GET /v2/themes`
+- `GET /v2/locations`
+- `GET /v2/fonts`
+- `POST /v2/preview`
+- `POST /v2/jobs`
+- `GET /v2/jobs/{jobId}`
+- `GET /v2/jobs/{jobId}/download`
 
-## Feature Coverage (maptoposter parity)
+## Feature Coverage
 
 - Required: city, country
-- Optional: latitude/longitude overrides, distance, dimensions (`max=20`), labels, font family
+- Optional: latitude/longitude overrides, distance, dimensions (`max=20`), font family
 - Themes: all bundled built-in themes
 - Export formats: `png`, `svg`, `pdf`
 - `allThemes`: generate every theme + ZIP output
 - Preview caching + artifact storage with presigned downloads
-- Searchable Google Fonts picker for `fontFamily` in advanced options
+- Google Fonts searchable picker for `fontFamily`
 
 ## Theme Gallery Previews
 
-The web app includes a static gallery preview for all built-in themes at:
+Static theme gallery assets remain in:
 
 - `apps/web/public/theme-previews/<theme-id>.svg`
 
-Regenerate all theme previews:
-
-```bash
-bun run generate:theme-previews
-```
-
-Generator source:
-
-- `scripts/generate_theme_previews.py`
-
 ## CAPTCHA and Rate Limiting
 
-- Turnstile verification for generation endpoint (`/v1/jobs`) when `CAPTCHA_REQUIRED=true`
+- Turnstile verification for generation endpoint (`/v2/jobs`) when `CAPTCHA_REQUIRED=true`
 - IP rate limits:
   - Preview: `20 / 10 min`
   - Jobs: `5 / 10 min`
   - Concurrent jobs: `2`
 
-Configure values in `.env`.
-
-## Google Fonts Search
-
-- Font search endpoint: `GET /v1/fonts`
-- Primary source: Google Fonts Developer API (`GOOGLE_FONTS_API_KEY`)
-- Fallback source: `https://fonts.google.com/metadata/fonts`
-- If both sources fail, API serves a small fallback font list so the picker remains usable.
-
 ## Notes
 
-- Current geocoder is public Nominatim (as requested). For higher production load, use a paid provider or self-hosted geocoder.
-- Generated artifacts are intended to be short-lived (24h retention target).
+- Geocoding uses public Nominatim by default. For production throughput, use a dedicated provider.
+- Generated artifacts are short-lived (24h retention target).

@@ -10,7 +10,7 @@
       "apps/web/*.js",
       "apps/web/*.mjs",
       "apps/web/*.json",
-      "apps/api/package.json",
+      "apps/api-go/package.json",
       "package.json",
       "turbo.json",
       "biome.json"

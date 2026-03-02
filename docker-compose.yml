@@ -15,11 +15,12 @@ services:
   api:
     build:
       context: .
-      dockerfile: docker/api.Dockerfile
+      dockerfile: docker/api-go.Dockerfile
     container_name: city-map-api
     environment:
       APP_ENV: ${APP_ENV:-development}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
+      PORT: ${PORT:-8000}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       RQ_QUEUE_NAME: ${RQ_QUEUE_NAME:-map_jobs}
       S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
@@ -51,27 +52,31 @@ services:
       RATE_LIMIT_MAX_CONCURRENT_JOBS_PER_IP: ${RATE_LIMIT_MAX_CONCURRENT_JOBS_PER_IP:-2}
       NOMINATIM_SEARCH_URL: ${NOMINATIM_SEARCH_URL:-https://nominatim.openstreetmap.org/search}
       NOMINATIM_USER_AGENT: ${NOMINATIM_USER_AGENT:-city-map-poster-generator/1.0}
+      OVERPASS_URL: ${OVERPASS_URL:-https://overpass-api.de/api/interpreter}
+      REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-60}
       GOOGLE_FONTS_API_URL: ${GOOGLE_FONTS_API_URL:-https://www.googleapis.com/webfonts/v1/webfonts}
       GOOGLE_FONTS_API_KEY: ${GOOGLE_FONTS_API_KEY:-}
       GOOGLE_FONTS_METADATA_URL: ${GOOGLE_FONTS_METADATA_URL:-https://fonts.google.com/metadata/fonts}
       GOOGLE_FONTS_CACHE_TTL_SECONDS: ${GOOGLE_FONTS_CACHE_TTL_SECONDS:-86400}
+      CACHE_DIR: ${CACHE_DIR:-/tmp/map-cache}
+      ASSETS_DIR: ${ASSETS_DIR:-/app/assets}
     ports:
       - "8000:8000"
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: ["/app/api"]
     depends_on:
       - redis
       - minio
     volumes:
-      - ./apps/api/app:/app/app
       - map_cache:/tmp/map-cache
 
   worker:
     build:
       context: .
-      dockerfile: docker/api.Dockerfile
+      dockerfile: docker/api-go.Dockerfile
     container_name: city-map-worker
     environment:
       APP_ENV: ${APP_ENV:-development}
+      PORT: ${PORT:-8000}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       RQ_QUEUE_NAME: ${RQ_QUEUE_NAME:-map_jobs}
       S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
@@ -103,16 +108,19 @@ services:
       RATE_LIMIT_MAX_CONCURRENT_JOBS_PER_IP: ${RATE_LIMIT_MAX_CONCURRENT_JOBS_PER_IP:-2}
       NOMINATIM_SEARCH_URL: ${NOMINATIM_SEARCH_URL:-https://nominatim.openstreetmap.org/search}
       NOMINATIM_USER_AGENT: ${NOMINATIM_USER_AGENT:-city-map-poster-generator/1.0}
+      OVERPASS_URL: ${OVERPASS_URL:-https://overpass-api.de/api/interpreter}
+      REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-60}
       GOOGLE_FONTS_API_URL: ${GOOGLE_FONTS_API_URL:-https://www.googleapis.com/webfonts/v1/webfonts}
       GOOGLE_FONTS_API_KEY: ${GOOGLE_FONTS_API_KEY:-}
       GOOGLE_FONTS_METADATA_URL: ${GOOGLE_FONTS_METADATA_URL:-https://fonts.google.com/metadata/fonts}
       GOOGLE_FONTS_CACHE_TTL_SECONDS: ${GOOGLE_FONTS_CACHE_TTL_SECONDS:-86400}
-    command: ["python", "-m", "app.worker"]
+      CACHE_DIR: ${CACHE_DIR:-/tmp/map-cache}
+      ASSETS_DIR: ${ASSETS_DIR:-/app/assets}
+    command: ["/app/worker"]
     depends_on:
       - redis
       - minio
     volumes:
-      - ./apps/api/app:/app/app
       - map_cache:/tmp/map-cache
 
   redis:

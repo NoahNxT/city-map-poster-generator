@@ -5,9 +5,6 @@ export type PosterRequest = {
   country: string;
   latitude?: string;
   longitude?: string;
-  countryLabel?: string;
-  displayCity?: string;
-  displayCountry?: string;
   fontFamily?: string;
   theme: string;
   allThemes: boolean;

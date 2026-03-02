@@ -30,6 +30,7 @@ import {
   fetchFonts,
   fetchJob,
   fetchLocations,
+  fetchPreview,
   fetchThemes,
 } from "@/lib/api";
 import {
@@ -561,6 +562,8 @@ export function PosterGenerator({
   const [disableRateLimit, setDisableRateLimit] = useState(false);
   const [previewZoomLevel, setPreviewZoomLevel] =
     useState(DEFAULT_PREVIEW_ZOOM);
+  const [debouncedPreviewPayload, setDebouncedPreviewPayload] =
+    useState<PosterRequest>(() => toPayload(defaultValues));
   const [previewPointer, setPreviewPointer] = useState<PreviewPointer | null>(
     null,
   );
@@ -597,6 +600,7 @@ export function PosterGenerator({
     }),
     [watchedValues],
   );
+  const previewPayload = useMemo(() => toPayload(values), [values]);
   const d = dictionary;
 
   const themesQuery = useQuery({
@@ -621,6 +625,18 @@ export function PosterGenerator({
       }),
     enabled: fontComboboxOpen,
     staleTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const previewQuery = useQuery({
+    queryKey: ["preview", debouncedPreviewPayload, disableRateLimit],
+    queryFn: () =>
+      fetchPreview(debouncedPreviewPayload, {
+        disableRateLimit,
+      }),
+    enabled:
+      debouncedPreviewPayload.city.trim().length > 0 &&
+      debouncedPreviewPayload.country.trim().length > 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
 
@@ -673,6 +689,13 @@ export function PosterGenerator({
     }, 250);
     return () => clearTimeout(timer);
   }, [fontSearchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPreviewPayload(previewPayload);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [previewPayload]);
 
   useEffect(() => {
     if (!fontComboboxOpen) {
@@ -892,7 +915,9 @@ export function PosterGenerator({
     values.longitude,
     d.controls.coordsUnavailable,
   );
-  const previewUrl = `/theme-previews/${values.theme}.svg`;
+  const hasServerPreview = Boolean(previewQuery.data?.previewUrl);
+  const previewUrl =
+    previewQuery.data?.previewUrl ?? `/theme-previews/${values.theme}.svg`;
   const previewThemeBackground =
     normalizeHexColor(activeTheme?.colors.bg) ?? "#f5efe6";
   const previewBlurPanelWidthPct = clamp(52 * values.textBlurSize, 34, 90);
@@ -2225,7 +2250,7 @@ export function PosterGenerator({
                     className="h-full w-full object-cover"
                     unoptimized
                   />
-                  {values.textBlurEnabled ? (
+                  {!hasServerPreview && values.textBlurEnabled ? (
                     <div
                       className="pointer-events-none absolute z-10 border shadow-[0_10px_30px_rgba(0,0,0,0.08)]"
                       style={{
@@ -2241,17 +2266,19 @@ export function PosterGenerator({
                       }}
                     />
                   ) : null}
-                  <PreviewTypographyOverlay
-                    className="pointer-events-none absolute inset-0 z-20 h-full w-full"
-                    title={d.preview.textOverlayTitle}
-                    previewTextColor={previewTextColor}
-                    previewDisplayCity={previewDisplayCity}
-                    previewDisplayCountry={previewDisplayCountry}
-                    previewCoords={previewCoords}
-                    previewTextMetrics={previewTextMetrics}
-                    previewTypographyFontFamily={previewTypographyFontFamily}
-                    labelPaddingScale={values.labelPaddingScale}
-                  />
+                  {!hasServerPreview ? (
+                    <PreviewTypographyOverlay
+                      className="pointer-events-none absolute inset-0 z-20 h-full w-full"
+                      title={d.preview.textOverlayTitle}
+                      previewTextColor={previewTextColor}
+                      previewDisplayCity={previewDisplayCity}
+                      previewDisplayCountry={previewDisplayCountry}
+                      previewCoords={previewCoords}
+                      previewTextMetrics={previewTextMetrics}
+                      previewTypographyFontFamily={previewTypographyFontFamily}
+                      labelPaddingScale={values.labelPaddingScale}
+                    />
+                  ) : null}
                   {previewZoomEnabled ? (
                     <>
                       <div
@@ -2287,20 +2314,22 @@ export function PosterGenerator({
                               preserveAspectRatio="none"
                             />
                           </svg>
-                          <PreviewTypographyOverlay
-                            className="absolute inset-0 z-20 h-full w-full"
-                            viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
-                            title={d.preview.magnifiedOverlayTitle}
-                            previewTextColor={previewTextColor}
-                            previewDisplayCity={previewDisplayCity}
-                            previewDisplayCountry={previewDisplayCountry}
-                            previewCoords={previewCoords}
-                            previewTextMetrics={previewTextMetrics}
-                            previewTypographyFontFamily={
-                              previewTypographyFontFamily
-                            }
-                            labelPaddingScale={values.labelPaddingScale}
-                          />
+                          {!hasServerPreview ? (
+                            <PreviewTypographyOverlay
+                              className="absolute inset-0 z-20 h-full w-full"
+                              viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
+                              title={d.preview.magnifiedOverlayTitle}
+                              previewTextColor={previewTextColor}
+                              previewDisplayCity={previewDisplayCity}
+                              previewDisplayCountry={previewDisplayCountry}
+                              previewCoords={previewCoords}
+                              previewTextMetrics={previewTextMetrics}
+                              previewTypographyFontFamily={
+                                previewTypographyFontFamily
+                              }
+                              labelPaddingScale={values.labelPaddingScale}
+                            />
+                          ) : null}
                         </div>
                       </div>
                     </>
@@ -2309,6 +2338,16 @@ export function PosterGenerator({
                 <p id={previewKeyboardHintId} className="sr-only">
                   {d.accessibility.previewKeyboardHint}
                 </p>
+                {previewQuery.isFetching ? (
+                  <p className="text-xs text-muted-foreground">
+                    {d.themeExplorer.loadingPreview}
+                  </p>
+                ) : null}
+                {previewQuery.isError ? (
+                  <p className="text-xs text-destructive">
+                    {d.themeExplorer.previewUnavailable}
+                  </p>
+                ) : null}
 
                 <section
                   className="rounded-lg border border-dashed px-3 py-3"
