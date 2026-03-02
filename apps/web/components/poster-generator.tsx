@@ -96,6 +96,8 @@ const CM_PER_INCH = 2.54;
 const MIN_POSTER_INCHES = 1;
 const MAX_POSTER_INCHES = 80;
 const MAX_LOCAL_PREVIEW_LONG_EDGE_PX = 2048;
+const PREVIEW_STAGE_ASPECT = 3 / 4;
+const PREVIEW_STAGE_MAX_WIDTH_PX = 420;
 
 const schema = z
   .object({
@@ -904,9 +906,14 @@ export function PosterGenerator({
     if (!frame) return;
     const bounds = frame.getBoundingClientRect();
     if (bounds.width <= 0 || bounds.height <= 0) return;
+    const posterLeft = bounds.left + bounds.width * previewPosterLeftRatio;
+    const posterTop = bounds.top + bounds.height * previewPosterTopRatio;
+    const posterWidth = bounds.width * previewPosterWidthRatio;
+    const posterHeight = bounds.height * previewPosterHeightRatio;
+    if (posterWidth <= 0 || posterHeight <= 0) return;
     setPreviewPointer({
-      x: clamp((clientX - bounds.left) / bounds.width, 0, 1),
-      y: clamp((clientY - bounds.top) / bounds.height, 0, 1),
+      x: clamp((clientX - posterLeft) / posterWidth, 0, 1),
+      y: clamp((clientY - posterTop) / posterHeight, 0, 1),
     });
   }
 
@@ -1016,6 +1023,23 @@ export function PosterGenerator({
       : previewQuery.isFetching;
   const previewViewboxWidth = previewWidthInches * 100;
   const previewViewboxHeight = previewHeightInches * 100;
+  const previewPosterAspect = previewWidthInches / previewHeightInches;
+  const previewPosterWidthRatio =
+    previewPosterAspect >= PREVIEW_STAGE_ASPECT
+      ? 1
+      : previewPosterAspect / PREVIEW_STAGE_ASPECT;
+  const previewPosterHeightRatio =
+    previewPosterAspect >= PREVIEW_STAGE_ASPECT
+      ? PREVIEW_STAGE_ASPECT / previewPosterAspect
+      : 1;
+  const previewPosterLeftRatio = (1 - previewPosterWidthRatio) / 2;
+  const previewPosterTopRatio = (1 - previewPosterHeightRatio) / 2;
+  const previewPosterFrameStyle = {
+    left: `${previewPosterLeftRatio * 100}%`,
+    top: `${previewPosterTopRatio * 100}%`,
+    width: `${previewPosterWidthRatio * 100}%`,
+    height: `${previewPosterHeightRatio * 100}%`,
+  };
   const previewZoomAnchor = previewPointer ?? { x: 0.5, y: 0.5 };
   const zoomViewWidth = previewViewboxWidth / previewZoomLevel;
   const zoomViewHeight = previewViewboxHeight / previewZoomLevel;
@@ -2408,9 +2432,10 @@ export function PosterGenerator({
                 <figure
                   id={previewFrameId}
                   ref={previewFrameRef}
-                  className="group relative touch-none select-none overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100"
+                  className="group relative mx-auto w-full touch-none select-none overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100"
                   style={{
-                    aspectRatio: `${previewWidthInches} / ${previewHeightInches}`,
+                    aspectRatio: `${PREVIEW_STAGE_ASPECT}`,
+                    maxWidth: `${PREVIEW_STAGE_MAX_WIDTH_PX}px`,
                   }}
                   tabIndex={previewZoomEnabled ? 0 : -1}
                   aria-label={`${d.preview.title}: ${values.city}, ${values.country}`}
@@ -2433,36 +2458,39 @@ export function PosterGenerator({
                   }}
                   onKeyDown={handlePreviewFrameKeyDown}
                 >
-                  {previewUrl ? (
-                    <Image
-                      src={previewUrl}
-                      alt={d.preview.posterAlt}
-                      fill
-                      priority
-                      className="h-full w-full object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/65">
-                      <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                        <LoaderCircle
-                          className={
-                            isPreviewLoading
-                              ? "h-4 w-4 animate-spin"
-                              : "h-4 w-4"
-                          }
-                        />
-                        <span>
-                          {rendererMode === "server-fallback" &&
-                          previewQuery.isError
-                            ? d.themeExplorer.previewUnavailable
-                            : d.themeExplorer.loadingPreview}
-                        </span>
+                  <div
+                    className="absolute overflow-hidden"
+                    style={previewPosterFrameStyle}
+                  >
+                    {previewUrl ? (
+                      <Image
+                        src={previewUrl}
+                        alt={d.preview.posterAlt}
+                        fill
+                        priority
+                        className="h-full w-full object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/65">
+                        <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                          <LoaderCircle
+                            className={
+                              isPreviewLoading
+                                ? "h-4 w-4 animate-spin"
+                                : "h-4 w-4"
+                            }
+                          />
+                          <span>
+                            {rendererMode === "server-fallback" &&
+                            previewQuery.isError
+                              ? d.themeExplorer.previewUnavailable
+                              : d.themeExplorer.loadingPreview}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {previewZoomEnabled && hasPreview ? (
-                    <>
+                    )}
+                    {previewZoomEnabled && hasPreview ? (
                       <div
                         className="pointer-events-none absolute z-20 rounded-sm border border-amber-700/80 bg-amber-200/10 shadow-[0_0_0_1px_rgba(255,255,255,0.35)]"
                         style={{
@@ -2472,38 +2500,40 @@ export function PosterGenerator({
                           height: `${zoomLensHeight}%`,
                         }}
                       />
-                      <div className="pointer-events-none absolute right-2 top-2 z-30 w-32 overflow-hidden rounded-md border border-border bg-card/95 shadow-lg sm:w-36">
-                        <div className="absolute left-2 top-2 z-20 rounded bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-                          {d.preview.zoomValue.replace(
-                            "{value}",
-                            previewZoomLevel.toFixed(1),
-                          )}
-                        </div>
-                        <div
-                          className="relative"
-                          style={{
-                            aspectRatio: `${previewWidthInches} / ${previewHeightInches}`,
-                          }}
-                        >
-                          <svg
-                            className="absolute inset-0 h-full w-full"
-                            viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
-                            preserveAspectRatio="none"
-                            aria-hidden="true"
-                          >
-                            <title>{d.preview.magnifiedTitle}</title>
-                            <image
-                              href={previewUrl ?? ""}
-                              x={0}
-                              y={0}
-                              width={previewViewboxWidth}
-                              height={previewViewboxHeight}
-                              preserveAspectRatio="none"
-                            />
-                          </svg>
-                        </div>
+                    ) : null}
+                  </div>
+                  {previewZoomEnabled && hasPreview ? (
+                    <div className="pointer-events-none absolute right-2 top-2 z-30 w-32 overflow-hidden rounded-md border border-border bg-card/95 shadow-lg sm:w-36">
+                      <div className="absolute left-2 top-2 z-20 rounded bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                        {d.preview.zoomValue.replace(
+                          "{value}",
+                          previewZoomLevel.toFixed(1),
+                        )}
                       </div>
-                    </>
+                      <div
+                        className="relative"
+                        style={{
+                          aspectRatio: `${previewWidthInches} / ${previewHeightInches}`,
+                        }}
+                      >
+                        <svg
+                          className="absolute inset-0 h-full w-full"
+                          viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <title>{d.preview.magnifiedTitle}</title>
+                          <image
+                            href={previewUrl ?? ""}
+                            x={0}
+                            y={0}
+                            width={previewViewboxWidth}
+                            height={previewViewboxHeight}
+                            preserveAspectRatio="none"
+                          />
+                        </svg>
+                      </div>
+                    </div>
                   ) : null}
                 </figure>
                 <p id={previewKeyboardHintId} className="sr-only">
