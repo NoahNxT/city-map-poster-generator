@@ -1764,7 +1764,7 @@ export function PosterGenerator() {
           transition={{ duration: 0.35, delay: 0.1 }}
           className="space-y-6"
         >
-          <Card className="lg:sticky lg:top-6">
+          <Card className="lg:sticky lg:top-6 lg:flex lg:h-[calc(100vh-1.5rem)] lg:flex-col">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Sparkles className="h-4 w-4 text-amber-700" />
@@ -1775,7 +1775,7 @@ export function PosterGenerator() {
                 API calls.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
               {showDevRateLimitToggle ? (
                 <div className="rounded-lg border border-dashed px-3 py-3">
                   <div className="flex items-center justify-between gap-3">
