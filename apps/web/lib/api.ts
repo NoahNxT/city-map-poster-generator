@@ -228,6 +228,27 @@ export async function fetchFontBundle(
   return response.arrayBuffer();
 }
 
+export type FontBundleData = {
+  family: string;
+  weights: string[];
+  files: Record<string, string>;
+};
+
+export async function fetchFontBundleData(
+  family: string,
+  weights = "300,400,700",
+): Promise<FontBundleData> {
+  const encodedFamily = encodeURIComponent(family.trim());
+  const params = new URLSearchParams({ weights, encoding: "json" });
+  const response = await fetch(
+    `${API_BASE}/v2/fonts/${encodedFamily}/bundle?${params.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
+  return parseResponse<FontBundleData>(response);
+}
+
 export async function initExport(
   payload: ExportInitRequest,
   options?: {

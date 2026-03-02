@@ -15,6 +15,10 @@ type RenderMessage = {
   theme: Theme;
   pixelWidth: number;
   pixelHeight: number;
+  fontBundle?: {
+    family: string;
+    files: Record<string, string>;
+  } | null;
 };
 
 type DisposeMessage = {
@@ -40,6 +44,22 @@ const DEFAULT_BG = "#F5EDE4";
 const DEFAULT_TEXT = "#8B4513";
 const DEFAULT_WATER = "#A8C4C4";
 const DEFAULT_PARKS = "#E8E0D0";
+const loadedFontFamilies = new Map<string, Promise<void>>();
+
+type WorkerFontFace = {
+  load: () => Promise<WorkerFontFace>;
+};
+
+type WorkerFontScope = {
+  FontFace?: new (
+    family: string,
+    source: ArrayBuffer,
+    descriptors?: { weight?: string; style?: string },
+  ) => WorkerFontFace;
+  fonts?: {
+    add: (font: WorkerFontFace) => void;
+  };
+};
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -80,6 +100,66 @@ function hexToRgba(hex: string, alpha: number): string {
   const g = Number.parseInt(normalized.slice(2, 4), 16);
   const b = Number.parseInt(normalized.slice(4, 6), 16);
   return `rgba(${Number.isFinite(r) ? r : 0}, ${Number.isFinite(g) ? g : 0}, ${Number.isFinite(b) ? b : 0}, ${clamp(alpha, 0, 1)})`;
+}
+
+function decodeBase64(base64: string): ArrayBuffer {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+async function ensureWorkerFonts(
+  fontBundle: RenderMessage["fontBundle"],
+): Promise<void> {
+  if (!fontBundle) {
+    return;
+  }
+  const family = fontBundle.family.trim();
+  if (!family) {
+    return;
+  }
+
+  const workerScope = self as unknown as WorkerFontScope;
+  const FontFaceCtor = workerScope.FontFace;
+  const fontSet = workerScope.fonts;
+  if (!FontFaceCtor || !fontSet) {
+    return;
+  }
+
+  const cacheKey = family.toLowerCase();
+  const existing = loadedFontFamilies.get(cacheKey);
+  if (existing) {
+    await existing;
+    return;
+  }
+
+  const loadPromise = (async () => {
+    const files = fontBundle.files ?? {};
+    const regular = files["400"] ?? "";
+    for (const weight of ["300", "400", "700"]) {
+      const encoded = files[weight] ?? regular;
+      if (!encoded) {
+        continue;
+      }
+      const face = new FontFaceCtor(family, decodeBase64(encoded), {
+        weight,
+        style: "normal",
+      });
+      const loaded = await face.load();
+      fontSet.add(loaded);
+    }
+  })();
+
+  loadedFontFamilies.set(cacheKey, loadPromise);
+  try {
+    await loadPromise;
+  } catch (error) {
+    loadedFontFamilies.delete(cacheKey);
+    throw error;
+  }
 }
 
 function projectNodes(
@@ -509,6 +589,7 @@ async function renderToDataUrl(
   theme: Theme,
   pixelWidth: number,
   pixelHeight: number,
+  fontBundle: RenderMessage["fontBundle"],
 ): Promise<string> {
   const canvas = new OffscreenCanvas(pixelWidth, pixelHeight);
   const ctx = canvas.getContext("2d");
@@ -521,6 +602,12 @@ async function renderToDataUrl(
   const waterColor = colors.water ?? DEFAULT_WATER;
   const parksColor = colors.parks ?? DEFAULT_PARKS;
   const gradientColor = colors.gradient_color ?? bg;
+
+  try {
+    await ensureWorkerFonts(fontBundle);
+  } catch {
+    // Keep rendering with fallback fonts when custom font loading fails.
+  }
 
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, pixelWidth, pixelHeight);
@@ -595,6 +682,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
       message.theme,
       Math.max(200, Math.round(message.pixelWidth)),
       Math.max(200, Math.round(message.pixelHeight)),
+      message.fontBundle,
     );
     const response: WorkerSuccess = {
       type: "rendered",

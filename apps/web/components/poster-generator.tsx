@@ -27,6 +27,7 @@ import { z } from "zod";
 import {
   createJob,
   fetchDownload,
+  fetchFontBundleData,
   fetchFonts,
   fetchJob,
   fetchLocations,
@@ -158,6 +159,10 @@ type WorkerRenderRequest = {
   theme: Theme;
   pixelWidth: number;
   pixelHeight: number;
+  fontBundle?: {
+    family: string;
+    files: Record<string, string>;
+  } | null;
 };
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -446,6 +451,7 @@ export function PosterGenerator({
     }),
     [watchedValues],
   );
+  const selectedFontFamily = values.fontFamily?.trim() ?? "";
   const previewPayload = useMemo(() => toPayload(values), [values]);
   const {
     city: snapshotCity,
@@ -530,6 +536,14 @@ export function PosterGenerator({
     enabled: fontComboboxOpen,
     staleTime: 60 * 60_000,
     refetchOnWindowFocus: false,
+  });
+  const fontBundleQuery = useQuery({
+    queryKey: ["font-bundle", selectedFontFamily],
+    queryFn: () => fetchFontBundleData(selectedFontFamily),
+    enabled: rendererMode === "local-wasm" && selectedFontFamily.length > 0,
+    staleTime: 24 * 60 * 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
   const snapshotQuery = useQuery({
     queryKey: ["render-snapshot", debouncedSnapshotRequest, disableRateLimit],
@@ -907,7 +921,11 @@ export function PosterGenerator({
     (theme) => theme.id === values.theme,
   );
   const themeTextColor = activeTheme?.colors.text ?? "#8C4A18";
-  const selectedFontFamily = values.fontFamily?.trim() ?? "";
+  const localFontBundlePending =
+    rendererMode === "local-wasm" &&
+    selectedFontFamily.length > 0 &&
+    fontBundleQuery.isFetching &&
+    !fontBundleQuery.data;
   const previewWidthInches =
     Number.isFinite(values.width) && values.width > 0
       ? values.width
@@ -929,7 +947,10 @@ export function PosterGenerator({
   const hasPreview = Boolean(previewUrl);
   const isPreviewLoading =
     rendererMode === "local-wasm"
-      ? snapshotQuery.isFetching || localRenderPending || !hasPreview
+      ? snapshotQuery.isFetching ||
+        localRenderPending ||
+        localFontBundlePending ||
+        !hasPreview
       : previewQuery.isFetching;
   const previewViewboxWidth = previewWidthInches * 100;
   const previewViewboxHeight = previewHeightInches * 100;
@@ -958,7 +979,12 @@ export function PosterGenerator({
       return;
     }
     const worker = workerRef.current;
-    if (!worker || !snapshotQuery.data || !activeTheme) {
+    if (
+      !worker ||
+      !snapshotQuery.data ||
+      !activeTheme ||
+      localFontBundlePending
+    ) {
       return;
     }
 
@@ -979,12 +1005,22 @@ export function PosterGenerator({
       theme: activeTheme,
       pixelWidth: previewPixelWidth,
       pixelHeight: previewPixelHeight,
+      fontBundle:
+        selectedFontFamily.length > 0 && fontBundleQuery.data
+          ? {
+              family: fontBundleQuery.data.family,
+              files: fontBundleQuery.data.files,
+            }
+          : null,
     };
     worker.postMessage(message);
   }, [
     rendererMode,
     snapshotQuery.data,
     activeTheme,
+    localFontBundlePending,
+    selectedFontFamily,
+    fontBundleQuery.data,
     previewPayload,
     previewPixelWidth,
     previewPixelHeight,

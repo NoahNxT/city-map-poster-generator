@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -163,6 +164,7 @@ func (s *Server) handleFontBundle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	weights := parseFontWeights(r.URL.Query().Get("weights"))
+	responseEncoding := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("encoding")))
 
 	family = strings.TrimSpace(family)
 	fontPaths := s.fontsSvc.ResolveFontPaths(r.Context(), &family)
@@ -176,6 +178,29 @@ func (s *Server) handleFontBundle(w http.ResponseWriter, r *http.Request) {
 		"400": fontPaths.Regular,
 		"700": fontPaths.Bold,
 	}
+
+	if responseEncoding == "json" {
+		files := map[string]string{}
+		for _, weight := range weights {
+			path, ok := filesByWeight[weight]
+			if !ok {
+				continue
+			}
+			content, err := os.ReadFile(filepath.Clean(path))
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			files[weight] = base64.StdEncoding.EncodeToString(content)
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"family":  family,
+			"weights": weights,
+			"files":   files,
+		})
+		return
+	}
+
 	manifest := map[string]any{
 		"family":  family,
 		"weights": weights,
