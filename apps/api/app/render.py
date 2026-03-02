@@ -107,4 +107,7 @@ def render_poster(
         country_font_size=payload.countryFontSize,
         text_color=payload.textColor,
         label_padding_scale=payload.labelPaddingScale,
+        text_blur_enabled=payload.textBlurEnabled,
+        text_blur_size=payload.textBlurSize,
+        text_blur_strength=payload.textBlurStrength,
     )

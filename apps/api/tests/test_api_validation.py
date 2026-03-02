@@ -86,3 +86,19 @@ def test_label_padding_scale_bounds() -> None:
         assert False, "Validation should fail"
     except Exception:
         assert True
+
+
+def test_text_blur_bounds() -> None:
+    try:
+        PosterRequest.model_validate(
+            {
+                "city": "Paris",
+                "country": "France",
+                "theme": "terracotta",
+                "textBlurSize": 0.1,
+                "textBlurStrength": 100,
+            }
+        )
+        assert False, "Validation should fail"
+    except Exception:
+        assert True

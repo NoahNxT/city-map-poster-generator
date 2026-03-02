@@ -101,6 +101,9 @@ const schema = z
       .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
       .optional(),
     labelPaddingScale: z.number().min(0.5).max(3),
+    textBlurEnabled: z.boolean(),
+    textBlurSize: z.number().min(0.6).max(2.5),
+    textBlurStrength: z.number().min(0).max(30),
     distance: z.number().min(1000).max(50000),
     width: z.number().min(1).max(20),
     height: z.number().min(1).max(20),
@@ -144,6 +147,15 @@ function normalizeHexColor(value: string | undefined): string | null {
   }
   const [r, g, b] = raw.slice(1).split("");
   return `#${r}${r}${g}${g}${b}${b}`;
+}
+
+function hexToRgba(value: string, alpha: number): string {
+  const normalized = normalizeHexColor(value) ?? "#f5efe6";
+  const r = Number.parseInt(normalized.slice(1, 3), 16);
+  const g = Number.parseInt(normalized.slice(3, 5), 16);
+  const b = Number.parseInt(normalized.slice(5, 7), 16);
+  const safeAlpha = clamp(alpha, 0, 1);
+  return `rgba(${r}, ${g}, ${b}, ${safeAlpha})`;
 }
 
 function isLikelyLatin(text: string): boolean {
@@ -448,6 +460,9 @@ const defaultValues: FormValues = {
   countryFontSize: undefined,
   textColor: undefined,
   labelPaddingScale: 1,
+  textBlurEnabled: false,
+  textBlurSize: 1,
+  textBlurStrength: 8,
   distance: 12000,
   width: 12,
   height: 16,
@@ -469,6 +484,9 @@ function toPayload(values: FormValues): PosterRequest {
     countryFontSize: values.countryFontSize,
     textColor: values.textColor?.trim() || undefined,
     labelPaddingScale: values.labelPaddingScale,
+    textBlurEnabled: values.textBlurEnabled,
+    textBlurSize: values.textBlurSize,
+    textBlurStrength: values.textBlurStrength,
     distance: values.distance,
     width: values.width,
     height: values.height,
@@ -675,11 +693,46 @@ export function PosterGenerator() {
     values.cityFontSize,
     values.countryFontSize,
   );
+  const previewLabelLayout = getPreviewLabelLayout(
+    previewTextMetrics,
+    values.labelPaddingScale,
+  );
   const previewDisplayCountry = (values.country || "").toUpperCase();
   const previewTypographyFontFamily =
     values.fontFamily?.trim() || "var(--font-heading)";
   const previewCoords = formatPreviewCoords(values.latitude, values.longitude);
   const previewUrl = `/theme-previews/${values.theme}.svg`;
+  const previewThemeBackground =
+    normalizeHexColor(activeTheme?.colors.bg) ?? "#f5efe6";
+  const previewBlurPanelWidthPct = clamp(52 * values.textBlurSize, 34, 90);
+  const previewBlurPaddingPx =
+    8 * values.textBlurSize * values.labelPaddingScale;
+  const previewBlurTopPx = clamp(
+    previewLabelLayout.cityY -
+      (previewTextMetrics.cityFontSize * 0.78 + previewBlurPaddingPx),
+    0,
+    PREVIEW_VIEWBOX_HEIGHT - 1,
+  );
+  const previewBlurBottomPx = clamp(
+    previewLabelLayout.coordsY +
+      previewTextMetrics.coordsFontSize * 0.35 +
+      previewBlurPaddingPx,
+    previewBlurTopPx + 1,
+    PREVIEW_VIEWBOX_HEIGHT,
+  );
+  const previewBlurTopPct = (previewBlurTopPx / PREVIEW_VIEWBOX_HEIGHT) * 100;
+  const previewBlurHeightPct =
+    ((previewBlurBottomPx - previewBlurTopPx) / PREVIEW_VIEWBOX_HEIGHT) * 100;
+  const previewBlurLeftPct = (100 - previewBlurPanelWidthPct) / 2;
+  const previewBlurTint = hexToRgba(
+    previewThemeBackground,
+    clamp(0.08 + values.textBlurStrength / 120, 0.08, 0.35),
+  );
+  const previewBlurBorder = hexToRgba(
+    previewThemeBackground,
+    clamp(0.15 + values.textBlurStrength / 90, 0.15, 0.45),
+  );
+  const previewBlurRadiusPx = 14 * values.textBlurSize;
   const previewZoomAnchor = previewPointer ?? { x: 0.5, y: 0.5 };
   const zoomViewWidth = PREVIEW_VIEWBOX_WIDTH / previewZoomLevel;
   const zoomViewHeight = PREVIEW_VIEWBOX_HEIGHT / previewZoomLevel;
@@ -1226,6 +1279,73 @@ export function PosterGenerator() {
                               and coordinates when typography is larger.
                             </p>
                           </div>
+                          <div className="mt-3 rounded-md border border-border bg-card px-3 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium text-foreground">
+                                  Text backdrop blur
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Adds a soft blurred panel behind the text
+                                  block.
+                                </p>
+                              </div>
+                              <Switch
+                                checked={values.textBlurEnabled}
+                                onCheckedChange={(checked) =>
+                                  form.setValue("textBlurEnabled", checked, {
+                                    shouldValidate: true,
+                                  })
+                                }
+                              />
+                            </div>
+                            {values.textBlurEnabled ? (
+                              <div className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                    <span>Blur size</span>
+                                    <span>
+                                      {values.textBlurSize.toFixed(2)}x
+                                    </span>
+                                  </div>
+                                  <Slider
+                                    min={0.6}
+                                    max={2.5}
+                                    step={0.05}
+                                    value={[values.textBlurSize]}
+                                    onValueChange={(nextValue) =>
+                                      form.setValue(
+                                        "textBlurSize",
+                                        nextValue[0] ?? 1,
+                                        { shouldValidate: true },
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                    <span>Blur strength</span>
+                                    <span>
+                                      {values.textBlurStrength.toFixed(1)}px
+                                    </span>
+                                  </div>
+                                  <Slider
+                                    min={0}
+                                    max={30}
+                                    step={0.5}
+                                    value={[values.textBlurStrength]}
+                                    onValueChange={(nextValue) =>
+                                      form.setValue(
+                                        "textBlurStrength",
+                                        nextValue[0] ?? 8,
+                                        { shouldValidate: true },
+                                      )
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
                           <div className="mt-3 space-y-2">
                             <Label htmlFor="textColor">
                               Text color override
@@ -1535,6 +1655,22 @@ export function PosterGenerator() {
                   className="h-full w-full object-cover"
                   unoptimized
                 />
+                {values.textBlurEnabled ? (
+                  <div
+                    className="pointer-events-none absolute z-10 border shadow-[0_10px_30px_rgba(0,0,0,0.08)]"
+                    style={{
+                      left: `${previewBlurLeftPct}%`,
+                      top: `${previewBlurTopPct}%`,
+                      width: `${previewBlurPanelWidthPct}%`,
+                      height: `${previewBlurHeightPct}%`,
+                      borderRadius: `${previewBlurRadiusPx}px`,
+                      backgroundColor: previewBlurTint,
+                      borderColor: previewBlurBorder,
+                      backdropFilter: `blur(${values.textBlurStrength}px)`,
+                      WebkitBackdropFilter: `blur(${values.textBlurStrength}px)`,
+                    }}
+                  />
+                ) : null}
                 <PreviewTypographyOverlay
                   className="pointer-events-none absolute inset-0 h-full w-full"
                   title="Poster text preview overlay"

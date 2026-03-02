@@ -26,6 +26,7 @@ from geopandas import GeoDataFrame
 from geopy.geocoders import Nominatim
 from lat_lon_parser import parse
 from matplotlib.font_manager import FontProperties
+from matplotlib.patches import FancyBboxPatch
 from networkx import MultiDiGraph
 from shapely.geometry import Point
 from tqdm import tqdm
@@ -522,6 +523,9 @@ def create_poster(
     country_font_size=None,
     text_color=None,
     label_padding_scale=1.0,
+    text_blur_enabled=False,
+    text_blur_size=1.0,
+    text_blur_strength=8.0,
 ):
     """
     Generate a complete map poster with roads, water, parks, and typography.
@@ -744,6 +748,53 @@ def create_poster(
     city_y = min(max(0.14, divider_y + city_desc + min_gap), 0.32)
 
     if include_labels:
+        if text_blur_enabled:
+            blur_size = float(text_blur_size)
+            blur_strength = float(text_blur_strength)
+            panel_width = min(max(0.52 * blur_size, 0.34), 0.9)
+            panel_height = min(max(0.14 * blur_size, 0.08), 0.34)
+            panel_center_y = (city_y + coords_y) / 2.0
+            panel_x = 0.5 - panel_width / 2.0
+            panel_y = min(max(panel_center_y - panel_height / 2.0, 0.0), 1.0 - panel_height)
+            blur_scale = max(0.0, min(1.0, blur_strength / 30.0))
+            blur_layers = max(2, int(4 + blur_scale * 10))
+            core_alpha = 0.10 + 0.22 * blur_scale
+            edge_alpha = 0.04 + 0.14 * blur_scale
+            corner_radius = 0.02 * blur_size
+
+            # Simulate a blur by stacking soft rounded panels with decaying alpha.
+            for layer in range(blur_layers, 0, -1):
+                t = layer / blur_layers
+                spread = (1.0 - t) * (0.06 * blur_size)
+                alpha = (edge_alpha * (t**2)) / blur_layers
+                ax.add_patch(
+                    FancyBboxPatch(
+                        (panel_x - spread, panel_y - spread),
+                        panel_width + (spread * 2),
+                        panel_height + (spread * 2),
+                        boxstyle=f"round,pad=0.01,rounding_size={corner_radius + spread}",
+                        transform=ax.transAxes,
+                        linewidth=0,
+                        facecolor=THEME["bg"],
+                        alpha=alpha,
+                        zorder=10.85,
+                    )
+                )
+
+            ax.add_patch(
+                FancyBboxPatch(
+                    (panel_x, panel_y),
+                    panel_width,
+                    panel_height,
+                    boxstyle=f"round,pad=0.01,rounding_size={corner_radius}",
+                    transform=ax.transAxes,
+                    linewidth=0,
+                    facecolor=THEME["bg"],
+                    alpha=core_alpha,
+                    zorder=10.9,
+                )
+            )
+
         # --- BOTTOM TEXT ---
         ax.text(
             0.5,

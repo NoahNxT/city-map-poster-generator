@@ -17,6 +17,9 @@ export type PosterRequest = {
   countryFontSize?: number;
   textColor?: string;
   labelPaddingScale: number;
+  textBlurEnabled: boolean;
+  textBlurSize: number;
+  textBlurStrength: number;
   distance: number;
   width: number;
   height: number;

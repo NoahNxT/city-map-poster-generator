@@ -23,6 +23,9 @@ def test_poster_request_defaults_include_layers() -> None:
     assert payload.countryFontSize is None
     assert payload.textColor is None
     assert payload.labelPaddingScale == 1.0
+    assert payload.textBlurEnabled is False
+    assert payload.textBlurSize == 1.0
+    assert payload.textBlurStrength == 8.0
 
 
 def test_generation_job_passes_export_layer_flags_to_renderer() -> None:
@@ -38,6 +41,9 @@ def test_generation_job_passes_export_layer_flags_to_renderer() -> None:
         "countryFontSize": 20,
         "textColor": "#8c4a18",
         "labelPaddingScale": 1.6,
+        "textBlurEnabled": True,
+        "textBlurSize": 1.4,
+        "textBlurStrength": 12,
         "distance": 12000,
         "width": 12,
         "height": 16,
@@ -63,6 +69,9 @@ def test_generation_job_passes_export_layer_flags_to_renderer() -> None:
     assert payload_arg.countryFontSize == 20
     assert payload_arg.textColor == "#8c4a18"
     assert payload_arg.labelPaddingScale == 1.6
+    assert payload_arg.textBlurEnabled is True
+    assert payload_arg.textBlurSize == 1.4
+    assert payload_arg.textBlurStrength == 12
 
 
 def test_preview_ignores_export_layer_toggles() -> None:

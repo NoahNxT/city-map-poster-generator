@@ -30,6 +30,9 @@ class PosterRequest(BaseModel):
     countryFontSize: float | None = Field(default=None, ge=6, le=80)
     textColor: str | None = Field(default=None, max_length=16)
     labelPaddingScale: float = Field(default=1.0, ge=0.5, le=3.0)
+    textBlurEnabled: bool = False
+    textBlurSize: float = Field(default=1.0, ge=0.6, le=2.5)
+    textBlurStrength: float = Field(default=8.0, ge=0.0, le=30.0)
     distance: int = Field(default=18000, ge=1000, le=50000)
     width: float = Field(default=12, ge=1, le=20)
     height: float = Field(default=16, ge=1, le=20)
