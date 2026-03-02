@@ -467,13 +467,15 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := s.captcha.Verify(r.Context(), body.CaptchaToken, ip); err != nil {
-		status := http.StatusBadRequest
-		if strings.Contains(err.Error(), "missing") {
-			status = http.StatusInternalServerError
+	if !s.shouldBypassCaptcha(r) {
+		if err := s.captcha.Verify(r.Context(), body.CaptchaToken, ip); err != nil {
+			status := http.StatusBadRequest
+			if strings.Contains(err.Error(), "missing") {
+				status = http.StatusInternalServerError
+			}
+			writeError(w, status, err.Error())
+			return
 		}
-		writeError(w, status, err.Error())
-		return
 	}
 
 	jobID := uuid.NewString()
@@ -579,13 +581,15 @@ func (s *Server) handleExportInit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := s.captcha.Verify(r.Context(), body.CaptchaToken, ip); err != nil {
-		status := http.StatusBadRequest
-		if strings.Contains(err.Error(), "missing") {
-			status = http.StatusInternalServerError
+	if !s.shouldBypassCaptcha(r) {
+		if err := s.captcha.Verify(r.Context(), body.CaptchaToken, ip); err != nil {
+			status := http.StatusBadRequest
+			if strings.Contains(err.Error(), "missing") {
+				status = http.StatusInternalServerError
+			}
+			writeError(w, status, err.Error())
+			return
 		}
-		writeError(w, status, err.Error())
-		return
 	}
 
 	exportID := uuid.NewString()
@@ -817,6 +821,19 @@ func (s *Server) shouldBypassRateLimit(r *http.Request) bool {
 		return false
 	}
 	for _, key := range []string{"x-dev-no-rate-limit", "x-dev-preview-no-rate-limit", "x-dev-generate-no-rate-limit"} {
+		value := strings.ToLower(strings.TrimSpace(r.Header.Get(key)))
+		if value == "1" || value == "true" || value == "yes" || value == "on" {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) shouldBypassCaptcha(r *http.Request) bool {
+	if strings.EqualFold(s.cfg.AppEnv, "production") {
+		return false
+	}
+	for _, key := range []string{"x-dev-no-captcha", "x-dev-generate-no-captcha"} {
 		value := strings.ToLower(strings.TrimSpace(r.Header.Get(key)))
 		if value == "1" || value == "true" || value == "yes" || value == "on" {
 			return true

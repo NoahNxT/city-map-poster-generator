@@ -123,6 +123,8 @@ export type Dictionary = {
     description: string;
     disableRateLimitTitle: string;
     disableRateLimitDescription: string;
+    disableCaptchaTitle: string;
+    disableCaptchaDescription: string;
     zoomTitle: string;
     zoomDescription: string;
     zoomLevel: string;
@@ -315,6 +317,9 @@ const en: Dictionary = {
     disableRateLimitTitle: "Disable all API rate limits",
     disableRateLimitDescription:
       "Development only. Disables all API throttling.",
+    disableCaptchaTitle: "Disable CAPTCHA verification",
+    disableCaptchaDescription:
+      "Development only. Bypasses CAPTCHA checks on generation requests.",
     zoomTitle: "Zoom box",
     zoomDescription: "Inspect smaller text in the preview.",
     zoomLevel: "Zoom level",

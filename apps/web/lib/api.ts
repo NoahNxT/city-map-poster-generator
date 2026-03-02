@@ -111,6 +111,7 @@ export async function createJob(
   captchaToken?: string,
   options?: {
     disableRateLimit?: boolean;
+    disableCaptchaCheck?: boolean;
   },
 ): Promise<{ jobId: string; status: string; createdAt: string }> {
   const response = await fetch(`${API_BASE}/v2/jobs`, {
@@ -118,6 +119,7 @@ export async function createJob(
     headers: {
       "Content-Type": "application/json",
       ...(options?.disableRateLimit ? { "x-dev-no-rate-limit": "1" } : {}),
+      ...(options?.disableCaptchaCheck ? { "x-dev-no-captcha": "1" } : {}),
     },
     body: JSON.stringify({ payload, captchaToken }),
   });
@@ -253,6 +255,7 @@ export async function initExport(
   payload: ExportInitRequest,
   options?: {
     disableRateLimit?: boolean;
+    disableCaptchaCheck?: boolean;
   },
 ): Promise<ExportInitResponse> {
   const response = await fetch(`${API_BASE}/v2/exports/init`, {
@@ -260,6 +263,7 @@ export async function initExport(
     headers: {
       "Content-Type": "application/json",
       ...(options?.disableRateLimit ? { "x-dev-no-rate-limit": "1" } : {}),
+      ...(options?.disableCaptchaCheck ? { "x-dev-no-captcha": "1" } : {}),
     },
     body: JSON.stringify(payload),
   });

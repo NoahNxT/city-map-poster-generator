@@ -17,45 +17,45 @@ type Config struct {
 	QueueName   string
 	WorkerBlock int
 
-	S3EndpointURL      string
+	S3EndpointURL       string
 	S3PublicEndpointURL string
-	S3Region           string
-	S3AccessKeyID      string
-	S3SecretAccessKey  string
-	S3BucketPreviews   string
-	S3BucketArtifacts  string
-	S3Secure           bool
+	S3Region            string
+	S3AccessKeyID       string
+	S3SecretAccessKey   string
+	S3BucketPreviews    string
+	S3BucketArtifacts   string
+	S3Secure            bool
 
-	PreviewTTLSeconds     int
-	PreviewRasterDPI      int
-	ArtifactTTLSeconds    int
+	PreviewTTLSeconds      int
+	PreviewRasterDPI       int
+	ArtifactTTLSeconds     int
 	PresignedURLTTLSeconds int
 
-	CaptchaRequired   bool
-	TurnstileSecret   string
+	CaptchaRequired    bool
+	TurnstileSecret    string
 	TurnstileVerifyURL string
 
-	RateLimitPreviewCount      int
-	RateLimitPreviewWindowSec  int
-	RateLimitLocationsCount    int
+	RateLimitPreviewCount       int
+	RateLimitPreviewWindowSec   int
+	RateLimitLocationsCount     int
 	RateLimitLocationsWindowSec int
-	RateLimitFontsCount        int
-	RateLimitFontsWindowSec    int
-	RateLimitJobsCount         int
-	RateLimitJobsWindowSec     int
-	RateLimitConcurrentPerIP   int
+	RateLimitFontsCount         int
+	RateLimitFontsWindowSec     int
+	RateLimitJobsCount          int
+	RateLimitJobsWindowSec      int
+	RateLimitConcurrentPerIP    int
 
 	RequestTimeoutSeconds int
 	NominatimSearchURL    string
 	NominatimUserAgent    string
 	OverpassURL           string
 
-	GoogleFontsAPIURL        string
-	GoogleFontsAPIKey        string
-	GoogleFontsMetadataURL   string
+	GoogleFontsAPIURL          string
+	GoogleFontsAPIKey          string
+	GoogleFontsMetadataURL     string
 	GoogleFontsCacheTTLSeconds int
 
-	CacheDir string
+	CacheDir  string
 	AssetsDir string
 }
 
@@ -83,8 +83,8 @@ func Load() (Config, error) {
 		ArtifactTTLSeconds:     getEnvInt("ARTIFACT_TTL_SECONDS", 60*60*24),
 		PresignedURLTTLSeconds: getEnvInt("PRESIGNED_URL_TTL_SECONDS", 60*60),
 
-		CaptchaRequired:   getEnvBool("CAPTCHA_REQUIRED", false),
-		TurnstileSecret:   getEnv("TURNSTILE_SECRET_KEY", ""),
+		CaptchaRequired:    getEnvBool("CAPTCHA_REQUIRED", false),
+		TurnstileSecret:    getEnv("TURNSTILE_SECRET_KEY", ""),
 		TurnstileVerifyURL: getEnv("TURNSTILE_VERIFY_URL", "https://challenges.cloudflare.com/turnstile/v0/siteverify"),
 
 		RateLimitPreviewCount:       getEnvInt("RATE_LIMIT_PREVIEW_COUNT", 20),
@@ -93,7 +93,7 @@ func Load() (Config, error) {
 		RateLimitLocationsWindowSec: getEnvInt("RATE_LIMIT_LOCATIONS_WINDOW_SECONDS", 600),
 		RateLimitFontsCount:         getEnvInt("RATE_LIMIT_FONTS_COUNT", 120),
 		RateLimitFontsWindowSec:     getEnvInt("RATE_LIMIT_FONTS_WINDOW_SECONDS", 600),
-		RateLimitJobsCount:          getEnvInt("RATE_LIMIT_JOBS_COUNT", 5),
+		RateLimitJobsCount:          getEnvInt("RATE_LIMIT_JOBS_COUNT", 3),
 		RateLimitJobsWindowSec:      getEnvInt("RATE_LIMIT_JOBS_WINDOW_SECONDS", 600),
 		RateLimitConcurrentPerIP:    getEnvInt("RATE_LIMIT_MAX_CONCURRENT_JOBS_PER_IP", 2),
 
@@ -102,12 +102,12 @@ func Load() (Config, error) {
 		NominatimUserAgent:    getEnv("NOMINATIM_USER_AGENT", "city-map-poster-generator/2.0"),
 		OverpassURL:           getEnv("OVERPASS_URL", "https://overpass-api.de/api/interpreter"),
 
-		GoogleFontsAPIURL:         getEnv("GOOGLE_FONTS_API_URL", "https://www.googleapis.com/webfonts/v1/webfonts"),
-		GoogleFontsAPIKey:         getEnv("GOOGLE_FONTS_API_KEY", ""),
-		GoogleFontsMetadataURL:    getEnv("GOOGLE_FONTS_METADATA_URL", "https://fonts.google.com/metadata/fonts"),
+		GoogleFontsAPIURL:          getEnv("GOOGLE_FONTS_API_URL", "https://www.googleapis.com/webfonts/v1/webfonts"),
+		GoogleFontsAPIKey:          getEnv("GOOGLE_FONTS_API_KEY", ""),
+		GoogleFontsMetadataURL:     getEnv("GOOGLE_FONTS_METADATA_URL", "https://fonts.google.com/metadata/fonts"),
 		GoogleFontsCacheTTLSeconds: getEnvInt("GOOGLE_FONTS_CACHE_TTL_SECONDS", 60*60*24),
 
-		CacheDir: getEnv("CACHE_DIR", "/tmp/map-cache"),
+		CacheDir:  getEnv("CACHE_DIR", "/tmp/map-cache"),
 		AssetsDir: getEnv("ASSETS_DIR", "/app/assets"),
 	}
 

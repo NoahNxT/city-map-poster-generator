@@ -444,11 +444,13 @@ export function PosterGenerator({
   const includeParksId = "include-parks-switch";
   const blurEnabledId = "text-blur-switch";
   const rateLimitToggleId = "dev-rate-limit-switch";
+  const captchaToggleId = "dev-captcha-switch";
   const zoomToggleId = "preview-zoom-switch";
   const zoomSliderId = "preview-zoom-slider";
   const pageDescriptionId = "generator-page-description";
   const previewKeyboardHintId = "preview-keyboard-hint";
   const previewFrameId = "live-preview-frame";
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const shouldReduceMotion = useReducedMotion();
   const [jobId, setJobId] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(
@@ -465,6 +467,8 @@ export function PosterGenerator({
     useState<AdvancedHelpFieldKey | null>(null);
   const [previewZoomEnabled, setPreviewZoomEnabled] = useState(false);
   const [disableRateLimit, setDisableRateLimit] = useState(false);
+  const [disableCaptchaCheck, setDisableCaptchaCheck] = useState(false);
+  const [turnstileRenderKey, setTurnstileRenderKey] = useState(0);
   const [sizeUnit, setSizeUnit] = useState<SizeUnit>("cm");
   const [activeDimensionField, setActiveDimensionField] =
     useState<DimensionField | null>(null);
@@ -663,14 +667,27 @@ export function PosterGenerator({
       payload,
       token,
       disableRateLimit,
+      disableCaptchaCheck,
     }: {
       payload: PosterRequest;
       token?: string;
       disableRateLimit: boolean;
-    }) => createJob(payload, token, { disableRateLimit }),
+      disableCaptchaCheck: boolean;
+    }) =>
+      createJob(payload, token, {
+        disableRateLimit,
+        disableCaptchaCheck,
+      }),
     onSuccess: (data) => {
       setJobId(data.jobId);
       setDownloadUrl(null);
+    },
+    onSettled: () => {
+      if (!turnstileSiteKey || disableCaptchaCheck) {
+        return;
+      }
+      setCaptchaToken(undefined);
+      setTurnstileRenderKey((currentKey) => currentKey + 1);
     },
   });
 
@@ -874,6 +891,12 @@ export function PosterGenerator({
     if (rawValue === "1") {
       setDisableRateLimit(true);
     }
+    const rawCaptchaBypassValue = window.localStorage.getItem(
+      "disableCaptchaCheck",
+    );
+    if (rawCaptchaBypassValue === "1") {
+      setDisableCaptchaCheck(true);
+    }
   }, [showDevRateLimitToggle]);
 
   useEffect(() => {
@@ -886,6 +909,26 @@ export function PosterGenerator({
     );
   }, [disableRateLimit, showDevRateLimitToggle]);
 
+  useEffect(() => {
+    if (!showDevRateLimitToggle) {
+      return;
+    }
+    window.localStorage.setItem(
+      "disableCaptchaCheck",
+      disableCaptchaCheck ? "1" : "0",
+    );
+  }, [disableCaptchaCheck, showDevRateLimitToggle]);
+
+  useEffect(() => {
+    if (!turnstileSiteKey) {
+      return;
+    }
+    setCaptchaToken(undefined);
+    if (!disableCaptchaCheck) {
+      setTurnstileRenderKey((currentKey) => currentKey + 1);
+    }
+  }, [disableCaptchaCheck, turnstileSiteKey]);
+
   const statusTone = useMemo(() => {
     const status = jobQuery.data?.status;
     if (status === "failed") return "destructive" as const;
@@ -896,8 +939,9 @@ export function PosterGenerator({
   function handleGenerate(values: FormValues) {
     createJobMutation.mutate({
       payload: toPayload(values),
-      token: captchaToken,
+      token: disableCaptchaCheck ? undefined : captchaToken,
       disableRateLimit,
+      disableCaptchaCheck,
     });
   }
 
@@ -1108,7 +1152,6 @@ export function PosterGenerator({
     }
   }
 
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const activeTheme = themesQuery.data?.find(
     (theme) => theme.id === values.theme,
   );
@@ -1118,6 +1161,12 @@ export function PosterGenerator({
     selectedFontFamily.length > 0 &&
     fontBundleQuery.isFetching &&
     !fontBundleQuery.data;
+  const requiresCaptchaToken =
+    Boolean(turnstileSiteKey) && !disableCaptchaCheck;
+  const isGenerateDisabled =
+    !form.formState.isValid ||
+    createJobMutation.isPending ||
+    (requiresCaptchaToken && !captchaToken);
   const dimensionUnitLabel = sizeUnit === "cm" ? "cm" : "in";
   const dimensionDisplayMin = formatDimensionValue(
     MIN_POSTER_INCHES,
@@ -2470,13 +2519,18 @@ export function PosterGenerator({
                     </AccordionItem>
                   </Accordion>
 
-                  {turnstileSiteKey ? (
+                  {turnstileSiteKey && !disableCaptchaCheck ? (
                     <Turnstile
+                      key={turnstileRenderKey}
                       siteKey={turnstileSiteKey}
                       options={{ theme: "light" }}
                       onSuccess={(token) => setCaptchaToken(token)}
                       onExpire={() => setCaptchaToken(undefined)}
                     />
+                  ) : showDevRateLimitToggle && disableCaptchaCheck ? (
+                    <p className="text-xs text-muted-foreground">
+                      {d.preview.disableCaptchaDescription}
+                    </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
                       {d.controls.captchaMissing}
@@ -2487,9 +2541,7 @@ export function PosterGenerator({
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={
-                        !form.formState.isValid || createJobMutation.isPending
-                      }
+                      disabled={isGenerateDisabled}
                     >
                       {createJobMutation.isPending ? (
                         <>
@@ -2541,27 +2593,50 @@ export function PosterGenerator({
               </CardHeader>
               <CardContent className="space-y-4">
                 {showDevRateLimitToggle ? (
-                  <div className="rounded-lg border border-dashed px-3 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <Label
-                          htmlFor={rateLimitToggleId}
-                          className="text-sm font-medium text-foreground"
-                        >
-                          {d.preview.disableRateLimitTitle}
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
-                          {d.preview.disableRateLimitDescription}
-                        </p>
+                  <>
+                    <div className="rounded-lg border border-dashed px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <Label
+                            htmlFor={rateLimitToggleId}
+                            className="text-sm font-medium text-foreground"
+                          >
+                            {d.preview.disableRateLimitTitle}
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            {d.preview.disableRateLimitDescription}
+                          </p>
+                        </div>
+                        <Switch
+                          id={rateLimitToggleId}
+                          checked={disableRateLimit}
+                          onCheckedChange={setDisableRateLimit}
+                          aria-label={d.preview.disableRateLimitTitle}
+                        />
                       </div>
-                      <Switch
-                        id={rateLimitToggleId}
-                        checked={disableRateLimit}
-                        onCheckedChange={setDisableRateLimit}
-                        aria-label={d.preview.disableRateLimitTitle}
-                      />
                     </div>
-                  </div>
+                    <div className="rounded-lg border border-dashed px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <Label
+                            htmlFor={captchaToggleId}
+                            className="text-sm font-medium text-foreground"
+                          >
+                            {d.preview.disableCaptchaTitle}
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            {d.preview.disableCaptchaDescription}
+                          </p>
+                        </div>
+                        <Switch
+                          id={captchaToggleId}
+                          checked={disableCaptchaCheck}
+                          onCheckedChange={setDisableCaptchaCheck}
+                          aria-label={d.preview.disableCaptchaTitle}
+                        />
+                      </div>
+                    </div>
+                  </>
                 ) : null}
                 <div className="rounded-lg border border-dashed px-3 py-3">
                   <div className="flex items-center justify-between gap-3">
@@ -2837,7 +2912,7 @@ export function PosterGenerator({
         <Button
           className="mx-auto flex w-full max-w-7xl"
           onClick={form.handleSubmit(handleGenerate)}
-          disabled={!form.formState.isValid || createJobMutation.isPending}
+          disabled={isGenerateDisabled}
         >
           {createJobMutation.isPending ? (
             <>
