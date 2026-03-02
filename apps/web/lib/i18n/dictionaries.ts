@@ -158,9 +158,9 @@ export type Dictionary = {
 const en: Dictionary = {
   seo: {
     siteName: "City Map Poster Generator",
-    siteTitle: "Create Beautiful City Map Posters Online",
+    siteTitle: "Free City Map Poster Generator | Create Custom Map Art Online",
     siteDescription:
-      "Generate high-quality city map posters instantly with built-in themes, typography controls, and export formats.",
+      "Create free high-resolution city map posters online. Choose from 17 built-in themes, customize typography, and export as PNG, SVG, or PDF.",
     keywords: [
       "city map poster generator",
       "custom map poster",
@@ -168,27 +168,30 @@ const en: Dictionary = {
       "city poster",
       "map print design",
       "maptoposter",
+      "street map wall art",
+      "personalized city map",
+      "printable city map poster",
     ],
-    ogTitle: "Create Beautiful City Map Posters Online",
+    ogTitle: "Create a Custom City Map Poster in Minutes",
     ogDescription:
-      "Generate map posters in minutes with themes, typography controls, and export-ready files.",
-    homepageTitle: "Generate Custom City Map Posters",
+      "Design map posters with premium themes, typography controls, and instant PNG/SVG/PDF export.",
+    homepageTitle: "Create Your Personalized City Map Poster",
     homepageDescription:
-      "Design and download custom city map posters in minutes with powerful controls and built-in themes.",
+      "Generate and download polished city map posters in minutes with powerful controls and built-in styles.",
     privacyTitle: "Privacy Policy",
     privacyDescription:
-      "Learn how City Map Poster Generator handles personal data and privacy choices.",
+      "Learn how City Map Poster Generator processes and protects personal data.",
     cookiesTitle: "Cookie Policy",
     cookiesDescription:
-      "Learn which cookies are used by City Map Poster Generator and why.",
+      "Learn which cookies City Map Poster Generator uses and why.",
   },
   languageName: "English",
   languageLabel: "Language",
   header: {
     badge: "Public Poster Generator",
-    title: "Generate city map posters instantly",
+    title: "Create city map posters instantly",
     subtitle:
-      "Create high-resolution posters with all built-in maptoposter themes, multilingual labels, and export options without signing in.",
+      "Design and download high-resolution city map posters with all built-in maptoposter themes, multilingual labels, and flexible exports, without signing in.",
   },
   controls: {
     title: "Map Controls",
@@ -261,7 +264,7 @@ const en: Dictionary = {
     selection: "Selection",
     themeDefaultFont: "Theme default font",
     fallbackFonts: "Fallback Fonts",
-    googleFonts: "Google Fonts",
+    googleFonts: "Google-lettertypen",
     generatedButton: "Generate Poster",
     queueingButton: "Queueing job...",
     captchaMissing:
@@ -280,7 +283,7 @@ const en: Dictionary = {
     zoomDescription: "Inspect smaller text in the preview.",
     zoomLevel: "Zoom level",
     zoomLevelValue: "{value}x",
-    zoomValue: "Zoom {value}x",
+    zoomValue: "Vergroting {value}x",
     posterAlt: "Poster preview",
     textOverlayTitle: "Poster text preview overlay",
     magnifiedTitle: "Magnified poster preview",
@@ -396,42 +399,118 @@ const nl: Dictionary = {
   ...en,
   seo: {
     ...en.seo,
-    siteTitle: "Maak online prachtige stadskaartposters",
+    siteTitle: "Gratis stadskaart poster generator | Maak online kaartkunst",
     siteDescription:
-      "Genereer direct stadskaartposters in hoge kwaliteit met ingebouwde thema's, typografie-instellingen en exportformaten.",
-    homepageTitle: "Genereer aangepaste stadskaartposters",
+      "Maak gratis gepersonaliseerde stadskaartposters in hoge resolutie. Kies uit 17 thema's, pas typografie aan en download in PNG, SVG of PDF.",
+    keywords: [
+      "stadskaart poster",
+      "kaart poster maken",
+      "gepersonaliseerde stadskaart",
+      "map art generator",
+      "stadskaart print",
+      "kaartkunst",
+      "maptoposter",
+    ],
+    ogTitle: "Maak direct je eigen stadskaartposter",
+    ogDescription:
+      "Ontwerp een unieke stadskaart met professionele thema's en exporteer direct in PNG, SVG of PDF.",
+    homepageTitle: "Maak een gepersonaliseerde stadskaartposter",
     homepageDescription:
-      "Ontwerp en download in enkele minuten aangepaste stadskaartposters.",
+      "Genereer en download binnen minuten een stijlvolle stadskaartposter met geavanceerde instellingen.",
     privacyTitle: "Privacybeleid",
+    privacyDescription:
+      "Lees hoe City Map Poster Generator persoonsgegevens verwerkt en beschermt.",
     cookiesTitle: "Cookiebeleid",
+    cookiesDescription:
+      "Lees welke cookies City Map Poster Generator gebruikt en waarom.",
   },
   languageName: "Nederlands",
+  languageLabel: "Taal",
   header: {
-    badge: "Publieke Poster Generator",
-    title: "Genereer direct stadskaartposters",
+    badge: "Openbare Poster Generator",
+    title: "Maak direct stadskaartposters",
     subtitle:
-      "Maak posters in hoge resolutie met alle ingebouwde maptoposter-thema's, meertalige labels en exportopties zonder in te loggen.",
+      "Ontwerp en download kaartposters in hoge resolutie met alle ingebouwde maptoposter-thema's, meertalige labels en flexibele exportopties zonder account.",
   },
   controls: {
     ...en.controls,
     title: "Kaartinstellingen",
+    description:
+      "Hier vind je alle maptoposter-opties, inclusief geavanceerde instellingen.",
     location: "Locatie",
+    locationPlaceholder: "Zoek op stad, wijk, bezienswaardigheid...",
+    locationHelp:
+      "Kies een suggestie om stad/land en exacte coördinaten automatisch in te vullen.",
     city: "Stad",
+    cityPlaceholder: "Antwerpen",
     cityRequired: "Stad is verplicht.",
     country: "Land",
+    countryPlaceholder: "België",
     countryRequired: "Land is verplicht.",
     searchingLocations: "Locaties zoeken...",
     noLocationResults: "Geen resultaten voor deze zoekopdracht.",
+    distance: "Afstand",
     theme: "Thema",
     browseThemes: "Thema's bekijken",
+    format: "Bestandsformaat",
+    generateAllThemesTitle: "Alle thema's genereren",
+    generateAllThemesDescription:
+      "Genereert alle 17 thema's en bundelt ze als ZIP-download.",
     advancedOptions: "Geavanceerde opties",
+    latitude: "Breedtegraad",
+    longitude: "Lengtegraad",
+    width: "Breedte (inch, max 20)",
+    height: "Hoogte (inch, max 20)",
+    mapLayersTitle: "Kaartlagen (export)",
+    mapLayersDescription:
+      "Alleen van toepassing op de uiteindelijke generatie. De preview gebruikt snelle serverinstellingen.",
+    includeWater: "Water tonen",
+    includeWaterDescription: "Rivieren, meren, kanalen.",
+    includeParks: "Parken/groen tonen",
+    includeParksDescription: "Parken en groenzones.",
+    typographyTitle: "Typografie-aanpassingen",
+    typographyDescription:
+      "Optionele aangepaste grootte voor stad/land en tekstkleur voor preview en export.",
+    cityFontSize: "Lettergrootte stad (pt)",
+    countryFontSize: "Lettergrootte land (pt)",
     generatedButton: "Poster genereren",
     queueingButton: "Job in wachtrij...",
     autoThemeDefault: "Auto (thema-standaard)",
+    labelPaddingScale: "Schaal labelafstand",
+    labelPaddingHelp:
+      "Vergroot de afstand tussen stad, scheidingslijn, land en coördinaten bij grotere typografie.",
+    blurTitle: "Vervaagde tekstachtergrond",
+    blurDescription:
+      "Voegt een zacht vervaagd paneel achter het tekstblok toe.",
+    blurSize: "Vervaag-grootte",
+    blurStrength: "Vervaag-sterkte",
+    textColor: "Tekstkleur overschrijven",
     autoThemeTextColor: "Auto (thema-tekstkleur)",
+    textColorHelp:
+      "Ondersteunt hex-kleuren zoals #8C4A18 of #abc. Laat leeg om de themakleur te gebruiken.",
     pickCustomTextColor: "Kies aangepaste tekstkleur",
+    reset: "Resetten",
+    googleFontFamily: "Google Font-familie",
+    googleFontHelpTitle: "Typografiefamilie",
+    googleFontHelpDescription:
+      "Downloadt en past een Google Font-familie toe op stads-, land- en coördinatenlabels in de uiteindelijke render.",
     explainGoogleFontFamily: "Uitleg Google Font Family",
+    selectGoogleFont: "Selecteer Google Font...",
+    searchGoogleFonts: "Zoek in Google Fonts...",
     searchGoogleFontsAria: "Zoek Google Font-familie",
+    searchGoogleFontsHelp:
+      "Zoek en selecteer alleen uit Google Fonts-resultaten.",
+    searchingFonts: "Lettertypen zoeken...",
+    fontSearchUnavailable:
+      "Zoeken naar lettertypen is niet beschikbaar. Fallback-suggesties worden getoond.",
+    noFallbackFonts: "Geen fallback-lettertypen voor deze zoekopdracht.",
+    noFontsFound: "Geen overeenkomstige lettertypen gevonden.",
+    selection: "Selectie",
+    themeDefaultFont: "Standaard lettertype van thema",
+    fallbackFonts: "Fallback-lettertypen",
+    googleFonts: "Polices Google",
+    captchaMissing:
+      "CAPTCHA site key is niet geconfigureerd. Stel NEXT_PUBLIC_TURNSTILE_SITE_KEY in.",
     coordsUnavailable: "Selecteer een locatie om coördinaten te tonen",
     locationSuggestionsCountLabel: "{count} locatiesuggesties beschikbaar.",
   },
@@ -440,11 +519,18 @@ const nl: Dictionary = {
     title: "Live voorbeeld",
     description:
       "De preview is een benadering en kan licht afwijken van de uiteindelijke export.",
-    disableRateLimitTitle: "Schakel alle API-rate limits uit",
+    disableRateLimitTitle: "Alle API-rate limits uitschakelen",
     disableRateLimitDescription:
       "Alleen voor development. Schakelt alle API-throttling uit.",
-    zoomValue: "Zoom {value}x",
+    zoomTitle: "Zoombox",
+    zoomDescription: "Bekijk kleine tekst in de preview.",
+    zoomLevel: "Zoomniveau",
+    zoomLevelValue: "{value}x",
+    zoomValue: "Agrandissement {value}x",
     posterAlt: "Poster voorbeeld",
+    textOverlayTitle: "Voorbeeldoverlay van postertekst",
+    magnifiedTitle: "Vergroot postervoorbeeld",
+    magnifiedOverlayTitle: "Vergrote typografie-overlay",
   },
   status: {
     ...en.status,
@@ -453,6 +539,7 @@ const nl: Dictionary = {
     idle: "Geen actieve generatiejob.",
     idleBadge: "inactief",
     queuedBadge: "wachtrij",
+    jobLabel: "Taak",
     generationComplete: "Generatie voltooid",
     generationFailed: "Generatie mislukt",
     preparingDownload: "Download voorbereiden...",
@@ -460,10 +547,11 @@ const nl: Dictionary = {
   },
   themeExplorer: {
     ...en.themeExplorer,
-    title: "Thema-overzicht",
+    title: "Themagalerij",
     description:
       "Vergelijk alle ingebouwde stijlen en kies het uiterlijk dat bij jouw poster past.",
-    loadingPreview: "Voorbeeld laden",
+    loadingPreview: "Voorbeeld laden...",
+    previewUnavailable: "Voorbeeld niet beschikbaar",
     selected: "Geselecteerd",
   },
   footer: {
@@ -475,7 +563,7 @@ const nl: Dictionary = {
     description:
       "We gebruiken essentiële cookies om taalvoorkeur te onthouden en de site betrouwbaar te houden. Lees ons Cookiebeleid en Privacybeleid.",
     essentialOnly: "Alleen essentieel",
-    acceptAll: "Accepteren",
+    acceptAll: "Alles accepteren",
   },
   policies: {
     privacy: {
@@ -483,16 +571,73 @@ const nl: Dictionary = {
       title: "Privacybeleid",
       description: "Hoe we je persoonsgegevens verwerken en beschermen.",
       updatedLabel: "Laatst bijgewerkt",
+      updatedAt: "2 maart 2026",
       intro:
-        "Dit privacybeleid legt uit hoe City Map Poster Generator gegevens verwerkt wanneer je deze website gebruikt.",
+        "Dit privacybeleid legt uit hoe City Map Poster Generator informatie verwerkt wanneer je deze website gebruikt.",
+      sections: [
+        {
+          heading: "1. Welke gegevens we verwerken",
+          paragraphs: [
+            "We verwerken technische verzoekgegevens zoals IP-adres, user agent en tijdstempels om de dienst te laten werken, te beveiligen en misbruik te beperken.",
+            "Wanneer je posters genereert, verwerken we de locatie- en posterinstellingen die je invult om de bestanden te maken.",
+          ],
+        },
+        {
+          heading: "2. Waarom we gegevens verwerken",
+          paragraphs: [
+            "Om de kernfunctionaliteit te leveren, misbruik te voorkomen, de beschikbaarheid te bewaken en operationele problemen te onderzoeken.",
+          ],
+        },
+        {
+          heading: "3. Opslag en bewaartermijn",
+          paragraphs: [
+            "Gegenereerde bestanden en previews worden tijdelijk opgeslagen en verlopen automatisch.",
+            "Operationele logs kunnen gedurende een beperkte periode worden bewaard voor beveiliging en betrouwbaarheid.",
+          ],
+        },
+        {
+          heading: "4. Diensten van derden",
+          paragraphs: [
+            "De applicatie kan externe diensten gebruiken (bijvoorbeeld geocoding, kaartdata, CAPTCHA en lettertypediensten) om output te genereren.",
+          ],
+        },
+        {
+          heading: "5. Jouw rechten",
+          paragraphs: [
+            "Als de AVG op jou van toepassing is, kun je onder de toepasselijke wetgeving rechten hebben op inzage, correctie, verwijdering, beperking, bezwaar en overdraagbaarheid.",
+          ],
+        },
+      ],
     },
     cookies: {
       ...en.policies.cookies,
       title: "Cookiebeleid",
       description: "Welke cookies worden gebruikt en waarom.",
       updatedLabel: "Laatst bijgewerkt",
+      updatedAt: "2 maart 2026",
       intro:
-        "Dit cookiebeleid legt uit welke cookies door City Map Poster Generator worden gebruikt.",
+        "Dit cookiebeleid legt uit welke cookies City Map Poster Generator gebruikt.",
+      sections: [
+        {
+          heading: "1. Essentiële cookies",
+          paragraphs: [
+            "site_locale: onthoudt je taalvoorkeur.",
+            "site_cookie_consent: onthoudt je cookiekeuze.",
+          ],
+        },
+        {
+          heading: "2. Waarom cookies worden gebruikt",
+          paragraphs: [
+            "Cookies worden gebruikt om taalvoorkeuren te bewaren en je toestemmingskeuze op te slaan.",
+          ],
+        },
+        {
+          heading: "3. Cookies beheren",
+          paragraphs: [
+            "Je kunt cookies verwijderen via je browserinstellingen. Dan worden taal- en toestemmingsvoorkeuren mogelijk gereset.",
+          ],
+        },
+      ],
     },
   },
 };
@@ -501,42 +646,119 @@ const fr: Dictionary = {
   ...en,
   seo: {
     ...en.seo,
-    siteTitle: "Créez de magnifiques affiches de cartes de villes en ligne",
+    siteTitle:
+      "Générateur gratuit d'affiches de cartes de ville | Créez votre map art",
     siteDescription:
-      "Générez instantanément des affiches de cartes de villes en haute qualité avec thèmes intégrés, options typographiques et exports.",
-    homepageTitle: "Générez des affiches de carte de ville personnalisées",
+      "Créez gratuitement des affiches de cartes de ville en haute résolution. Choisissez parmi 17 thèmes, ajustez la typographie et exportez en PNG, SVG ou PDF.",
+    keywords: [
+      "affiche carte ville",
+      "poster carte personnalisé",
+      "carte de ville à imprimer",
+      "générateur map art",
+      "créateur affiche carte",
+      "carte murale design",
+      "maptoposter",
+    ],
+    ogTitle: "Créez votre affiche de carte de ville en quelques minutes",
+    ogDescription:
+      "Concevez une carte de ville unique avec des thèmes premium et exportez instantanément en PNG, SVG ou PDF.",
+    homepageTitle: "Créez une affiche de carte de ville personnalisée",
     homepageDescription:
-      "Concevez et téléchargez des affiches de carte de ville en quelques minutes.",
+      "Générez et téléchargez rapidement une affiche de carte de ville élégante avec des réglages avancés.",
     privacyTitle: "Politique de confidentialité",
+    privacyDescription:
+      "Découvrez comment City Map Poster Generator traite et protège vos données personnelles.",
     cookiesTitle: "Politique de cookies",
+    cookiesDescription:
+      "Découvrez quels cookies City Map Poster Generator utilise et dans quel but.",
   },
   languageName: "Français",
+  languageLabel: "Langue",
   header: {
-    badge: "Générateur public d'affiches",
+    badge: "Générateur public",
     title: "Générez instantanément des affiches de cartes de villes",
     subtitle:
-      "Créez des affiches haute résolution avec tous les thèmes maptoposter intégrés, des libellés multilingues et des options d'export sans connexion.",
+      "Concevez et téléchargez des affiches cartographiques haute résolution avec tous les thèmes maptoposter, des libellés multilingues et des exports flexibles, sans compte.",
   },
   controls: {
     ...en.controls,
     title: "Contrôles de carte",
+    description:
+      "Toutes les options maptoposter sont disponibles ici, y compris les réglages avancés.",
     location: "Lieu",
+    locationPlaceholder: "Rechercher une ville, un quartier, un lieu...",
+    locationHelp:
+      "Sélectionnez une suggestion pour renseigner automatiquement ville/pays et coordonnées exactes.",
     city: "Ville",
+    cityPlaceholder: "Anvers",
     cityRequired: "La ville est requise.",
     country: "Pays",
+    countryPlaceholder: "Belgique",
     countryRequired: "Le pays est requis.",
     searchingLocations: "Recherche de lieux...",
     noLocationResults: "Aucun résultat pour cette recherche.",
+    distance: "Distance",
     theme: "Thème",
     browseThemes: "Parcourir les thèmes",
+    format: "Format de fichier",
+    generateAllThemesTitle: "Générer tous les thèmes",
+    generateAllThemesDescription:
+      "Génère les 17 thèmes et crée un téléchargement ZIP.",
     advancedOptions: "Options avancées",
+    latitude: "Latitude",
+    longitude: "Longitude",
+    width: "Largeur (pouces, max 20)",
+    height: "Hauteur (pouces, max 20)",
+    mapLayersTitle: "Couches de carte (export)",
+    mapLayersDescription:
+      "S'applique uniquement à la génération finale. L'aperçu conserve des paramètres serveur rapides.",
+    includeWater: "Inclure l'eau",
+    includeWaterDescription: "Rivières, lacs, canaux.",
+    includeParks: "Inclure parcs/espaces verts",
+    includeParksDescription: "Parcs et zones herbeuses.",
+    typographyTitle: "Ajustements typographiques",
+    typographyDescription:
+      "Tailles ville/pays et couleur de texte personnalisées pour l'aperçu et l'export.",
+    cityFontSize: "Taille police ville (pt)",
+    countryFontSize: "Taille police pays (pt)",
     generatedButton: "Générer l'affiche",
     queueingButton: "Mise en file...",
     autoThemeDefault: "Auto (thème par défaut)",
+    labelPaddingScale: "Échelle des espacements de libellés",
+    labelPaddingHelp:
+      "Augmente l'espacement entre la ville, le séparateur, le pays et les coordonnées lorsque la typographie est plus grande.",
+    blurTitle: "Flou d'arrière-plan du texte",
+    blurDescription: "Ajoute un panneau flou doux derrière le bloc de texte.",
+    blurSize: "Taille du flou",
+    blurStrength: "Intensité du flou",
+    textColor: "Remplacement de la couleur du texte",
     autoThemeTextColor: "Auto (couleur de texte du thème)",
+    textColorHelp:
+      "Prend en charge les couleurs hexadécimales comme #8C4A18 ou #abc. Laissez vide pour utiliser la couleur du thème.",
     pickCustomTextColor: "Choisir une couleur de texte",
+    reset: "Réinitialiser",
+    googleFontFamily: "Famille Google Font",
+    googleFontHelpTitle: "Famille typographique",
+    googleFontHelpDescription:
+      "Télécharge et applique une famille Google Font aux libellés ville, pays et coordonnées dans le rendu final.",
     explainGoogleFontFamily: "Expliquer Google Font Family",
+    selectGoogleFont: "Sélectionner une Google Font...",
+    searchGoogleFonts: "Rechercher dans Google Fonts...",
     searchGoogleFontsAria: "Rechercher une famille Google Font",
+    searchGoogleFontsHelp:
+      "Recherchez et sélectionnez uniquement parmi les résultats Google Fonts.",
+    searchingFonts: "Recherche des polices...",
+    fontSearchUnavailable:
+      "Recherche de polices indisponible. Suggestions de secours affichées.",
+    noFallbackFonts:
+      "Aucune police de secours ne correspond à cette recherche.",
+    noFontsFound: "Aucune police correspondante trouvée.",
+    selection: "Sélection",
+    themeDefaultFont: "Police par défaut du thème",
+    fallbackFonts: "Polices de secours",
+    googleFonts: "Google Fonts",
+    captchaMissing:
+      "La clé de site CAPTCHA n'est pas configurée. Définissez NEXT_PUBLIC_TURNSTILE_SITE_KEY.",
     coordsUnavailable: "Sélectionnez un lieu pour afficher les coordonnées",
     locationSuggestionsCountLabel:
       "{count} suggestion(s) de lieu disponible(s).",
@@ -546,8 +768,18 @@ const fr: Dictionary = {
     title: "Aperçu en direct",
     description:
       "L'aperçu est une approximation et peut différer légèrement de l'export final.",
-    zoomValue: "Zoom {value}x",
+    disableRateLimitTitle: "Désactiver toutes les limites API",
+    disableRateLimitDescription:
+      "Développement uniquement. Désactive toute limitation API.",
+    zoomTitle: "Zone de zoom",
+    zoomDescription: "Inspectez les petits textes dans l'aperçu.",
+    zoomLevel: "Niveau de zoom",
+    zoomLevelValue: "{value}x",
+    zoomValue: "Vergrößerung {value}x",
     posterAlt: "Aperçu du poster",
+    textOverlayTitle: "Superposition texte de l'aperçu du poster",
+    magnifiedTitle: "Aperçu du poster agrandi",
+    magnifiedOverlayTitle: "Superposition typographique agrandie",
   },
   status: {
     ...en.status,
@@ -557,10 +789,20 @@ const fr: Dictionary = {
     idle: "Aucune génération active.",
     idleBadge: "inactif",
     queuedBadge: "en file",
+    jobLabel: "Tâche",
     generationComplete: "Génération terminée",
     generationFailed: "Échec de la génération",
     preparingDownload: "Préparation du téléchargement...",
     download: "Télécharger",
+  },
+  themeExplorer: {
+    ...en.themeExplorer,
+    title: "Galerie des thèmes",
+    description:
+      "Comparez tous les styles intégrés et choisissez le rendu adapté à votre affiche.",
+    loadingPreview: "Chargement de l'aperçu...",
+    previewUnavailable: "Aperçu indisponible",
+    selected: "Sélectionné",
   },
   footer: {
     privacyPolicy: "Politique de confidentialité",
@@ -580,16 +822,73 @@ const fr: Dictionary = {
       description:
         "Comment nous traitons et protégeons vos données personnelles.",
       updatedLabel: "Dernière mise à jour",
+      updatedAt: "2 mars 2026",
       intro:
-        "Cette politique explique comment City Map Poster Generator traite les informations lorsque vous utilisez ce site.",
+        "Cette politique explique comment City Map Poster Generator traite les informations lorsque vous utilisez ce site web.",
+      sections: [
+        {
+          heading: "1. Données que nous traitons",
+          paragraphs: [
+            "Nous traitons des données techniques de requête telles que l'adresse IP, l'agent utilisateur et les horodatages afin d'exploiter, sécuriser et limiter les abus du service.",
+            "Lorsque vous générez des affiches, nous traitons les champs de localisation et de configuration que vous soumettez pour créer les fichiers.",
+          ],
+        },
+        {
+          heading: "2. Pourquoi nous traitons ces données",
+          paragraphs: [
+            "Pour fournir les fonctionnalités principales, prévenir les abus, surveiller l'état du service et diagnostiquer les incidents opérationnels.",
+          ],
+        },
+        {
+          heading: "3. Stockage et durée de conservation",
+          paragraphs: [
+            "Les fichiers générés et les aperçus sont stockés temporairement puis supprimés automatiquement.",
+            "Les journaux opérationnels peuvent être conservés pendant une période limitée pour des raisons de sécurité et de fiabilité.",
+          ],
+        },
+        {
+          heading: "4. Services tiers",
+          paragraphs: [
+            "L'application peut utiliser des services externes (par exemple géocodage, données cartographiques, CAPTCHA et services de polices) pour produire les résultats.",
+          ],
+        },
+        {
+          heading: "5. Vos droits",
+          paragraphs: [
+            "Si le RGPD s'applique, vous pouvez disposer de droits d'accès, de rectification, d'effacement, de limitation, d'opposition et de portabilité selon la loi applicable.",
+          ],
+        },
+      ],
     },
     cookies: {
       ...en.policies.cookies,
       title: "Politique de cookies",
       description: "Quels cookies sont utilisés et pourquoi.",
       updatedLabel: "Dernière mise à jour",
+      updatedAt: "2 mars 2026",
       intro:
-        "Cette politique explique quels cookies sont utilisés par City Map Poster Generator.",
+        "Cette politique explique quels cookies City Map Poster Generator utilise.",
+      sections: [
+        {
+          heading: "1. Cookies essentiels",
+          paragraphs: [
+            "site_locale : mémorise votre préférence de langue.",
+            "site_cookie_consent : mémorise votre choix concernant la bannière cookies.",
+          ],
+        },
+        {
+          heading: "2. Pourquoi les cookies sont utilisés",
+          paragraphs: [
+            "Les cookies sont utilisés pour conserver la langue choisie et enregistrer votre préférence de consentement.",
+          ],
+        },
+        {
+          heading: "3. Gérer les cookies",
+          paragraphs: [
+            "Vous pouvez supprimer les cookies dans les paramètres de votre navigateur. Dans ce cas, les préférences de langue et de consentement peuvent être réinitialisées.",
+          ],
+        },
+      ],
     },
   },
 };
@@ -598,42 +897,120 @@ const de: Dictionary = {
   ...en,
   seo: {
     ...en.seo,
-    siteTitle: "Erstelle online wunderschöne Stadtkarten-Poster",
+    siteTitle:
+      "Kostenloser Stadtplan-Poster-Generator | Individuelle Map-Art online",
     siteDescription:
-      "Erzeuge sofort hochwertige Stadtkarten-Poster mit integrierten Themes, Typografie-Steuerung und Exportformaten.",
-    homepageTitle: "Individuelle Stadtkarten-Poster erstellen",
+      "Erstelle kostenlos hochauflösende Stadtplan-Poster. Wähle aus 17 Designs, passe Typografie an und exportiere als PNG, SVG oder PDF.",
+    keywords: [
+      "stadtplan poster",
+      "kartenposter erstellen",
+      "individuelles stadtposter",
+      "map art generator",
+      "stadtkarte druck",
+      "wandkarte design",
+      "maptoposter",
+    ],
+    ogTitle: "Erstelle in Minuten dein eigenes Stadtplan-Poster",
+    ogDescription:
+      "Gestalte eine individuelle Stadtkarte mit professionellen Themes und exportiere direkt als PNG, SVG oder PDF.",
+    homepageTitle: "Personalisiertes Stadtplan-Poster erstellen",
     homepageDescription:
-      "Erstelle und lade in wenigen Minuten individuelle Stadtkarten-Poster herunter.",
+      "Generiere und lade in wenigen Minuten ein stilvolles Stadtplan-Poster mit erweiterten Einstellungen herunter.",
     privacyTitle: "Datenschutzerklärung",
+    privacyDescription:
+      "Erfahre, wie City Map Poster Generator personenbezogene Daten verarbeitet und schützt.",
     cookiesTitle: "Cookie-Richtlinie",
+    cookiesDescription:
+      "Erfahre, welche Cookies City Map Poster Generator verwendet und warum.",
   },
   languageName: "Deutsch",
+  languageLabel: "Sprache",
   header: {
-    badge: "Öffentlicher Poster-Generator",
+    badge: "Öffentlicher Generator",
     title: "Stadtkarten-Poster sofort erstellen",
     subtitle:
-      "Erstelle hochauflösende Poster mit allen integrierten maptoposter-Themes, mehrsprachigen Labels und Exportoptionen ohne Anmeldung.",
+      "Entwirf und lade hochauflösende Kartenposter mit allen integrierten maptoposter-Themes, mehrsprachigen Beschriftungen und flexiblen Exporten herunter, ganz ohne Konto.",
   },
   controls: {
     ...en.controls,
     title: "Kartensteuerung",
+    description:
+      "Hier stehen alle maptoposter-Optionen inklusive erweiterter Felder zur Verfügung.",
     location: "Ort",
+    locationPlaceholder: "Stadt, Viertel, Sehenswürdigkeit suchen...",
+    locationHelp:
+      "Wähle einen Vorschlag, um Stadt/Land und exakte Koordinaten automatisch zu übernehmen.",
     city: "Stadt",
+    cityPlaceholder: "Antwerpen",
     cityRequired: "Stadt ist erforderlich.",
     country: "Land",
+    countryPlaceholder: "Belgien",
     countryRequired: "Land ist erforderlich.",
     searchingLocations: "Suche Orte...",
     noLocationResults: "Keine Ergebnisse für diese Suche.",
-    theme: "Theme",
+    distance: "Radius",
+    theme: "Thema",
     browseThemes: "Themes durchsuchen",
+    format: "Dateiformat",
+    generateAllThemesTitle: "Alle Themes generieren",
+    generateAllThemesDescription:
+      "Erstellt alle 17 Themes und bündelt sie als ZIP-Download.",
     advancedOptions: "Erweiterte Optionen",
+    latitude: "Breitengrad",
+    longitude: "Längengrad",
+    width: "Breite (Zoll, max. 20)",
+    height: "Höhe (Zoll, max. 20)",
+    mapLayersTitle: "Kartenebenen (Export)",
+    mapLayersDescription:
+      "Gilt nur für die finale Generierung. Die Vorschau nutzt schnelle Server-Defaults.",
+    includeWater: "Wasser einbeziehen",
+    includeWaterDescription: "Flüsse, Seen, Kanäle.",
+    includeParks: "Parks/Grünflächen einbeziehen",
+    includeParksDescription: "Parks und Grünflächen.",
+    typographyTitle: "Typografie-Anpassungen",
+    typographyDescription:
+      "Optionale Größenanpassungen für Stadt/Land und Textfarbe für Vorschau und Export.",
+    cityFontSize: "Schriftgröße Stadt (pt)",
+    countryFontSize: "Schriftgröße Land (pt)",
     generatedButton: "Poster generieren",
     queueingButton: "Job wird eingereiht...",
     autoThemeDefault: "Auto (Theme-Standard)",
+    labelPaddingScale: "Skalierung des Label-Abstands",
+    labelPaddingHelp:
+      "Erhöht den Abstand zwischen Stadt, Trennlinie, Land und Koordinaten bei größerer Typografie.",
+    blurTitle: "Text-Hintergrundunschärfe",
+    blurDescription:
+      "Fügt hinter dem Textblock eine weiche Unschärfe-Fläche hinzu.",
+    blurSize: "Unschärfegröße",
+    blurStrength: "Unschärfestärke",
+    textColor: "Textfarbe überschreiben",
     autoThemeTextColor: "Auto (Theme-Textfarbe)",
+    textColorHelp:
+      "Unterstützt Hex-Farben wie #8C4A18 oder #abc. Leer lassen, um die Theme-Textfarbe zu verwenden.",
     pickCustomTextColor: "Eigene Textfarbe wählen",
+    reset: "Zurücksetzen",
+    googleFontFamily: "Google Font-Familie",
+    googleFontHelpTitle: "Typografie-Familie",
+    googleFontHelpDescription:
+      "Lädt und verwendet eine Google Font-Familie für Stadt-, Land- und Koordinaten-Labels im finalen Rendering.",
     explainGoogleFontFamily: "Google Font Family erklären",
+    selectGoogleFont: "Google Font auswählen...",
+    searchGoogleFonts: "Google Fonts durchsuchen...",
     searchGoogleFontsAria: "Google Font-Familie suchen",
+    searchGoogleFontsHelp:
+      "Suche und wähle nur aus den Ergebnissen von Google Fonts.",
+    searchingFonts: "Schriftarten werden gesucht...",
+    fontSearchUnavailable:
+      "Schriftartensuche nicht verfügbar. Es werden Fallback-Vorschläge angezeigt.",
+    noFallbackFonts:
+      "Keine passenden Fallback-Schriftarten für diese Suchanfrage.",
+    noFontsFound: "Keine passenden Schriftarten gefunden.",
+    selection: "Auswahl",
+    themeDefaultFont: "Theme-Standardschrift",
+    fallbackFonts: "Fallback-Schriftarten",
+    googleFonts: "Google-Schriftarten",
+    captchaMissing:
+      "CAPTCHA Site Key ist nicht konfiguriert. Setze NEXT_PUBLIC_TURNSTILE_SITE_KEY.",
     coordsUnavailable: "Wähle einen Ort, um Koordinaten anzuzeigen",
     locationSuggestionsCountLabel: "{count} Ortsvorschläge verfügbar.",
   },
@@ -642,8 +1019,18 @@ const de: Dictionary = {
     title: "Live-Vorschau",
     description:
       "Die Vorschau ist eine Annäherung und kann leicht vom finalen Export abweichen.",
-    zoomValue: "Zoom {value}x",
+    disableRateLimitTitle: "Alle API-Rate-Limits deaktivieren",
+    disableRateLimitDescription:
+      "Nur für Development. Deaktiviert sämtliche API-Drosselungen.",
+    zoomTitle: "Zoomfenster",
+    zoomDescription: "Prüfe kleinere Texte in der Vorschau.",
+    zoomLevel: "Zoomstufe",
+    zoomLevelValue: "{value}x",
+    zoomValue: "Ampliación {value}x",
     posterAlt: "Poster-Vorschau",
+    textOverlayTitle: "Text-Overlay der Postervorschau",
+    magnifiedTitle: "Vergrößerte Postervorschau",
+    magnifiedOverlayTitle: "Vergrößertes Typografie-Overlay",
   },
   status: {
     ...en.status,
@@ -653,10 +1040,20 @@ const de: Dictionary = {
     idle: "Kein aktiver Generierungsjob.",
     idleBadge: "inaktiv",
     queuedBadge: "wartend",
+    jobLabel: "Auftrag",
     generationComplete: "Generierung abgeschlossen",
     generationFailed: "Generierung fehlgeschlagen",
     preparingDownload: "Download wird vorbereitet...",
     download: "Herunterladen",
+  },
+  themeExplorer: {
+    ...en.themeExplorer,
+    title: "Theme-Galerie",
+    description:
+      "Vergleiche alle integrierten Stile und wähle das Design, das am besten zu deinem Ergebnis passt.",
+    loadingPreview: "Vorschau wird geladen...",
+    previewUnavailable: "Vorschau nicht verfügbar",
+    selected: "Ausgewählt",
   },
   footer: {
     privacyPolicy: "Datenschutzerklärung",
@@ -675,16 +1072,73 @@ const de: Dictionary = {
       title: "Datenschutzerklärung",
       description: "Wie wir personenbezogene Daten verarbeiten und schützen.",
       updatedLabel: "Zuletzt aktualisiert",
+      updatedAt: "2. März 2026",
       intro:
-        "Diese Datenschutzerklärung erläutert, wie City Map Poster Generator Informationen verarbeitet.",
+        "Diese Datenschutzerklärung erklärt, wie City Map Poster Generator Informationen verarbeitet, wenn du diese Website nutzt.",
+      sections: [
+        {
+          heading: "1. Welche Daten wir verarbeiten",
+          paragraphs: [
+            "Wir verarbeiten technische Anfragedaten wie IP-Adresse, User-Agent und Zeitstempel, um den Dienst zu betreiben, zu schützen und zu begrenzen.",
+            "Wenn du Poster generierst, verarbeiten wir die von dir übermittelten Standort- und Poster-Einstellungen, um Dateien zu erstellen.",
+          ],
+        },
+        {
+          heading: "2. Warum wir Daten verarbeiten",
+          paragraphs: [
+            "Um Kernfunktionen bereitzustellen, Missbrauch zu verhindern, den Dienstzustand zu überwachen und betriebliche Probleme zu analysieren.",
+          ],
+        },
+        {
+          heading: "3. Speicherung und Aufbewahrung",
+          paragraphs: [
+            "Generierte Dateien und Vorschauen werden temporär gespeichert und automatisch gelöscht.",
+            "Betriebsprotokolle können aus Sicherheits- und Zuverlässigkeitsgründen für einen begrenzten Zeitraum aufbewahrt werden.",
+          ],
+        },
+        {
+          heading: "4. Drittanbieterdienste",
+          paragraphs: [
+            "Die Anwendung kann externe Dienste (z. B. Geocoding, Kartendaten, CAPTCHA und Font-Dienste) verwenden, um Ergebnisse zu erzeugen.",
+          ],
+        },
+        {
+          heading: "5. Deine Rechte",
+          paragraphs: [
+            "Wenn die DSGVO für dich gilt, hast du möglicherweise Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung, Widerspruch und Datenübertragbarkeit gemäß geltendem Recht.",
+          ],
+        },
+      ],
     },
     cookies: {
       ...en.policies.cookies,
       title: "Cookie-Richtlinie",
       description: "Welche Cookies verwendet werden und warum.",
       updatedLabel: "Zuletzt aktualisiert",
+      updatedAt: "2. März 2026",
       intro:
-        "Diese Cookie-Richtlinie erklärt, welche Cookies von City Map Poster Generator verwendet werden.",
+        "Diese Cookie-Richtlinie erklärt, welche Cookies City Map Poster Generator verwendet.",
+      sections: [
+        {
+          heading: "1. Essenzielle Cookies",
+          paragraphs: [
+            "site_locale: speichert deine Spracheinstellung.",
+            "site_cookie_consent: speichert deine Cookie-Entscheidung.",
+          ],
+        },
+        {
+          heading: "2. Warum Cookies verwendet werden",
+          paragraphs: [
+            "Cookies werden verwendet, um Spracheinstellungen zu speichern und deine Einwilligungspräferenz zu merken.",
+          ],
+        },
+        {
+          heading: "3. Cookies verwalten",
+          paragraphs: [
+            "Du kannst Cookies in den Browsereinstellungen löschen. Dadurch können Sprache und Einwilligungspräferenzen zurückgesetzt werden.",
+          ],
+        },
+      ],
     },
   },
 };
@@ -693,42 +1147,119 @@ const es: Dictionary = {
   ...en,
   seo: {
     ...en.seo,
-    siteTitle: "Crea pósters de mapas urbanos online",
+    siteTitle:
+      "Generador gratis de pósters de mapas de ciudad | Crea map art online",
     siteDescription:
-      "Genera al instante pósters de mapas urbanos de alta calidad con temas integrados, controles tipográficos y formatos de exportación.",
-    homepageTitle: "Genera pósters personalizados de mapas de ciudad",
+      "Crea gratis pósters de mapas de ciudad en alta resolución. Elige entre 17 temas, ajusta tipografías y exporta en PNG, SVG o PDF.",
+    keywords: [
+      "poster mapa ciudad",
+      "mapa personalizado",
+      "generador map art",
+      "crear poster de mapa",
+      "mapa urbano para imprimir",
+      "arte cartográfico",
+      "maptoposter",
+    ],
+    ogTitle: "Crea tu póster de mapa de ciudad en minutos",
+    ogDescription:
+      "Diseña un mapa urbano único con temas profesionales y exporta al instante en PNG, SVG o PDF.",
+    homepageTitle: "Crea un póster personalizado de mapa de ciudad",
     homepageDescription:
-      "Diseña y descarga pósters de mapas urbanos en minutos.",
+      "Genera y descarga en minutos un póster de mapa urbano con controles avanzados.",
     privacyTitle: "Política de privacidad",
+    privacyDescription:
+      "Conoce cómo City Map Poster Generator procesa y protege los datos personales.",
     cookiesTitle: "Política de cookies",
+    cookiesDescription:
+      "Conoce qué cookies utiliza City Map Poster Generator y con qué finalidad.",
   },
   languageName: "Español",
+  languageLabel: "Idioma",
   header: {
     badge: "Generador público de pósters",
     title: "Genera pósters de mapas urbanos al instante",
     subtitle:
-      "Crea pósters en alta resolución con todos los temas integrados de maptoposter, etiquetas multilingües y opciones de exportación sin iniciar sesión.",
+      "Diseña y descarga pósters cartográficos de alta resolución con todos los temas integrados de maptoposter, etiquetas multilingües y exportaciones flexibles, sin registro.",
   },
   controls: {
     ...en.controls,
     title: "Controles del mapa",
+    description:
+      "Aquí tienes todas las opciones de maptoposter, incluidos los ajustes avanzados.",
     location: "Ubicación",
+    locationPlaceholder: "Buscar ciudad, barrio, punto de interés...",
+    locationHelp:
+      "Selecciona una sugerencia para completar automáticamente ciudad/país y coordenadas precisas.",
     city: "Ciudad",
+    cityPlaceholder: "Amberes",
     cityRequired: "La ciudad es obligatoria.",
     country: "País",
+    countryPlaceholder: "Bélgica",
     countryRequired: "El país es obligatorio.",
     searchingLocations: "Buscando ubicaciones...",
     noLocationResults: "No se encontraron resultados.",
+    distance: "Distancia",
     theme: "Tema",
     browseThemes: "Explorar temas",
+    format: "Formato de archivo",
+    generateAllThemesTitle: "Generar todos los temas",
+    generateAllThemesDescription:
+      "Genera los 17 temas y crea una descarga en ZIP.",
     advancedOptions: "Opciones avanzadas",
+    latitude: "Latitud",
+    longitude: "Longitud",
+    width: "Ancho (pulgadas, máx. 20)",
+    height: "Alto (pulgadas, máx. 20)",
+    mapLayersTitle: "Capas del mapa (exportación)",
+    mapLayersDescription:
+      "Se aplica solo a la generación final. La vista previa mantiene ajustes rápidos del servidor.",
+    includeWater: "Incluir agua",
+    includeWaterDescription: "Ríos, lagos, canales.",
+    includeParks: "Incluir parques/zonas verdes",
+    includeParksDescription: "Parques y áreas verdes.",
+    typographyTitle: "Ajustes de tipografía",
+    typographyDescription:
+      "Tamaño personalizado de ciudad/país y color de texto para vista previa y exportaciones.",
+    cityFontSize: "Tamaño de fuente ciudad (pt)",
+    countryFontSize: "Tamaño de fuente país (pt)",
     generatedButton: "Generar póster",
     queueingButton: "Encolando tarea...",
     autoThemeDefault: "Auto (tema predeterminado)",
+    labelPaddingScale: "Escala de espaciado de etiquetas",
+    labelPaddingHelp:
+      "Aumenta el espacio entre ciudad, divisor, país y coordenadas cuando la tipografía es más grande.",
+    blurTitle: "Desenfoque de fondo del texto",
+    blurDescription:
+      "Añade un panel suavemente desenfocado detrás del bloque de texto.",
+    blurSize: "Tamaño del desenfoque",
+    blurStrength: "Intensidad del desenfoque",
+    textColor: "Color de texto personalizado",
     autoThemeTextColor: "Auto (color de texto del tema)",
+    textColorHelp:
+      "Admite colores hex como #8C4A18 o #abc. Déjalo vacío para usar el color del tema.",
     pickCustomTextColor: "Elegir color de texto",
+    reset: "Restablecer",
+    googleFontFamily: "Familia de Google Font",
+    googleFontHelpTitle: "Familia tipográfica",
+    googleFontHelpDescription:
+      "Descarga y aplica una familia de Google Font a las etiquetas de ciudad, país y coordenadas en el render final.",
     explainGoogleFontFamily: "Explicar Google Font Family",
+    selectGoogleFont: "Seleccionar Google Font...",
+    searchGoogleFonts: "Buscar en Google Fonts...",
     searchGoogleFontsAria: "Buscar familia de Google Font",
+    searchGoogleFontsHelp:
+      "Busca y selecciona solo entre resultados de Google Fonts.",
+    searchingFonts: "Buscando fuentes...",
+    fontSearchUnavailable:
+      "La búsqueda de fuentes no está disponible. Mostrando sugerencias de respaldo.",
+    noFallbackFonts: "Ninguna fuente de respaldo coincide con esta búsqueda.",
+    noFontsFound: "No se encontraron fuentes coincidentes.",
+    selection: "Selección",
+    themeDefaultFont: "Fuente predeterminada del tema",
+    fallbackFonts: "Fuentes de respaldo",
+    googleFonts: "Fuentes de Google",
+    captchaMissing:
+      "La clave del sitio CAPTCHA no está configurada. Define NEXT_PUBLIC_TURNSTILE_SITE_KEY.",
     coordsUnavailable: "Selecciona una ubicación para mostrar coordenadas",
     locationSuggestionsCountLabel:
       "{count} sugerencias de ubicación disponibles.",
@@ -738,8 +1269,18 @@ const es: Dictionary = {
     title: "Vista previa en vivo",
     description:
       "La vista previa es una aproximación y puede variar ligeramente respecto al resultado final.",
+    disableRateLimitTitle: "Desactivar todos los límites de API",
+    disableRateLimitDescription:
+      "Solo para desarrollo. Desactiva toda limitación de API.",
+    zoomTitle: "Caja de zoom",
+    zoomDescription: "Inspecciona textos pequeños en la vista previa.",
+    zoomLevel: "Nivel de zoom",
+    zoomLevelValue: "{value}x",
     zoomValue: "Zoom {value}x",
     posterAlt: "Vista previa del póster",
+    textOverlayTitle: "Superposición de texto de vista previa",
+    magnifiedTitle: "Vista previa ampliada del póster",
+    magnifiedOverlayTitle: "Superposición tipográfica ampliada",
   },
   status: {
     ...en.status,
@@ -749,10 +1290,20 @@ const es: Dictionary = {
     idle: "No hay ninguna generación activa.",
     idleBadge: "inactivo",
     queuedBadge: "en cola",
+    jobLabel: "Tarea",
     generationComplete: "Generación completada",
     generationFailed: "Generación fallida",
     preparingDownload: "Preparando descarga...",
     download: "Descargar",
+  },
+  themeExplorer: {
+    ...en.themeExplorer,
+    title: "Galería de temas",
+    description:
+      "Compara todos los estilos integrados y elige el diseño que mejor encaje con tu resultado.",
+    loadingPreview: "Cargando vista previa...",
+    previewUnavailable: "Vista previa no disponible",
+    selected: "Seleccionado",
   },
   footer: {
     privacyPolicy: "Política de privacidad",
@@ -771,15 +1322,73 @@ const es: Dictionary = {
       title: "Política de privacidad",
       description: "Cómo tratamos y protegemos tus datos personales.",
       updatedLabel: "Última actualización",
+      updatedAt: "2 de marzo de 2026",
       intro:
-        "Esta política explica cómo City Map Poster Generator procesa información cuando usas este sitio web.",
+        "Esta Política de privacidad explica cómo City Map Poster Generator procesa información cuando utilizas este sitio web.",
+      sections: [
+        {
+          heading: "1. Datos que procesamos",
+          paragraphs: [
+            "Procesamos datos técnicos de solicitud como dirección IP, agente de usuario y marcas de tiempo para operar, proteger y limitar abusos del servicio.",
+            "Cuando generas pósters, procesamos los campos de ubicación y configuración que envías para crear los archivos.",
+          ],
+        },
+        {
+          heading: "2. Por qué procesamos datos",
+          paragraphs: [
+            "Para ofrecer funcionalidades principales, prevenir abusos, supervisar la salud del servicio y diagnosticar incidencias operativas.",
+          ],
+        },
+        {
+          heading: "3. Almacenamiento y retención",
+          paragraphs: [
+            "Los archivos generados y las vistas previas se almacenan temporalmente y caducan automáticamente.",
+            "Los registros operativos pueden conservarse durante un periodo limitado por motivos de seguridad y fiabilidad.",
+          ],
+        },
+        {
+          heading: "4. Servicios de terceros",
+          paragraphs: [
+            "La aplicación puede usar servicios externos (por ejemplo geocodificación, datos de mapas, CAPTCHA y servicios de fuentes) para generar resultados.",
+          ],
+        },
+        {
+          heading: "5. Tus derechos",
+          paragraphs: [
+            "Si aplica el RGPD, puedes tener derechos de acceso, rectificación, supresión, limitación, oposición y portabilidad según la legislación aplicable.",
+          ],
+        },
+      ],
     },
     cookies: {
       ...en.policies.cookies,
       title: "Política de cookies",
       description: "Qué cookies se usan y por qué.",
       updatedLabel: "Última actualización",
-      intro: "Esta política explica qué cookies usa City Map Poster Generator.",
+      updatedAt: "2 de marzo de 2026",
+      intro:
+        "Esta Política de cookies explica qué cookies usa City Map Poster Generator.",
+      sections: [
+        {
+          heading: "1. Cookies esenciales",
+          paragraphs: [
+            "site_locale: recuerda tu preferencia de idioma.",
+            "site_cookie_consent: recuerda tu elección en el banner de cookies.",
+          ],
+        },
+        {
+          heading: "2. Por qué se usan cookies",
+          paragraphs: [
+            "Las cookies se usan para mantener tu preferencia de idioma y almacenar tu elección de consentimiento.",
+          ],
+        },
+        {
+          heading: "3. Gestión de cookies",
+          paragraphs: [
+            "Puedes borrar cookies desde la configuración de tu navegador. Si lo haces, las preferencias de idioma y consentimiento pueden restablecerse.",
+          ],
+        },
+      ],
     },
   },
 };

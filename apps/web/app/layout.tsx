@@ -26,9 +26,10 @@ const mono = IBM_Plex_Mono({
 
 const siteUrl = getSiteUrl();
 const siteName = "City Map Poster Generator";
-const siteTitle = "Create Beautiful City Map Posters Online";
+const siteTitle =
+  "Free City Map Poster Generator | Create Custom Map Art Online";
 const siteDescription =
-  "Generate high-quality city map posters instantly with built-in themes, typography controls, and export formats.";
+  "Create free high-resolution city map posters online. Choose from 17 built-in themes, customize typography, and export as PNG, SVG, or PDF.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -46,6 +47,9 @@ export const metadata: Metadata = {
     "city poster",
     "map print design",
     "maptoposter",
+    "street map wall art",
+    "personalized city map",
+    "printable city map poster",
   ],
   alternates: {
     canonical: "/",
