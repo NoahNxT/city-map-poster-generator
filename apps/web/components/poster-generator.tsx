@@ -179,13 +179,15 @@ function formatPreviewCity(value: string): string {
 function getPreviewCityStyle(city: string): {
   fontSize: string;
   letterSpacing: string;
+  lineHeight: string;
   whiteSpace: "nowrap";
 } {
   const normalized = city.trim();
   if (!normalized) {
     return {
-      fontSize: "clamp(24px, 6vw, 58px)",
-      letterSpacing: "0.18em",
+      fontSize: "clamp(20px, 5vw, 48px)",
+      letterSpacing: "0.1em",
+      lineHeight: "0.95",
       whiteSpace: "nowrap",
     };
   }
@@ -193,29 +195,30 @@ function getPreviewCityStyle(city: string): {
   const latin = isLikelyLatin(normalized);
   const length = normalized.length;
   const scale = latin
-    ? Math.max(0.58, Math.min(1, 10 / length))
-    : Math.max(0.72, Math.min(1, 14 / length));
+    ? Math.max(0.7, Math.min(1, 9 / length))
+    : Math.max(0.75, Math.min(1, 12 / length));
 
-  const minPx = Math.round(24 * scale);
-  const maxPx = Math.round(58 * scale);
-  const vw = (6 * scale).toFixed(2);
+  const minPx = Math.round(20 * scale);
+  const maxPx = Math.round(48 * scale);
+  const vw = (5 * scale).toFixed(2);
 
   let letterSpacing = "0.02em";
   if (latin) {
     if (length <= 8) {
-      letterSpacing = "0.24em";
-    } else if (length <= 12) {
-      letterSpacing = "0.18em";
-    } else if (length <= 16) {
       letterSpacing = "0.12em";
-    } else {
+    } else if (length <= 12) {
       letterSpacing = "0.08em";
+    } else if (length <= 16) {
+      letterSpacing = "0.06em";
+    } else {
+      letterSpacing = "0.04em";
     }
   }
 
   return {
     fontSize: `clamp(${minPx}px, ${vw}vw, ${maxPx}px)`,
     letterSpacing,
+    lineHeight: "0.95",
     whiteSpace: "nowrap",
   };
 }
