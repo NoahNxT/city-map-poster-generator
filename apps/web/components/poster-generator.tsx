@@ -1672,7 +1672,7 @@ export function PosterGenerator() {
                   />
                 ) : null}
                 <PreviewTypographyOverlay
-                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  className="pointer-events-none absolute inset-0 z-20 h-full w-full"
                   title="Poster text preview overlay"
                   previewTextColor={previewTextColor}
                   previewDisplayCity={previewDisplayCity}
@@ -1715,7 +1715,7 @@ export function PosterGenerator() {
                           />
                         </svg>
                         <PreviewTypographyOverlay
-                          className="absolute inset-0 h-full w-full"
+                          className="absolute inset-0 z-20 h-full w-full"
                           viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
                           title="Magnified poster typography overlay"
                           previewTextColor={previewTextColor}
