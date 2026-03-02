@@ -1,0 +1,40 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
+  "files": {
+    "includes": [
+      "apps/web/app/**/*.ts",
+      "apps/web/app/**/*.tsx",
+      "apps/web/components/**/*.ts",
+      "apps/web/components/**/*.tsx",
+      "apps/web/lib/**/*.ts",
+      "apps/web/*.js",
+      "apps/web/*.mjs",
+      "apps/web/*.json",
+      "apps/api/package.json",
+      "package.json",
+      "turbo.json",
+      "biome.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noNonNullAssertion": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  }
+}

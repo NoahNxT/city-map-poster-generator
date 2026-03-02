@@ -1,0 +1,32 @@
+{
+  "name": "city-map-poster-generator",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build --filter=web --filter=api",
+    "dev": "turbo run dev --filter=web --filter=api",
+    "dev:local": "docker compose up -d redis minio api worker && bun run dev:web",
+    "dev:backend": "docker compose up -d redis minio api worker",
+    "dev:backend:logs": "docker compose logs -f api worker redis minio",
+    "dev:backend:down": "docker compose down",
+    "dev:web": "turbo run dev --filter=web",
+    "dev:api": "turbo run dev --filter=api",
+    "dev:worker": "bun run --cwd apps/api worker",
+    "lint": "turbo run lint --filter=web --filter=api",
+    "format": "biome format --write .",
+    "check-types": "turbo run check-types --filter=web --filter=api",
+    "check": "biome check ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.4",
+    "turbo": "^2.8.12",
+    "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": ">=24.14.0"
+  },
+  "packageManager": "bun@1.2.17",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
