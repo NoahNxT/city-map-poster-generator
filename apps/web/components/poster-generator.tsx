@@ -1764,7 +1764,7 @@ export function PosterGenerator() {
           transition={{ duration: 0.35, delay: 0.1 }}
           className="space-y-6"
         >
-          <Card>
+          <Card className="lg:sticky lg:top-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Sparkles className="h-4 w-4 text-amber-700" />
