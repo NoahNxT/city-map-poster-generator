@@ -102,6 +102,7 @@ type DimensionField = "width" | "height";
 const CM_PER_INCH = 2.54;
 const MIN_POSTER_INCHES = 1;
 const MAX_POSTER_INCHES = 80;
+const MAX_POSTER_CENTIMETERS = 200;
 const MAX_LOCAL_PREVIEW_LONG_EDGE_PX = 2048;
 const PREVIEW_FRAME_MAX_WIDTH_PX = 420;
 const PREVIEW_FRAME_MAX_HEIGHT_PX = 560;
@@ -228,6 +229,16 @@ function inchesToCentimeters(inches: number): number {
 
 function centimetersToInches(centimeters: number): number {
   return centimeters / CM_PER_INCH;
+}
+
+function maxDimensionInInchesForUnit(unit: SizeUnit): number {
+  return unit === "cm"
+    ? centimetersToInches(MAX_POSTER_CENTIMETERS)
+    : MAX_POSTER_INCHES;
+}
+
+function minDimensionInInchesForUnit(_unit: SizeUnit): number {
+  return MIN_POSTER_INCHES;
 }
 
 function parseDecimalInput(rawValue: string): number | null {
@@ -882,6 +893,33 @@ export function PosterGenerator({
   }, [activeDimensionField, locale, sizeUnit, values.height, values.width]);
 
   useEffect(() => {
+    const minInches = minDimensionInInchesForUnit(sizeUnit);
+    const maxInches = maxDimensionInInchesForUnit(sizeUnit);
+    const currentWidth = form.getValues("width");
+    const currentHeight = form.getValues("height");
+    const normalizedWidth = Number.isFinite(currentWidth)
+      ? currentWidth
+      : defaultValues.width;
+    const normalizedHeight = Number.isFinite(currentHeight)
+      ? currentHeight
+      : defaultValues.height;
+    const nextWidth = clamp(normalizedWidth, minInches, maxInches);
+    const nextHeight = clamp(normalizedHeight, minInches, maxInches);
+    if (Math.abs(nextWidth - normalizedWidth) > 0.0001) {
+      form.setValue("width", nextWidth, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+    if (Math.abs(nextHeight - normalizedHeight) > 0.0001) {
+      form.setValue("height", nextHeight, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+  }, [form, sizeUnit]);
+
+  useEffect(() => {
     if (!showDevRateLimitToggle) {
       return;
     }
@@ -1051,8 +1089,10 @@ export function PosterGenerator({
     const fallback =
       field === "width" ? defaultValues.width : defaultValues.height;
     const current = getDimensionFormValue(field);
+    const minInches = minDimensionInInchesForUnit(sizeUnit);
+    const maxInches = maxDimensionInInchesForUnit(sizeUnit);
     const clamped = Number.isFinite(current)
-      ? clamp(current, MIN_POSTER_INCHES, MAX_POSTER_INCHES)
+      ? clamp(current, minInches, maxInches)
       : fallback;
     form.setValue(field, clamped, { shouldValidate: true, shouldDirty: true });
     setDimensionInputText(
@@ -1070,10 +1110,16 @@ export function PosterGenerator({
     if (parsedDisplay === null) {
       return;
     }
-    form.setValue(field, toInchesFromDisplayValue(parsedDisplay), {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
+    const minInches = minDimensionInInchesForUnit(sizeUnit);
+    const maxInches = maxDimensionInInchesForUnit(sizeUnit);
+    form.setValue(
+      field,
+      clamp(toInchesFromDisplayValue(parsedDisplay), minInches, maxInches),
+      {
+        shouldValidate: true,
+        shouldDirty: true,
+      },
+    );
   }
 
   function handleDimensionInputBlur(
@@ -1088,10 +1134,12 @@ export function PosterGenerator({
       syncDimensionInputWithFormValue(field);
       return;
     }
+    const minInches = minDimensionInInchesForUnit(sizeUnit);
+    const maxInches = maxDimensionInInchesForUnit(sizeUnit);
     const clampedInches = clamp(
       toInchesFromDisplayValue(parsedDisplay),
-      MIN_POSTER_INCHES,
-      MAX_POSTER_INCHES,
+      minInches,
+      maxInches,
     );
     form.setValue(field, clampedInches, {
       shouldValidate: true,
@@ -1168,13 +1216,15 @@ export function PosterGenerator({
     createJobMutation.isPending ||
     (requiresCaptchaToken && !captchaToken);
   const dimensionUnitLabel = sizeUnit === "cm" ? "cm" : "in";
+  const dimensionMinInches = minDimensionInInchesForUnit(sizeUnit);
+  const dimensionMaxInches = maxDimensionInInchesForUnit(sizeUnit);
   const dimensionDisplayMin = formatDimensionValue(
-    MIN_POSTER_INCHES,
+    dimensionMinInches,
     sizeUnit,
     locale,
   );
   const dimensionDisplayMax = formatDimensionValue(
-    MAX_POSTER_INCHES,
+    dimensionMaxInches,
     sizeUnit,
     locale,
   );
