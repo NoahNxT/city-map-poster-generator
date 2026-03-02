@@ -440,24 +440,25 @@ function computeLabelSpec(
     const blurStrength = clamp(payload.textBlurStrength, 0, 30);
     const blurScale = clamp(blurStrength / 30, 0, 1);
     const cityRuneCount = Math.max(Array.from(cityRaw).length, 4);
+    const cityVisualCount = latinDisplay ? cityRuneCount * 1.45 : cityRuneCount;
     const sizeScale = clamp(
       citySize / Math.max(baseMain * scaleFactor, 1e-6),
-      0.7,
-      2.2,
+      0.55,
+      2.6,
     );
     const textWidthEstimate = clamp(
-      0.34 + cityRuneCount * 0.018 * sizeScale,
-      0.42,
+      (0.22 + cityVisualCount * 0.018) * sizeScale,
+      0.24,
       0.9,
     );
     const textBlockBottom = coordsY - coordsDesc;
     const textBlockTop = cityY + cityAscent;
-    const textBlockHeight = Math.max(textBlockTop - textBlockBottom, 0.02);
+    const textBlockHeight = Math.max(textBlockTop - textBlockBottom, 0.012);
     const scaleX = blurAxisScale(blurSizeX);
     const scaleY = blurAxisScale(blurSizeY);
-    // 50% means text bounds +10% on that axis.
-    const panelW = clamp(textWidthEstimate * 1.1 * scaleX, 0.42, 0.94);
-    const panelH = clamp(textBlockHeight * 1.1 * scaleY, 0.08, 0.42);
+    // 50% means text bounds +15% on each side (total +30%) on that axis.
+    const panelW = clamp(textWidthEstimate * 1.3 * scaleX, 0.24, 0.94);
+    const panelH = clamp(textBlockHeight * 1.3 * scaleY, 0.05, 0.42);
     const centerY = (textBlockTop + textBlockBottom) / 2;
     blur = {
       panelX: 0.5 - panelW / 2,

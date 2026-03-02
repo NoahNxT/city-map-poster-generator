@@ -677,16 +677,20 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 		blurScale := clamp(blurStrength/30.0, 0, 1)
 
 		cityRuneCount := maxInt(len([]rune(strings.TrimSpace(req.City))), 4)
-		sizeScale := clamp(mainSize/math.Max(baseMain*scaleFactor, 1e-6), 0.7, 2.2)
-		textWidthEstimate := clamp(0.34+(float64(cityRuneCount)*0.018*sizeScale), 0.42, 0.9)
+		cityVisualCount := float64(cityRuneCount)
+		if latinDisplay {
+			cityVisualCount = cityVisualCount * 1.45
+		}
+		sizeScale := clamp(mainSize/math.Max(baseMain*scaleFactor, 1e-6), 0.55, 2.6)
+		textWidthEstimate := clamp((0.22+(cityVisualCount*0.018))*sizeScale, 0.24, 0.9)
 		textBlockBottom := coordsY - coordsDesc
 		textBlockTop := cityY + cityAscent
-		textBlockHeight := math.Max(textBlockTop-textBlockBottom, 0.02)
+		textBlockHeight := math.Max(textBlockTop-textBlockBottom, 0.012)
 		scaleX := blurAxisScale(blurSizeX)
 		scaleY := blurAxisScale(blurSizeY)
-		// 50% means text bounds +10% on that axis.
-		panelW := clamp(textWidthEstimate*1.1*scaleX, 0.42, 0.94)
-		panelH := clamp(textBlockHeight*1.1*scaleY, 0.08, 0.42)
+		// 50% means text bounds +15% on each side (total +30%) on that axis.
+		panelW := clamp(textWidthEstimate*1.3*scaleX, 0.24, 0.94)
+		panelH := clamp(textBlockHeight*1.3*scaleY, 0.05, 0.42)
 		centerY := (textBlockTop + textBlockBottom) / 2.0
 		panelX := 0.5 - panelW/2
 		panelY := clamp(centerY-panelH/2, 0.01, 1-panelH-0.01)
