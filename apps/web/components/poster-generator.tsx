@@ -99,6 +99,8 @@ const MAX_POSTER_INCHES = 80;
 const MAX_LOCAL_PREVIEW_LONG_EDGE_PX = 2048;
 const PREVIEW_FRAME_MAX_WIDTH_PX = 420;
 const PREVIEW_FRAME_MAX_HEIGHT_PX = 560;
+const DEFAULT_CITY_FONT_SIZE = 60;
+const DEFAULT_COUNTRY_FONT_SIZE = 22;
 
 const schema = z
   .object({
@@ -245,6 +247,15 @@ function formatDimensionValue(
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(rounded);
+}
+
+function computeAutoCityFontSize(city: string): number {
+  const cityLength = city.trim().length;
+  if (cityLength <= 10) {
+    return DEFAULT_CITY_FONT_SIZE;
+  }
+  const scaledSize = Math.max(DEFAULT_CITY_FONT_SIZE * (10 / cityLength), 10);
+  return Math.round(scaledSize);
 }
 
 function normalizeHexColor(value: string | undefined): string | null {
@@ -1083,6 +1094,16 @@ export function PosterGenerator({
     sizeUnit,
     locale,
   )} - ${formatDimensionValue(MAX_POSTER_INCHES, sizeUnit, locale)}`;
+  const autoCityFontSize = computeAutoCityFontSize(values.city);
+  const autoCountryFontSize = DEFAULT_COUNTRY_FONT_SIZE;
+  const cityFontSizeInputValue =
+    typeof values.cityFontSize === "number"
+      ? values.cityFontSize
+      : autoCityFontSize;
+  const countryFontSizeInputValue =
+    typeof values.countryFontSize === "number"
+      ? values.countryFontSize
+      : autoCountryFontSize;
   const previewWidthInches =
     Number.isFinite(values.width) && values.width > 0
       ? values.width
@@ -1937,11 +1958,7 @@ export function PosterGenerator({
                                   max={120}
                                   step={1}
                                   placeholder={d.controls.autoThemeDefault}
-                                  value={
-                                    typeof values.cityFontSize === "number"
-                                      ? values.cityFontSize
-                                      : ""
-                                  }
+                                  value={cityFontSizeInputValue}
                                   onChange={(event) => {
                                     const nextRaw = event.currentTarget.value;
                                     form.setValue(
@@ -1963,11 +1980,7 @@ export function PosterGenerator({
                                   max={80}
                                   step={1}
                                   placeholder={d.controls.autoThemeDefault}
-                                  value={
-                                    typeof values.countryFontSize === "number"
-                                      ? values.countryFontSize
-                                      : ""
-                                  }
+                                  value={countryFontSizeInputValue}
                                   onChange={(event) => {
                                     const nextRaw = event.currentTarget.value;
                                     form.setValue(
