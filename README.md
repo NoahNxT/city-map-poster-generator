@@ -51,7 +51,8 @@ docker compose up --build
 
 ## Local Dev
 
-Use Docker for backend infra/services and run frontend on host for HMR:
+Use Docker for backend infra/services and run frontend on host for HMR.
+Go API and worker also run with container HMR (via `air`) in this mode:
 
 ```bash
 bun run dev:backend
@@ -69,6 +70,12 @@ Useful backend commands:
 ```bash
 bun run dev:backend:logs
 bun run dev:backend:down
+```
+
+Production-like backend (compiled binaries, no HMR):
+
+```bash
+docker compose up -d redis minio api worker
 ```
 
 ## Scripts

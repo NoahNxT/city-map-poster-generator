@@ -61,3 +61,4 @@ venv/
 apps/api/api
 apps/api/worker
 apps/api/.turbo/
+apps/api/.air-tmp/
