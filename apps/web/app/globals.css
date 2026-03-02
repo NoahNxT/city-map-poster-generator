@@ -12,7 +12,7 @@
   --primary: 22 63% 35%;
   --primary-foreground: 0 0% 98%;
   --muted: 32 24% 92%;
-  --muted-foreground: 26 13% 34%;
+  --muted-foreground: 26 14% 28%;
   --accent: 27 67% 82%;
   --accent-foreground: 20 21% 18%;
   --destructive: 0 72% 46%;
@@ -35,6 +35,7 @@ body {
 body {
   @apply bg-background text-foreground antialiased;
   font-family: var(--font-body), sans-serif;
+  line-height: 1.5;
   background-image:
     radial-gradient(circle at 15% 20%, rgba(239, 185, 126, 0.2), transparent 35%),
     radial-gradient(circle at 85% 0%, rgba(170, 220, 219, 0.2), transparent 25%);
@@ -67,4 +68,36 @@ button:disabled,
 [disabled],
 [aria-disabled="true"] {
   cursor: not-allowed;
+}
+
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: -10rem;
+  z-index: 1000;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+}
+
+.skip-link:focus-visible {
+  top: 1rem;
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

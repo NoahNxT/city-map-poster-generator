@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   AlertCircle,
   Check,
@@ -541,6 +541,18 @@ export function PosterGenerator({
   const locationListboxId = "location-search-listbox";
   const fontDescriptionId = "font-family-help";
   const generationStatusLiveId = "generation-status-live";
+  const generationStatusTitleId = "generation-status-title";
+  const distanceSliderId = "distance-slider";
+  const includeWaterId = "include-water-switch";
+  const includeParksId = "include-parks-switch";
+  const blurEnabledId = "text-blur-switch";
+  const rateLimitToggleId = "dev-rate-limit-switch";
+  const zoomToggleId = "preview-zoom-switch";
+  const zoomSliderId = "preview-zoom-slider";
+  const pageDescriptionId = "generator-page-description";
+  const previewKeyboardHintId = "preview-keyboard-hint";
+  const previewFrameId = "live-preview-frame";
+  const shouldReduceMotion = useReducedMotion();
   const [jobId, setJobId] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(
     undefined,
@@ -819,6 +831,43 @@ export function PosterGenerator({
     });
   }
 
+  function handlePreviewFrameKeyDown(
+    event: React.KeyboardEvent<HTMLDivElement>,
+  ): void {
+    if (!previewZoomEnabled) {
+      return;
+    }
+
+    const step = event.shiftKey ? 0.08 : 0.03;
+    const current = previewPointer ?? { x: 0.5, y: 0.5 };
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setPreviewPointer({ x: clamp(current.x - step, 0, 1), y: current.y });
+      return;
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setPreviewPointer({ x: clamp(current.x + step, 0, 1), y: current.y });
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setPreviewPointer({ x: current.x, y: clamp(current.y - step, 0, 1) });
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setPreviewPointer({ x: current.x, y: clamp(current.y + step, 0, 1) });
+      return;
+    }
+
+    if (event.key.toLowerCase() === "home") {
+      event.preventDefault();
+      setPreviewPointer({ x: 0.5, y: 0.5 });
+    }
+  }
+
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const activeTheme = themesQuery.data?.find(
     (theme) => theme.id === values.theme,
@@ -914,6 +963,15 @@ export function PosterGenerator({
     activeLocationIndex >= 0 && activeLocationIndex < locationSuggestions.length
       ? locationSuggestions[activeLocationIndex]
       : null;
+  const statusAnnouncement = createJobMutation.isPending
+    ? d.controls.queueingButton
+    : createJobMutation.error
+      ? createJobMutation.error.message
+      : jobQuery.data?.status === "failed"
+        ? (jobQuery.data.error ?? d.status.generationFailed)
+        : jobQuery.data?.status === "complete"
+          ? d.status.generationComplete
+          : "";
 
   function handleLocationInputKeyDown(
     event: React.KeyboardEvent<HTMLInputElement>,
@@ -970,12 +1028,16 @@ export function PosterGenerator({
       : "";
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6 lg:px-8">
+    <main
+      id="main-content"
+      className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6 lg:px-8"
+      aria-describedby={pageDescriptionId}
+    >
       <motion.header
         className="mb-8"
-        initial={{ opacity: 0, y: 10 }}
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
+        transition={{ duration: shouldReduceMotion ? 0 : 0.35 }}
       >
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <Badge className="bg-amber-700/90 text-amber-50">
@@ -1005,1235 +1067,1336 @@ export function PosterGenerator({
         <h1 className="font-heading text-4xl tracking-tight text-foreground sm:text-5xl">
           {d.header.title}
         </h1>
-        <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
+        <p
+          id={pageDescriptionId}
+          className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base"
+        >
           {d.header.subtitle}
         </p>
       </motion.header>
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.05 }}
+          transition={{
+            duration: shouldReduceMotion ? 0 : 0.35,
+            delay: shouldReduceMotion ? 0 : 0.05,
+          }}
         >
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <MapIcon className="h-5 w-5 text-amber-700" />
-                {d.controls.title}
-              </CardTitle>
-              <CardDescription>{d.controls.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="space-y-6"
-                onSubmit={form.handleSubmit(handleGenerate)}
-              >
-                <div className="space-y-2">
-                  <Label htmlFor={locationInputId}>{d.controls.location}</Label>
-                  <div className="relative">
-                    <Input
-                      id={locationInputId}
-                      value={locationQuery}
-                      placeholder={d.controls.locationPlaceholder}
-                      role="combobox"
-                      aria-autocomplete="list"
-                      aria-expanded={
-                        locationAutocompleteOpen &&
-                        debouncedLocationQuery.length >= 3
-                      }
-                      aria-controls={
-                        locationAutocompleteOpen &&
-                        debouncedLocationQuery.length >= 3
-                          ? locationListboxId
-                          : undefined
-                      }
-                      aria-activedescendant={
-                        activeLocationSuggestion
-                          ? `location-option-${activeLocationSuggestion.placeId}`
-                          : undefined
-                      }
-                      aria-describedby={`${locationHintId} ${locationStatusId}`}
-                      onFocus={() => {
-                        setLocationAutocompleteOpen(true);
-                      }}
-                      onBlur={() =>
-                        setTimeout(() => {
-                          setLocationAutocompleteOpen(false);
-                          setActiveLocationIndex(-1);
-                        }, 120)
-                      }
-                      onKeyDown={handleLocationInputKeyDown}
-                      onChange={(event) => {
-                        setLocationQuery(event.currentTarget.value);
-                        setLocationAutocompleteOpen(true);
-                        setActiveLocationIndex(-1);
-                      }}
-                    />
-                    {locationAutocompleteOpen &&
-                    debouncedLocationQuery.length >= 3 ? (
-                      <div
-                        id={locationListboxId}
-                        role="listbox"
-                        aria-label={d.controls.location}
-                        className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg"
-                      >
-                        {locationSuggestionsQuery.isLoading ? (
-                          <p className="px-3 py-2 text-xs text-muted-foreground">
-                            {d.controls.searchingLocations}
-                          </p>
-                        ) : locationSuggestions.length ? (
-                          locationSuggestions.map((suggestion, index) => (
-                            <button
-                              key={suggestion.placeId}
-                              type="button"
-                              id={`location-option-${suggestion.placeId}`}
-                              role="option"
-                              aria-selected={index === activeLocationIndex}
-                              tabIndex={-1}
-                              className={`w-full rounded-sm px-3 py-2 text-left text-sm ${
-                                index === activeLocationIndex
-                                  ? "bg-muted text-foreground"
-                                  : "hover:bg-muted"
-                              }`}
-                              onMouseEnter={() => setActiveLocationIndex(index)}
-                              onMouseDown={(event) => {
-                                event.preventDefault();
-                                handleLocationSelect(suggestion);
-                              }}
-                            >
-                              <p className="truncate font-medium">
-                                {suggestion.city}, {suggestion.country}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {suggestion.displayName}
-                              </p>
-                            </button>
-                          ))
-                        ) : (
-                          <p className="px-3 py-2 text-xs text-muted-foreground">
-                            {d.controls.noLocationResults}
-                          </p>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                  <p
-                    id={locationHintId}
-                    className="text-xs text-muted-foreground"
-                  >
-                    {d.controls.locationHelp}
-                  </p>
-                  <p
-                    id={locationStatusId}
-                    className="sr-only"
-                    aria-live="polite"
-                  >
-                    {locationStatusMessage}
-                  </p>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
+          <section aria-labelledby="map-controls-title">
+            <Card>
+              <CardHeader>
+                <CardTitle
+                  id="map-controls-title"
+                  className="flex items-center gap-2 text-xl"
+                >
+                  <MapIcon className="h-5 w-5 text-amber-700" />
+                  {d.controls.title}
+                </CardTitle>
+                <CardDescription>{d.controls.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  className="space-y-6"
+                  onSubmit={form.handleSubmit(handleGenerate)}
+                  aria-busy={createJobMutation.isPending}
+                >
                   <div className="space-y-2">
-                    <Label htmlFor="city">{d.controls.city}</Label>
-                    <Input
-                      id="city"
-                      placeholder={d.controls.cityPlaceholder}
-                      aria-invalid={Boolean(form.formState.errors.city)}
-                      aria-describedby={
-                        form.formState.errors.city ? "city-error" : undefined
-                      }
-                      {...form.register("city")}
-                    />
-                    {form.formState.errors.city ? (
-                      <p id="city-error" className="text-xs text-destructive">
-                        {d.controls.cityRequired}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="country">{d.controls.country}</Label>
-                    <Input
-                      id="country"
-                      placeholder={d.controls.countryPlaceholder}
-                      aria-invalid={Boolean(form.formState.errors.country)}
-                      aria-describedby={
-                        form.formState.errors.country
-                          ? "country-error"
-                          : undefined
-                      }
-                      {...form.register("country")}
-                    />
-                    {form.formState.errors.country ? (
-                      <p
-                        id="country-error"
-                        className="text-xs text-destructive"
-                      >
-                        {d.controls.countryRequired}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {distancePresets.map((preset) => (
-                      <Button
-                        key={preset.value}
-                        type="button"
-                        variant={
-                          values.distance === preset.value
-                            ? "default"
-                            : "outline"
+                    <Label htmlFor={locationInputId}>
+                      {d.controls.location}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id={locationInputId}
+                        value={locationQuery}
+                        placeholder={d.controls.locationPlaceholder}
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-expanded={
+                          locationAutocompleteOpen &&
+                          debouncedLocationQuery.length >= 3
                         }
-                        size="sm"
-                        onClick={() =>
-                          form.setValue("distance", preset.value, {
+                        aria-controls={
+                          locationAutocompleteOpen &&
+                          debouncedLocationQuery.length >= 3
+                            ? locationListboxId
+                            : undefined
+                        }
+                        aria-activedescendant={
+                          activeLocationSuggestion
+                            ? `location-option-${activeLocationSuggestion.placeId}`
+                            : undefined
+                        }
+                        aria-describedby={`${locationHintId} ${locationStatusId}`}
+                        onFocus={() => {
+                          setLocationAutocompleteOpen(true);
+                        }}
+                        onBlur={() =>
+                          setTimeout(() => {
+                            setLocationAutocompleteOpen(false);
+                            setActiveLocationIndex(-1);
+                          }, 120)
+                        }
+                        onKeyDown={handleLocationInputKeyDown}
+                        onChange={(event) => {
+                          setLocationQuery(event.currentTarget.value);
+                          setLocationAutocompleteOpen(true);
+                          setActiveLocationIndex(-1);
+                        }}
+                      />
+                      {locationAutocompleteOpen &&
+                      debouncedLocationQuery.length >= 3 ? (
+                        <div
+                          id={locationListboxId}
+                          role="listbox"
+                          aria-label={d.controls.location}
+                          className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg"
+                        >
+                          {locationSuggestionsQuery.isLoading ? (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">
+                              {d.controls.searchingLocations}
+                            </p>
+                          ) : locationSuggestions.length ? (
+                            locationSuggestions.map((suggestion, index) => (
+                              <button
+                                key={suggestion.placeId}
+                                type="button"
+                                id={`location-option-${suggestion.placeId}`}
+                                role="option"
+                                aria-selected={index === activeLocationIndex}
+                                tabIndex={-1}
+                                className={`w-full rounded-sm px-3 py-2 text-left text-sm ${
+                                  index === activeLocationIndex
+                                    ? "bg-muted text-foreground"
+                                    : "hover:bg-muted"
+                                }`}
+                                onMouseEnter={() =>
+                                  setActiveLocationIndex(index)
+                                }
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  handleLocationSelect(suggestion);
+                                }}
+                              >
+                                <p className="truncate font-medium">
+                                  {suggestion.city}, {suggestion.country}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {suggestion.displayName}
+                                </p>
+                              </button>
+                            ))
+                          ) : (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">
+                              {d.controls.noLocationResults}
+                            </p>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                    <p
+                      id={locationHintId}
+                      className="text-xs text-muted-foreground"
+                    >
+                      {d.controls.locationHelp}
+                    </p>
+                    <p
+                      id={locationStatusId}
+                      className="sr-only"
+                      aria-live="polite"
+                    >
+                      {locationStatusMessage}
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">{d.controls.city}</Label>
+                      <Input
+                        id="city"
+                        placeholder={d.controls.cityPlaceholder}
+                        aria-invalid={Boolean(form.formState.errors.city)}
+                        aria-describedby={
+                          form.formState.errors.city ? "city-error" : undefined
+                        }
+                        {...form.register("city")}
+                      />
+                      {form.formState.errors.city ? (
+                        <p id="city-error" className="text-xs text-destructive">
+                          {d.controls.cityRequired}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="country">{d.controls.country}</Label>
+                      <Input
+                        id="country"
+                        placeholder={d.controls.countryPlaceholder}
+                        aria-invalid={Boolean(form.formState.errors.country)}
+                        aria-describedby={
+                          form.formState.errors.country
+                            ? "country-error"
+                            : undefined
+                        }
+                        {...form.register("country")}
+                      />
+                      {form.formState.errors.country ? (
+                        <p
+                          id="country-error"
+                          className="text-xs text-destructive"
+                        >
+                          {d.controls.countryRequired}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <fieldset className="flex flex-wrap gap-2">
+                      <legend className="sr-only">{d.controls.distance}</legend>
+                      {distancePresets.map((preset) => (
+                        <Button
+                          key={preset.value}
+                          type="button"
+                          aria-pressed={values.distance === preset.value}
+                          variant={
+                            values.distance === preset.value
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() =>
+                            form.setValue("distance", preset.value, {
+                              shouldValidate: true,
+                            })
+                          }
+                        >
+                          {preset.label}
+                        </Button>
+                      ))}
+                    </fieldset>
+                    <div className="space-y-2">
+                      <Label htmlFor={distanceSliderId}>
+                        {d.controls.distance}:{" "}
+                        {values.distance.toLocaleString()}m
+                      </Label>
+                      <Slider
+                        id={distanceSliderId}
+                        aria-label={d.controls.distance}
+                        min={1000}
+                        max={50000}
+                        step={500}
+                        value={[values.distance]}
+                        onValueChange={(next) =>
+                          form.setValue(
+                            "distance",
+                            next[0] ?? values.distance,
+                            {
+                              shouldValidate: true,
+                            },
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <div className="flex min-h-8 items-center justify-between gap-3">
+                        <Label>{d.controls.theme}</Label>
+                        <Dialog
+                          open={themeDialogOpen}
+                          onOpenChange={setThemeDialogOpen}
+                        >
+                          <DialogTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              {d.controls.browseThemes}
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent
+                            closeLabel={d.accessibility.closeDialog}
+                          >
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center gap-2">
+                                <Palette className="h-4 w-4 text-amber-700" />
+                                {d.themeExplorer.title}
+                              </DialogTitle>
+                              <DialogDescription>
+                                {d.themeExplorer.description}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="max-h-[68vh] overflow-y-auto px-5 pb-5">
+                              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                {themesQuery.data?.map((theme, index) => {
+                                  const selected = values.theme === theme.id;
+                                  return (
+                                    <button
+                                      key={theme.id}
+                                      type="button"
+                                      onClick={() => handleThemeSelect(theme)}
+                                      className={[
+                                        "overflow-hidden rounded-lg border bg-card text-left transition-all",
+                                        selected
+                                          ? "border-amber-700 shadow-[0_0_0_1px_hsl(var(--primary))]"
+                                          : "border-border hover:border-amber-600/60 hover:shadow-sm",
+                                      ].join(" ")}
+                                    >
+                                      <ThemePreviewImage
+                                        themeId={theme.id}
+                                        themeName={theme.name}
+                                        loadingLabel={
+                                          d.themeExplorer.loadingPreview
+                                        }
+                                        unavailableLabel={
+                                          d.themeExplorer.previewUnavailable
+                                        }
+                                        priority={index < 6}
+                                      />
+                                      <div className="space-y-2 px-3 py-3">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <p className="text-sm font-semibold text-foreground">
+                                            {theme.name}
+                                          </p>
+                                          {selected ? (
+                                            <Badge className="bg-amber-700/90 text-amber-50">
+                                              {d.themeExplorer.selected}
+                                            </Badge>
+                                          ) : null}
+                                        </div>
+                                        <p className="min-h-8 text-xs text-muted-foreground">
+                                          {theme.description}
+                                        </p>
+                                        <div className="flex items-center gap-1">
+                                          {Object.entries(theme.colors)
+                                            .slice(0, 5)
+                                            .map(([colorKey, colorValue]) => (
+                                              <span
+                                                key={colorKey}
+                                                title={`${colorKey}: ${colorValue}`}
+                                                className="h-4 w-4 rounded-full border border-black/10"
+                                                style={{
+                                                  backgroundColor: colorValue,
+                                                }}
+                                              />
+                                            ))}
+                                        </div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      <Select
+                        value={values.theme}
+                        onValueChange={(value) =>
+                          form.setValue("theme", value, {
                             shouldValidate: true,
                           })
                         }
                       >
-                        {preset.label}
-                      </Button>
-                    ))}
+                        <SelectTrigger>
+                          <SelectValue placeholder={d.controls.theme} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {themesQuery.data?.map((theme) => (
+                            <SelectItem key={theme.id} value={theme.id}>
+                              {theme.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex min-h-8 items-center">
+                        <Label>{d.controls.format}</Label>
+                      </div>
+                      <Select
+                        value={values.format}
+                        onValueChange={(value) =>
+                          form.setValue(
+                            "format",
+                            value as FormValues["format"],
+                            {
+                              shouldValidate: true,
+                            },
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="png">PNG</SelectItem>
+                          <SelectItem value="svg">SVG</SelectItem>
+                          <SelectItem value="pdf">PDF</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>
-                      {d.controls.distance}: {values.distance.toLocaleString()}m
-                    </Label>
-                    <Slider
-                      min={1000}
-                      max={50000}
-                      step={500}
-                      value={[values.distance]}
-                      onValueChange={(next) =>
-                        form.setValue("distance", next[0] ?? values.distance, {
+
+                  <div className="flex items-center justify-between rounded-lg border border-dashed px-3 py-3">
+                    <div>
+                      <Label htmlFor="allThemes" className="block">
+                        {d.controls.generateAllThemesTitle}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {d.controls.generateAllThemesDescription}
+                      </p>
+                    </div>
+                    <Switch
+                      id="allThemes"
+                      checked={values.allThemes}
+                      onCheckedChange={(checked) =>
+                        form.setValue("allThemes", checked, {
                           shouldValidate: true,
                         })
                       }
                     />
                   </div>
-                </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <div className="flex min-h-8 items-center justify-between gap-3">
-                      <Label>{d.controls.theme}</Label>
-                      <Dialog
-                        open={themeDialogOpen}
-                        onOpenChange={setThemeDialogOpen}
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2 text-xs"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            {d.controls.browseThemes}
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                              <Palette className="h-4 w-4 text-amber-700" />
-                              {d.themeExplorer.title}
-                            </DialogTitle>
-                            <DialogDescription>
-                              {d.themeExplorer.description}
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="max-h-[68vh] overflow-y-auto px-5 pb-5">
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {themesQuery.data?.map((theme, index) => {
-                                const selected = values.theme === theme.id;
-                                return (
-                                  <button
-                                    key={theme.id}
-                                    type="button"
-                                    onClick={() => handleThemeSelect(theme)}
-                                    className={[
-                                      "overflow-hidden rounded-lg border bg-card text-left transition-all",
-                                      selected
-                                        ? "border-amber-700 shadow-[0_0_0_1px_hsl(var(--primary))]"
-                                        : "border-border hover:border-amber-600/60 hover:shadow-sm",
-                                    ].join(" ")}
-                                  >
-                                    <ThemePreviewImage
-                                      themeId={theme.id}
-                                      themeName={theme.name}
-                                      loadingLabel={
-                                        d.themeExplorer.loadingPreview
-                                      }
-                                      unavailableLabel={
-                                        d.themeExplorer.previewUnavailable
-                                      }
-                                      priority={index < 6}
-                                    />
-                                    <div className="space-y-2 px-3 py-3">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <p className="text-sm font-semibold text-foreground">
-                                          {theme.name}
-                                        </p>
-                                        {selected ? (
-                                          <Badge className="bg-amber-700/90 text-amber-50">
-                                            {d.themeExplorer.selected}
-                                          </Badge>
-                                        ) : null}
-                                      </div>
-                                      <p className="min-h-8 text-xs text-muted-foreground">
-                                        {theme.description}
-                                      </p>
-                                      <div className="flex items-center gap-1">
-                                        {Object.entries(theme.colors)
-                                          .slice(0, 5)
-                                          .map(([colorKey, colorValue]) => (
-                                            <span
-                                              key={colorKey}
-                                              title={`${colorKey}: ${colorValue}`}
-                                              className="h-4 w-4 rounded-full border border-black/10"
-                                              style={{
-                                                backgroundColor: colorValue,
-                                              }}
-                                            />
-                                          ))}
-                                      </div>
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                    <Select
-                      value={values.theme}
-                      onValueChange={(value) =>
-                        form.setValue("theme", value, { shouldValidate: true })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={d.controls.theme} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {themesQuery.data?.map((theme) => (
-                          <SelectItem key={theme.id} value={theme.id}>
-                            {theme.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex min-h-8 items-center">
-                      <Label>{d.controls.format}</Label>
-                    </div>
-                    <Select
-                      value={values.format}
-                      onValueChange={(value) =>
-                        form.setValue("format", value as FormValues["format"], {
-                          shouldValidate: true,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="png">PNG</SelectItem>
-                        <SelectItem value="svg">SVG</SelectItem>
-                        <SelectItem value="pdf">PDF</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border border-dashed px-3 py-3">
-                  <div>
-                    <Label htmlFor="allThemes" className="block">
-                      {d.controls.generateAllThemesTitle}
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      {d.controls.generateAllThemesDescription}
-                    </p>
-                  </div>
-                  <Switch
-                    id="allThemes"
-                    checked={values.allThemes}
-                    onCheckedChange={(checked) =>
-                      form.setValue("allThemes", checked, {
-                        shouldValidate: true,
-                      })
-                    }
-                  />
-                </div>
-
-                <Accordion
-                  type="single"
-                  collapsible
-                  defaultValue="advanced"
-                  className="w-full"
-                >
-                  <AccordionItem value="advanced">
-                    <AccordionTrigger>
-                      {d.controls.advancedOptions}
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="space-y-2">
-                            <Label htmlFor="latitude">
-                              {d.controls.latitude}
-                            </Label>
-                            <Input
-                              id="latitude"
-                              placeholder="48.8566"
-                              {...form.register("latitude")}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="longitude">
-                              {d.controls.longitude}
-                            </Label>
-                            <Input
-                              id="longitude"
-                              placeholder="2.3522"
-                              {...form.register("longitude")}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="space-y-2">
-                            <Label htmlFor="width">{d.controls.width}</Label>
-                            <Input
-                              id="width"
-                              type="number"
-                              min={1}
-                              max={20}
-                              step={0.1}
-                              value={values.width}
-                              onChange={(event) =>
-                                form.setValue(
-                                  "width",
-                                  Number(event.target.value),
-                                  { shouldValidate: true },
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="height">{d.controls.height}</Label>
-                            <Input
-                              id="height"
-                              type="number"
-                              min={1}
-                              max={20}
-                              step={0.1}
-                              value={values.height}
-                              onChange={(event) =>
-                                form.setValue(
-                                  "height",
-                                  Number(event.target.value),
-                                  { shouldValidate: true },
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-
-                        <div className="rounded-lg border border-dashed px-3 py-3">
-                          <p className="text-sm font-medium text-foreground">
-                            {d.controls.mapLayersTitle}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {d.controls.mapLayersDescription}
-                          </p>
-                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            <div className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2">
-                              <div>
-                                <p className="text-sm font-medium text-foreground">
-                                  {d.controls.includeWater}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {d.controls.includeWaterDescription}
-                                </p>
-                              </div>
-                              <Switch
-                                checked={values.includeWater}
-                                onCheckedChange={(checked) =>
-                                  form.setValue("includeWater", checked, {
-                                    shouldValidate: true,
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2">
-                              <div>
-                                <p className="text-sm font-medium text-foreground">
-                                  {d.controls.includeParks}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {d.controls.includeParksDescription}
-                                </p>
-                              </div>
-                              <Switch
-                                checked={values.includeParks}
-                                onCheckedChange={(checked) =>
-                                  form.setValue("includeParks", checked, {
-                                    shouldValidate: true,
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="rounded-lg border border-dashed px-3 py-3">
-                          <p className="text-sm font-medium text-foreground">
-                            {d.controls.typographyTitle}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {d.controls.typographyDescription}
-                          </p>
-                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Accordion
+                    type="single"
+                    collapsible
+                    defaultValue="advanced"
+                    className="w-full"
+                  >
+                    <AccordionItem value="advanced">
+                      <AccordionTrigger>
+                        {d.controls.advancedOptions}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-4">
+                          <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
-                              <Label htmlFor="cityFontSize">
-                                {d.controls.cityFontSize}
+                              <Label htmlFor="latitude">
+                                {d.controls.latitude}
                               </Label>
                               <Input
-                                id="cityFontSize"
-                                type="number"
-                                min={8}
-                                max={120}
-                                step={1}
-                                placeholder={d.controls.autoThemeDefault}
-                                value={
-                                  typeof values.cityFontSize === "number"
-                                    ? values.cityFontSize
-                                    : ""
-                                }
-                                onChange={(event) => {
-                                  const nextRaw = event.currentTarget.value;
-                                  form.setValue(
-                                    "cityFontSize",
-                                    nextRaw ? Number(nextRaw) : undefined,
-                                    { shouldValidate: true },
-                                  );
-                                }}
+                                id="latitude"
+                                placeholder="48.8566"
+                                {...form.register("latitude")}
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="countryFontSize">
-                                {d.controls.countryFontSize}
+                              <Label htmlFor="longitude">
+                                {d.controls.longitude}
                               </Label>
                               <Input
-                                id="countryFontSize"
+                                id="longitude"
+                                placeholder="2.3522"
+                                {...form.register("longitude")}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="width">{d.controls.width}</Label>
+                              <Input
+                                id="width"
                                 type="number"
-                                min={6}
-                                max={80}
-                                step={1}
-                                placeholder={d.controls.autoThemeDefault}
-                                value={
-                                  typeof values.countryFontSize === "number"
-                                    ? values.countryFontSize
-                                    : ""
-                                }
-                                onChange={(event) => {
-                                  const nextRaw = event.currentTarget.value;
-                                  form.setValue(
-                                    "countryFontSize",
-                                    nextRaw ? Number(nextRaw) : undefined,
-                                    { shouldValidate: true },
-                                  );
-                                }}
-                              />
-                            </div>
-                          </div>
-                          <div className="mt-3 space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                              <Label htmlFor="labelPaddingScale">
-                                {d.controls.labelPaddingScale}
-                              </Label>
-                              <span className="text-xs text-muted-foreground">
-                                {values.labelPaddingScale.toFixed(2)}x
-                              </span>
-                            </div>
-                            <Slider
-                              id="labelPaddingScale"
-                              min={0.5}
-                              max={3}
-                              step={0.05}
-                              value={[values.labelPaddingScale]}
-                              onValueChange={(nextValue) =>
-                                form.setValue(
-                                  "labelPaddingScale",
-                                  nextValue[0] ?? 1,
-                                  { shouldValidate: true },
-                                )
-                              }
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              {d.controls.labelPaddingHelp}
-                            </p>
-                          </div>
-                          <div className="mt-3 rounded-md border border-border bg-card px-3 py-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-medium text-foreground">
-                                  {d.controls.blurTitle}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {d.controls.blurDescription}
-                                </p>
-                              </div>
-                              <Switch
-                                checked={values.textBlurEnabled}
-                                onCheckedChange={(checked) =>
-                                  form.setValue("textBlurEnabled", checked, {
-                                    shouldValidate: true,
-                                  })
-                                }
-                              />
-                            </div>
-                            {values.textBlurEnabled ? (
-                              <div className="mt-3 space-y-3">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>{d.controls.blurSize}</span>
-                                    <span>
-                                      {values.textBlurSize.toFixed(2)}x
-                                    </span>
-                                  </div>
-                                  <Slider
-                                    min={0.6}
-                                    max={2.5}
-                                    step={0.05}
-                                    value={[values.textBlurSize]}
-                                    onValueChange={(nextValue) =>
-                                      form.setValue(
-                                        "textBlurSize",
-                                        nextValue[0] ?? 1,
-                                        { shouldValidate: true },
-                                      )
-                                    }
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>{d.controls.blurStrength}</span>
-                                    <span>
-                                      {values.textBlurStrength.toFixed(1)}px
-                                    </span>
-                                  </div>
-                                  <Slider
-                                    min={0}
-                                    max={30}
-                                    step={0.5}
-                                    value={[values.textBlurStrength]}
-                                    onValueChange={(nextValue) =>
-                                      form.setValue(
-                                        "textBlurStrength",
-                                        nextValue[0] ?? 8,
-                                        { shouldValidate: true },
-                                      )
-                                    }
-                                  />
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="mt-3 space-y-2">
-                            <Label htmlFor="textColor">
-                              {d.controls.textColor}
-                            </Label>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                id="textColor"
-                                className="flex-1"
-                                placeholder={d.controls.autoThemeTextColor}
-                                value={values.textColor ?? ""}
-                                onChange={(event) => {
-                                  const nextRaw =
-                                    event.currentTarget.value.trim();
-                                  form.setValue(
-                                    "textColor",
-                                    nextRaw || undefined,
-                                    { shouldValidate: true },
-                                  );
-                                }}
-                              />
-                              <Input
-                                type="color"
-                                className="h-11 w-14 p-1"
-                                aria-label={d.controls.pickCustomTextColor}
-                                value={
-                                  normalizeHexColor(values.textColor) ??
-                                  normalizeHexColor(themeTextColor) ??
-                                  "#8c4a18"
-                                }
+                                min={1}
+                                max={20}
+                                step={0.1}
+                                value={values.width}
                                 onChange={(event) =>
                                   form.setValue(
-                                    "textColor",
-                                    event.currentTarget.value,
+                                    "width",
+                                    Number(event.target.value),
                                     { shouldValidate: true },
                                   )
                                 }
                               />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() =>
-                                  form.setValue("textColor", undefined, {
-                                    shouldValidate: true,
-                                  })
-                                }
-                              >
-                                {d.controls.reset}
-                              </Button>
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              {d.controls.textColorHelp}
-                            </p>
+                            <div className="space-y-2">
+                              <Label htmlFor="height">
+                                {d.controls.height}
+                              </Label>
+                              <Input
+                                id="height"
+                                type="number"
+                                min={1}
+                                max={20}
+                                step={0.1}
+                                value={values.height}
+                                onChange={(event) =>
+                                  form.setValue(
+                                    "height",
+                                    Number(event.target.value),
+                                    { shouldValidate: true },
+                                  )
+                                }
+                              />
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Label htmlFor="fontFamily">
-                              {d.controls.googleFontFamily}
-                            </Label>
-                            <Popover open={activePreviewHint === "fontFamily"}>
-                              <PopoverTrigger asChild>
-                                <button
-                                  type="button"
-                                  aria-label={
-                                    d.controls.explainGoogleFontFamily
+                          <div className="rounded-lg border border-dashed px-3 py-3">
+                            <p className="text-sm font-medium text-foreground">
+                              {d.controls.mapLayersTitle}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {d.controls.mapLayersDescription}
+                            </p>
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <div className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2">
+                                <div>
+                                  <Label
+                                    htmlFor={includeWaterId}
+                                    className="text-sm font-medium text-foreground"
+                                  >
+                                    {d.controls.includeWater}
+                                  </Label>
+                                  <p
+                                    id={`${includeWaterId}-description`}
+                                    className="text-xs text-muted-foreground"
+                                  >
+                                    {d.controls.includeWaterDescription}
+                                  </p>
+                                </div>
+                                <Switch
+                                  id={includeWaterId}
+                                  aria-describedby={`${includeWaterId}-description`}
+                                  checked={values.includeWater}
+                                  onCheckedChange={(checked) =>
+                                    form.setValue("includeWater", checked, {
+                                      shouldValidate: true,
+                                    })
                                   }
-                                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                  {...getHintTriggerHandlers("fontFamily")}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2">
+                                <div>
+                                  <Label
+                                    htmlFor={includeParksId}
+                                    className="text-sm font-medium text-foreground"
+                                  >
+                                    {d.controls.includeParks}
+                                  </Label>
+                                  <p
+                                    id={`${includeParksId}-description`}
+                                    className="text-xs text-muted-foreground"
+                                  >
+                                    {d.controls.includeParksDescription}
+                                  </p>
+                                </div>
+                                <Switch
+                                  id={includeParksId}
+                                  aria-describedby={`${includeParksId}-description`}
+                                  checked={values.includeParks}
+                                  onCheckedChange={(checked) =>
+                                    form.setValue("includeParks", checked, {
+                                      shouldValidate: true,
+                                    })
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="rounded-lg border border-dashed px-3 py-3">
+                            <p className="text-sm font-medium text-foreground">
+                              {d.controls.typographyTitle}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {d.controls.typographyDescription}
+                            </p>
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <div className="space-y-2">
+                                <Label htmlFor="cityFontSize">
+                                  {d.controls.cityFontSize}
+                                </Label>
+                                <Input
+                                  id="cityFontSize"
+                                  type="number"
+                                  min={8}
+                                  max={120}
+                                  step={1}
+                                  placeholder={d.controls.autoThemeDefault}
+                                  value={
+                                    typeof values.cityFontSize === "number"
+                                      ? values.cityFontSize
+                                      : ""
+                                  }
+                                  onChange={(event) => {
+                                    const nextRaw = event.currentTarget.value;
+                                    form.setValue(
+                                      "cityFontSize",
+                                      nextRaw ? Number(nextRaw) : undefined,
+                                      { shouldValidate: true },
+                                    );
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="countryFontSize">
+                                  {d.controls.countryFontSize}
+                                </Label>
+                                <Input
+                                  id="countryFontSize"
+                                  type="number"
+                                  min={6}
+                                  max={80}
+                                  step={1}
+                                  placeholder={d.controls.autoThemeDefault}
+                                  value={
+                                    typeof values.countryFontSize === "number"
+                                      ? values.countryFontSize
+                                      : ""
+                                  }
+                                  onChange={(event) => {
+                                    const nextRaw = event.currentTarget.value;
+                                    form.setValue(
+                                      "countryFontSize",
+                                      nextRaw ? Number(nextRaw) : undefined,
+                                      { shouldValidate: true },
+                                    );
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            <div className="mt-3 space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <Label htmlFor="labelPaddingScale">
+                                  {d.controls.labelPaddingScale}
+                                </Label>
+                                <span className="text-xs text-muted-foreground">
+                                  {values.labelPaddingScale.toFixed(2)}x
+                                </span>
+                              </div>
+                              <Slider
+                                id="labelPaddingScale"
+                                aria-label={d.controls.labelPaddingScale}
+                                min={0.5}
+                                max={3}
+                                step={0.05}
+                                value={[values.labelPaddingScale]}
+                                onValueChange={(nextValue) =>
+                                  form.setValue(
+                                    "labelPaddingScale",
+                                    nextValue[0] ?? 1,
+                                    { shouldValidate: true },
+                                  )
+                                }
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                {d.controls.labelPaddingHelp}
+                              </p>
+                            </div>
+                            <div className="mt-3 rounded-md border border-border bg-card px-3 py-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <Label
+                                    htmlFor={blurEnabledId}
+                                    className="text-sm font-medium text-foreground"
+                                  >
+                                    {d.controls.blurTitle}
+                                  </Label>
+                                  <p className="text-xs text-muted-foreground">
+                                    {d.controls.blurDescription}
+                                  </p>
+                                </div>
+                                <Switch
+                                  id={blurEnabledId}
+                                  checked={values.textBlurEnabled}
+                                  onCheckedChange={(checked) =>
+                                    form.setValue("textBlurEnabled", checked, {
+                                      shouldValidate: true,
+                                    })
+                                  }
+                                />
+                              </div>
+                              {values.textBlurEnabled ? (
+                                <div className="mt-3 space-y-3">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                      <span>{d.controls.blurSize}</span>
+                                      <span>
+                                        {values.textBlurSize.toFixed(2)}x
+                                      </span>
+                                    </div>
+                                    <Slider
+                                      aria-label={d.controls.blurSize}
+                                      min={0.6}
+                                      max={2.5}
+                                      step={0.05}
+                                      value={[values.textBlurSize]}
+                                      onValueChange={(nextValue) =>
+                                        form.setValue(
+                                          "textBlurSize",
+                                          nextValue[0] ?? 1,
+                                          { shouldValidate: true },
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                      <span>{d.controls.blurStrength}</span>
+                                      <span>
+                                        {values.textBlurStrength.toFixed(1)}px
+                                      </span>
+                                    </div>
+                                    <Slider
+                                      aria-label={d.controls.blurStrength}
+                                      min={0}
+                                      max={30}
+                                      step={0.5}
+                                      value={[values.textBlurStrength]}
+                                      onValueChange={(nextValue) =>
+                                        form.setValue(
+                                          "textBlurStrength",
+                                          nextValue[0] ?? 8,
+                                          { shouldValidate: true },
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                            <div className="mt-3 space-y-2">
+                              <Label htmlFor="textColor">
+                                {d.controls.textColor}
+                              </Label>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  id="textColor"
+                                  className="flex-1"
+                                  placeholder={d.controls.autoThemeTextColor}
+                                  value={values.textColor ?? ""}
+                                  onChange={(event) => {
+                                    const nextRaw =
+                                      event.currentTarget.value.trim();
+                                    form.setValue(
+                                      "textColor",
+                                      nextRaw || undefined,
+                                      { shouldValidate: true },
+                                    );
+                                  }}
+                                />
+                                <Input
+                                  type="color"
+                                  className="h-11 w-14 p-1"
+                                  aria-label={d.controls.pickCustomTextColor}
+                                  value={
+                                    normalizeHexColor(values.textColor) ??
+                                    normalizeHexColor(themeTextColor) ??
+                                    "#8c4a18"
+                                  }
+                                  onChange={(event) =>
+                                    form.setValue(
+                                      "textColor",
+                                      event.currentTarget.value,
+                                      { shouldValidate: true },
+                                    )
+                                  }
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() =>
+                                    form.setValue("textColor", undefined, {
+                                      shouldValidate: true,
+                                    })
+                                  }
                                 >
-                                  <CircleHelp className="h-3.5 w-3.5" />
-                                </button>
+                                  {d.controls.reset}
+                                </Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {d.controls.textColorHelp}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="fontFamily">
+                                {d.controls.googleFontFamily}
+                              </Label>
+                              <Popover
+                                open={activePreviewHint === "fontFamily"}
+                              >
+                                <PopoverTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label={
+                                      d.controls.explainGoogleFontFamily
+                                    }
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    {...getHintTriggerHandlers("fontFamily")}
+                                  >
+                                    <CircleHelp className="h-3.5 w-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  align="start"
+                                  className="w-72"
+                                  side="top"
+                                >
+                                  <p className="text-xs font-semibold text-foreground">
+                                    {d.controls.googleFontHelpTitle}
+                                  </p>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {d.controls.googleFontHelpDescription}
+                                  </p>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <Popover
+                              open={fontComboboxOpen}
+                              onOpenChange={(open) => {
+                                setFontComboboxOpen(open);
+                                if (open) {
+                                  setFontSearchQuery(selectedFontFamily);
+                                }
+                              }}
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  id="fontFamily"
+                                  type="button"
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={fontComboboxOpen}
+                                  aria-describedby={fontDescriptionId}
+                                  className="w-full justify-between font-normal hover:bg-muted hover:text-foreground"
+                                >
+                                  <span
+                                    className={
+                                      selectedFontFamily
+                                        ? "truncate text-left"
+                                        : "truncate text-left text-muted-foreground"
+                                    }
+                                  >
+                                    {selectedFontFamily ||
+                                      d.controls.selectGoogleFont}
+                                  </span>
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
                               </PopoverTrigger>
                               <PopoverContent
                                 align="start"
-                                className="w-72"
-                                side="top"
+                                className="w-[var(--radix-popover-trigger-width)] p-0"
                               >
-                                <p className="text-xs font-semibold text-foreground">
-                                  {d.controls.googleFontHelpTitle}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {d.controls.googleFontHelpDescription}
-                                </p>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <Popover
-                            open={fontComboboxOpen}
-                            onOpenChange={(open) => {
-                              setFontComboboxOpen(open);
-                              if (open) {
-                                setFontSearchQuery(selectedFontFamily);
-                              }
-                            }}
-                          >
-                            <PopoverTrigger asChild>
-                              <Button
-                                id="fontFamily"
-                                type="button"
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={fontComboboxOpen}
-                                aria-describedby={fontDescriptionId}
-                                className="w-full justify-between font-normal hover:bg-muted hover:text-foreground"
-                              >
-                                <span
-                                  className={
-                                    selectedFontFamily
-                                      ? "truncate text-left"
-                                      : "truncate text-left text-muted-foreground"
-                                  }
-                                >
-                                  {selectedFontFamily ||
-                                    d.controls.selectGoogleFont}
-                                </span>
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent
-                              align="start"
-                              className="w-[var(--radix-popover-trigger-width)] p-0"
-                            >
-                              <Command shouldFilter={false}>
-                                <CommandInput
-                                  value={fontSearchQuery}
-                                  placeholder={d.controls.searchGoogleFonts}
-                                  aria-label={d.controls.searchGoogleFontsAria}
-                                  onValueChange={setFontSearchQuery}
-                                />
-                                <CommandList>
-                                  {fontSuggestionsQuery.isLoading ? (
-                                    <p className="px-3 py-3 text-xs text-muted-foreground">
-                                      {d.controls.searchingFonts}
-                                    </p>
-                                  ) : (
-                                    <>
-                                      <CommandGroup
-                                        heading={d.controls.selection}
-                                      >
-                                        <CommandItem
-                                          className={fontCommandItemClassName}
-                                          value="theme-default-font"
-                                          onSelect={clearFontSelection}
+                                <Command shouldFilter={false}>
+                                  <CommandInput
+                                    value={fontSearchQuery}
+                                    placeholder={d.controls.searchGoogleFonts}
+                                    aria-label={
+                                      d.controls.searchGoogleFontsAria
+                                    }
+                                    onValueChange={setFontSearchQuery}
+                                  />
+                                  <CommandList>
+                                    {fontSuggestionsQuery.isLoading ? (
+                                      <p className="px-3 py-3 text-xs text-muted-foreground">
+                                        {d.controls.searchingFonts}
+                                      </p>
+                                    ) : (
+                                      <>
+                                        <CommandGroup
+                                          heading={d.controls.selection}
                                         >
-                                          <Check
-                                            className={`mr-2 h-4 w-4 ${
-                                              selectedFontFamily
-                                                ? "opacity-0"
-                                                : "opacity-100"
-                                            }`}
-                                          />
-                                          {d.controls.themeDefaultFont}
-                                        </CommandItem>
-                                      </CommandGroup>
-                                      <CommandSeparator />
-                                      {fontSuggestionsQuery.isError ? (
-                                        <>
-                                          <p className="px-3 py-2 text-xs text-red-700">
-                                            {d.controls.fontSearchUnavailable}
-                                          </p>
-                                          <CommandGroup
-                                            heading={d.controls.fallbackFonts}
+                                          <CommandItem
+                                            className={fontCommandItemClassName}
+                                            value="theme-default-font"
+                                            onSelect={clearFontSelection}
                                           >
-                                            {fallbackFontSuggestions.length ? (
-                                              fallbackFontSuggestions.map(
-                                                (font) => {
-                                                  const isSelected =
-                                                    selectedFontFamily.toLowerCase() ===
-                                                    font.family.toLowerCase();
-                                                  return (
-                                                    <CommandItem
-                                                      className={
-                                                        fontCommandItemClassName
-                                                      }
-                                                      key={font.family}
-                                                      value={`fallback-${font.family.toLowerCase()}`}
-                                                      onSelect={() =>
-                                                        handleFontSelect(
-                                                          font.family,
-                                                        )
-                                                      }
-                                                    >
-                                                      <Check
-                                                        className={`mr-2 h-4 w-4 ${
-                                                          isSelected
-                                                            ? "opacity-100"
-                                                            : "opacity-0"
-                                                        }`}
-                                                      />
-                                                      <div className="min-w-0">
-                                                        <p className="truncate font-medium">
-                                                          {font.family}
-                                                        </p>
-                                                        <p className="truncate text-xs text-muted-foreground">
-                                                          {font.category}
-                                                        </p>
-                                                      </div>
-                                                    </CommandItem>
-                                                  );
-                                                },
-                                              )
-                                            ) : (
-                                              <CommandEmpty>
-                                                {d.controls.noFallbackFonts}
-                                              </CommandEmpty>
+                                            <Check
+                                              className={`mr-2 h-4 w-4 ${
+                                                selectedFontFamily
+                                                  ? "opacity-0"
+                                                  : "opacity-100"
+                                              }`}
+                                            />
+                                            {d.controls.themeDefaultFont}
+                                          </CommandItem>
+                                        </CommandGroup>
+                                        <CommandSeparator />
+                                        {fontSuggestionsQuery.isError ? (
+                                          <>
+                                            <p className="px-3 py-2 text-xs text-red-700">
+                                              {d.controls.fontSearchUnavailable}
+                                            </p>
+                                            <CommandGroup
+                                              heading={d.controls.fallbackFonts}
+                                            >
+                                              {fallbackFontSuggestions.length ? (
+                                                fallbackFontSuggestions.map(
+                                                  (font) => {
+                                                    const isSelected =
+                                                      selectedFontFamily.toLowerCase() ===
+                                                      font.family.toLowerCase();
+                                                    return (
+                                                      <CommandItem
+                                                        className={
+                                                          fontCommandItemClassName
+                                                        }
+                                                        key={font.family}
+                                                        value={`fallback-${font.family.toLowerCase()}`}
+                                                        onSelect={() =>
+                                                          handleFontSelect(
+                                                            font.family,
+                                                          )
+                                                        }
+                                                      >
+                                                        <Check
+                                                          className={`mr-2 h-4 w-4 ${
+                                                            isSelected
+                                                              ? "opacity-100"
+                                                              : "opacity-0"
+                                                          }`}
+                                                        />
+                                                        <div className="min-w-0">
+                                                          <p className="truncate font-medium">
+                                                            {font.family}
+                                                          </p>
+                                                          <p className="truncate text-xs text-muted-foreground">
+                                                            {font.category}
+                                                          </p>
+                                                        </div>
+                                                      </CommandItem>
+                                                    );
+                                                  },
+                                                )
+                                              ) : (
+                                                <CommandEmpty>
+                                                  {d.controls.noFallbackFonts}
+                                                </CommandEmpty>
+                                              )}
+                                            </CommandGroup>
+                                          </>
+                                        ) : fontSuggestionsQuery.data
+                                            ?.length ? (
+                                          <CommandGroup
+                                            heading={d.controls.googleFonts}
+                                          >
+                                            {fontSuggestionsQuery.data.map(
+                                              (font) => {
+                                                const isSelected =
+                                                  selectedFontFamily.toLowerCase() ===
+                                                  font.family.toLowerCase();
+                                                return (
+                                                  <CommandItem
+                                                    className={
+                                                      fontCommandItemClassName
+                                                    }
+                                                    key={font.family}
+                                                    value={`google-${font.family.toLowerCase()}`}
+                                                    onSelect={() =>
+                                                      handleFontSelect(
+                                                        font.family,
+                                                      )
+                                                    }
+                                                  >
+                                                    <Check
+                                                      className={`mr-2 h-4 w-4 ${
+                                                        isSelected
+                                                          ? "opacity-100"
+                                                          : "opacity-0"
+                                                      }`}
+                                                    />
+                                                    <div className="min-w-0">
+                                                      <p className="truncate font-medium">
+                                                        {font.family}
+                                                      </p>
+                                                      <p className="truncate text-xs text-muted-foreground">
+                                                        {font.category ??
+                                                          d.controls
+                                                            .googleFonts}
+                                                      </p>
+                                                    </div>
+                                                  </CommandItem>
+                                                );
+                                              },
                                             )}
                                           </CommandGroup>
-                                        </>
-                                      ) : fontSuggestionsQuery.data?.length ? (
-                                        <CommandGroup
-                                          heading={d.controls.googleFonts}
-                                        >
-                                          {fontSuggestionsQuery.data.map(
-                                            (font) => {
-                                              const isSelected =
-                                                selectedFontFamily.toLowerCase() ===
-                                                font.family.toLowerCase();
-                                              return (
-                                                <CommandItem
-                                                  className={
-                                                    fontCommandItemClassName
-                                                  }
-                                                  key={font.family}
-                                                  value={`google-${font.family.toLowerCase()}`}
-                                                  onSelect={() =>
-                                                    handleFontSelect(
-                                                      font.family,
-                                                    )
-                                                  }
-                                                >
-                                                  <Check
-                                                    className={`mr-2 h-4 w-4 ${
-                                                      isSelected
-                                                        ? "opacity-100"
-                                                        : "opacity-0"
-                                                    }`}
-                                                  />
-                                                  <div className="min-w-0">
-                                                    <p className="truncate font-medium">
-                                                      {font.family}
-                                                    </p>
-                                                    <p className="truncate text-xs text-muted-foreground">
-                                                      {font.category ??
-                                                        d.controls.googleFonts}
-                                                    </p>
-                                                  </div>
-                                                </CommandItem>
-                                              );
-                                            },
-                                          )}
-                                        </CommandGroup>
-                                      ) : (
-                                        <CommandEmpty>
-                                          {d.controls.noFontsFound}
-                                        </CommandEmpty>
-                                      )}
-                                    </>
-                                  )}
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
-                          <p
-                            id={fontDescriptionId}
-                            className="text-xs text-muted-foreground"
-                          >
-                            {d.controls.searchGoogleFontsHelp}
-                          </p>
+                                        ) : (
+                                          <CommandEmpty>
+                                            {d.controls.noFontsFound}
+                                          </CommandEmpty>
+                                        )}
+                                      </>
+                                    )}
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            <p
+                              id={fontDescriptionId}
+                              className="text-xs text-muted-foreground"
+                            >
+                              {d.controls.searchGoogleFontsHelp}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
 
-                {turnstileSiteKey ? (
-                  <Turnstile
-                    siteKey={turnstileSiteKey}
-                    options={{ theme: "light" }}
-                    onSuccess={(token) => setCaptchaToken(token)}
-                    onExpire={() => setCaptchaToken(undefined)}
-                  />
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {d.controls.captchaMissing}
-                  </p>
-                )}
+                  {turnstileSiteKey ? (
+                    <Turnstile
+                      siteKey={turnstileSiteKey}
+                      options={{ theme: "light" }}
+                      onSuccess={(token) => setCaptchaToken(token)}
+                      onExpire={() => setCaptchaToken(undefined)}
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {d.controls.captchaMissing}
+                    </p>
+                  )}
 
-                <div className="hidden lg:block">
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={
-                      !form.formState.isValid || createJobMutation.isPending
-                    }
-                  >
-                    {createJobMutation.isPending ? (
-                      <>
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        {d.controls.queueingButton}
-                      </>
-                    ) : (
-                      <>
-                        <WandSparkles className="h-4 w-4" />
-                        {d.controls.generatedButton}
-                      </>
-                    )}
-                  </Button>
-                </div>
-                {createJobMutation.error ? (
-                  <p
-                    role="alert"
-                    className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
-                  >
-                    {createJobMutation.error.message}
-                  </p>
-                ) : null}
-              </form>
-            </CardContent>
-          </Card>
+                  <div className="hidden lg:block">
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={
+                        !form.formState.isValid || createJobMutation.isPending
+                      }
+                    >
+                      {createJobMutation.isPending ? (
+                        <>
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          {d.controls.queueingButton}
+                        </>
+                      ) : (
+                        <>
+                          <WandSparkles className="h-4 w-4" />
+                          {d.controls.generatedButton}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {createJobMutation.error ? (
+                    <p
+                      role="alert"
+                      className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+                    >
+                      {createJobMutation.error.message}
+                    </p>
+                  ) : null}
+                </form>
+              </CardContent>
+            </Card>
+          </section>
         </motion.div>
 
         <motion.aside
-          initial={{ opacity: 0, y: 16 }}
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.1 }}
+          transition={{
+            duration: shouldReduceMotion ? 0 : 0.35,
+            delay: shouldReduceMotion ? 0 : 0.1,
+          }}
           className="space-y-6 lg:sticky lg:top-6 lg:self-start"
         >
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Sparkles className="h-4 w-4 text-amber-700" />
-                {d.preview.title}
-              </CardTitle>
-              <CardDescription>{d.preview.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {showDevRateLimitToggle ? (
+          <section aria-labelledby="live-preview-title">
+            <Card>
+              <CardHeader>
+                <CardTitle
+                  id="live-preview-title"
+                  className="flex items-center gap-2 text-lg"
+                >
+                  <Sparkles className="h-4 w-4 text-amber-700" />
+                  {d.preview.title}
+                </CardTitle>
+                <CardDescription>{d.preview.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {showDevRateLimitToggle ? (
+                  <div className="rounded-lg border border-dashed px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <Label
+                          htmlFor={rateLimitToggleId}
+                          className="text-sm font-medium text-foreground"
+                        >
+                          {d.preview.disableRateLimitTitle}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {d.preview.disableRateLimitDescription}
+                        </p>
+                      </div>
+                      <Switch
+                        id={rateLimitToggleId}
+                        checked={disableRateLimit}
+                        onCheckedChange={setDisableRateLimit}
+                        aria-label={d.preview.disableRateLimitTitle}
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 <div className="rounded-lg border border-dashed px-3 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {d.preview.disableRateLimitTitle}
-                      </p>
+                      <Label
+                        htmlFor={zoomToggleId}
+                        className="text-sm font-medium text-foreground"
+                      >
+                        {d.preview.zoomTitle}
+                      </Label>
                       <p className="text-xs text-muted-foreground">
-                        {d.preview.disableRateLimitDescription}
+                        {d.preview.zoomDescription}
                       </p>
                     </div>
                     <Switch
-                      checked={disableRateLimit}
-                      onCheckedChange={setDisableRateLimit}
-                      aria-label={d.preview.disableRateLimitTitle}
+                      id={zoomToggleId}
+                      checked={previewZoomEnabled}
+                      onCheckedChange={setPreviewZoomEnabled}
+                      aria-label={d.preview.zoomTitle}
+                      aria-controls={previewFrameId}
                     />
                   </div>
-                </div>
-              ) : null}
-              <div className="rounded-lg border border-dashed px-3 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {d.preview.zoomTitle}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {d.preview.zoomDescription}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={previewZoomEnabled}
-                    onCheckedChange={setPreviewZoomEnabled}
-                    aria-label={d.preview.zoomTitle}
-                  />
-                </div>
-                {previewZoomEnabled ? (
-                  <div className="mt-3 space-y-2">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{d.preview.zoomLevel}</span>
-                      <span>
-                        {d.preview.zoomLevelValue.replace(
-                          "{value}",
-                          previewZoomLevel.toFixed(1),
-                        )}
-                      </span>
+                  {previewZoomEnabled ? (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{d.preview.zoomLevel}</span>
+                        <span>
+                          {d.preview.zoomLevelValue.replace(
+                            "{value}",
+                            previewZoomLevel.toFixed(1),
+                          )}
+                        </span>
+                      </div>
+                      <Slider
+                        id={zoomSliderId}
+                        aria-label={d.preview.zoomLevel}
+                        min={1.5}
+                        max={6}
+                        step={0.5}
+                        value={[previewZoomLevel]}
+                        onValueChange={(nextValue) =>
+                          setPreviewZoomLevel(
+                            nextValue[0] ?? DEFAULT_PREVIEW_ZOOM,
+                          )
+                        }
+                      />
                     </div>
-                    <Slider
-                      min={1.5}
-                      max={6}
-                      step={0.5}
-                      value={[previewZoomLevel]}
-                      onValueChange={(nextValue) =>
-                        setPreviewZoomLevel(
-                          nextValue[0] ?? DEFAULT_PREVIEW_ZOOM,
-                        )
-                      }
-                    />
-                  </div>
-                ) : null}
-              </div>
-              <div
-                ref={previewFrameRef}
-                className="group relative aspect-[439.2/583.2] touch-none select-none overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100"
-                onPointerMove={(event) => {
-                  if (!previewZoomEnabled) return;
-                  updatePreviewPointer(event.clientX, event.clientY);
-                }}
-                onPointerEnter={(event) => {
-                  if (!previewZoomEnabled) return;
-                  updatePreviewPointer(event.clientX, event.clientY);
-                }}
-                onPointerDown={(event) => {
-                  if (!previewZoomEnabled) return;
-                  updatePreviewPointer(event.clientX, event.clientY);
-                }}
-                onPointerLeave={() => {
-                  if (!previewZoomEnabled) return;
-                  setPreviewPointer(null);
-                }}
-              >
-                <Image
-                  src={previewUrl}
-                  alt={d.preview.posterAlt}
-                  fill
-                  className="h-full w-full object-cover"
-                  unoptimized
-                />
-                {values.textBlurEnabled ? (
-                  <div
-                    className="pointer-events-none absolute z-10 border shadow-[0_10px_30px_rgba(0,0,0,0.08)]"
-                    style={{
-                      left: `${previewBlurLeftPct}%`,
-                      top: `${previewBlurTopPct}%`,
-                      width: `${previewBlurPanelWidthPct}%`,
-                      height: `${previewBlurHeightPct}%`,
-                      borderRadius: `${previewBlurRadiusPx}px`,
-                      backgroundColor: previewBlurTint,
-                      borderColor: previewBlurBorder,
-                      backdropFilter: `blur(${values.textBlurStrength}px)`,
-                      WebkitBackdropFilter: `blur(${values.textBlurStrength}px)`,
-                    }}
+                  ) : null}
+                </div>
+                <figure
+                  id={previewFrameId}
+                  ref={previewFrameRef}
+                  className="group relative aspect-[439.2/583.2] touch-none select-none overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100"
+                  tabIndex={previewZoomEnabled ? 0 : -1}
+                  aria-label={`${d.preview.title}: ${values.city}, ${values.country}`}
+                  aria-describedby={previewKeyboardHintId}
+                  onPointerMove={(event) => {
+                    if (!previewZoomEnabled) return;
+                    updatePreviewPointer(event.clientX, event.clientY);
+                  }}
+                  onPointerEnter={(event) => {
+                    if (!previewZoomEnabled) return;
+                    updatePreviewPointer(event.clientX, event.clientY);
+                  }}
+                  onPointerDown={(event) => {
+                    if (!previewZoomEnabled) return;
+                    updatePreviewPointer(event.clientX, event.clientY);
+                  }}
+                  onPointerLeave={() => {
+                    if (!previewZoomEnabled) return;
+                    setPreviewPointer(null);
+                  }}
+                  onKeyDown={handlePreviewFrameKeyDown}
+                >
+                  <Image
+                    src={previewUrl}
+                    alt={d.preview.posterAlt}
+                    fill
+                    className="h-full w-full object-cover"
+                    unoptimized
                   />
-                ) : null}
-                <PreviewTypographyOverlay
-                  className="pointer-events-none absolute inset-0 z-20 h-full w-full"
-                  title={d.preview.textOverlayTitle}
-                  previewTextColor={previewTextColor}
-                  previewDisplayCity={previewDisplayCity}
-                  previewDisplayCountry={previewDisplayCountry}
-                  previewCoords={previewCoords}
-                  previewTextMetrics={previewTextMetrics}
-                  previewTypographyFontFamily={previewTypographyFontFamily}
-                  labelPaddingScale={values.labelPaddingScale}
-                />
-                {previewZoomEnabled ? (
-                  <>
+                  {values.textBlurEnabled ? (
                     <div
-                      className="pointer-events-none absolute z-20 rounded-sm border border-amber-700/80 bg-amber-200/10 shadow-[0_0_0_1px_rgba(255,255,255,0.35)]"
+                      className="pointer-events-none absolute z-10 border shadow-[0_10px_30px_rgba(0,0,0,0.08)]"
                       style={{
-                        left: `${zoomLensLeft}%`,
-                        top: `${zoomLensTop}%`,
-                        width: `${zoomLensWidth}%`,
-                        height: `${zoomLensHeight}%`,
+                        left: `${previewBlurLeftPct}%`,
+                        top: `${previewBlurTopPct}%`,
+                        width: `${previewBlurPanelWidthPct}%`,
+                        height: `${previewBlurHeightPct}%`,
+                        borderRadius: `${previewBlurRadiusPx}px`,
+                        backgroundColor: previewBlurTint,
+                        borderColor: previewBlurBorder,
+                        backdropFilter: `blur(${values.textBlurStrength}px)`,
+                        WebkitBackdropFilter: `blur(${values.textBlurStrength}px)`,
                       }}
                     />
-                    <div className="pointer-events-none absolute right-2 top-2 z-30 w-32 overflow-hidden rounded-md border border-border bg-card/95 shadow-lg sm:w-36">
-                      <div className="absolute left-2 top-2 z-20 rounded bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-                        {d.preview.zoomValue.replace(
-                          "{value}",
-                          previewZoomLevel.toFixed(1),
-                        )}
-                      </div>
-                      <div className="relative aspect-[439.2/583.2]">
-                        <svg
-                          className="absolute inset-0 h-full w-full"
-                          viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
-                          preserveAspectRatio="none"
-                          aria-hidden="true"
-                        >
-                          <title>{d.preview.magnifiedTitle}</title>
-                          <image
-                            href={previewUrl}
-                            x={0}
-                            y={0}
-                            width={PREVIEW_VIEWBOX_WIDTH}
-                            height={PREVIEW_VIEWBOX_HEIGHT}
-                            preserveAspectRatio="none"
-                          />
-                        </svg>
-                        <PreviewTypographyOverlay
-                          className="absolute inset-0 z-20 h-full w-full"
-                          viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
-                          title={d.preview.magnifiedOverlayTitle}
-                          previewTextColor={previewTextColor}
-                          previewDisplayCity={previewDisplayCity}
-                          previewDisplayCountry={previewDisplayCountry}
-                          previewCoords={previewCoords}
-                          previewTextMetrics={previewTextMetrics}
-                          previewTypographyFontFamily={
-                            previewTypographyFontFamily
-                          }
-                          labelPaddingScale={values.labelPaddingScale}
-                        />
-                      </div>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-
-              <div
-                className="rounded-lg border border-dashed px-3 py-3"
-                aria-live="polite"
-                aria-atomic="true"
-                id={generationStatusLiveId}
-              >
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-foreground">
-                    {d.status.title}
-                  </p>
-                  {jobId ? (
-                    <Badge variant={statusTone}>
-                      {jobQuery.data?.status ?? d.status.queuedBadge}
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">{d.status.idleBadge}</Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {d.status.description}
-                </p>
-                <div className="mt-3 space-y-3">
-                  {jobId ? (
+                  ) : null}
+                  <PreviewTypographyOverlay
+                    className="pointer-events-none absolute inset-0 z-20 h-full w-full"
+                    title={d.preview.textOverlayTitle}
+                    previewTextColor={previewTextColor}
+                    previewDisplayCity={previewDisplayCity}
+                    previewDisplayCountry={previewDisplayCountry}
+                    previewCoords={previewCoords}
+                    previewTextMetrics={previewTextMetrics}
+                    previewTypographyFontFamily={previewTypographyFontFamily}
+                    labelPaddingScale={values.labelPaddingScale}
+                  />
+                  {previewZoomEnabled ? (
                     <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          {d.status.jobLabel}: {jobId.slice(0, 8)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {jobQuery.data?.progress ?? 0}%
-                        </span>
-                      </div>
-                      <Progress value={jobQuery.data?.progress ?? 0} />
-                      <ul className="space-y-1 text-xs text-muted-foreground">
-                        {(jobQuery.data?.steps ?? []).slice(-4).map((step) => (
-                          <li key={step}>• {step}</li>
-                        ))}
-                      </ul>
-                      {jobQuery.data?.status === "failed" ? (
-                        <p className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                          <AlertCircle className="h-4 w-4" />
-                          {jobQuery.data.error ?? d.status.generationFailed}
-                        </p>
-                      ) : null}
-                      {jobQuery.data?.status === "complete" ? (
-                        <div className="space-y-2">
-                          <p className="flex items-center gap-2 text-xs text-emerald-700">
-                            <CheckCircle2 className="h-4 w-4" />
-                            {d.status.generationComplete}
-                          </p>
-                          <div className="space-y-1 text-xs text-muted-foreground">
-                            {jobQuery.data.artifacts.map((artifact) => (
-                              <p key={artifact.key}>{artifact.fileName}</p>
-                            ))}
-                          </div>
-                          <Button
-                            variant="secondary"
-                            className="w-full"
-                            onClick={() => downloadMutation.mutate(jobId)}
-                            disabled={downloadMutation.isPending}
-                          >
-                            <Download className="h-4 w-4" />
-                            {downloadMutation.isPending
-                              ? d.status.preparingDownload
-                              : d.status.download}
-                          </Button>
-                          {downloadUrl ? (
-                            <p className="break-all text-xs text-muted-foreground">
-                              {downloadUrl}
-                            </p>
-                          ) : null}
+                      <div
+                        className="pointer-events-none absolute z-20 rounded-sm border border-amber-700/80 bg-amber-200/10 shadow-[0_0_0_1px_rgba(255,255,255,0.35)]"
+                        style={{
+                          left: `${zoomLensLeft}%`,
+                          top: `${zoomLensTop}%`,
+                          width: `${zoomLensWidth}%`,
+                          height: `${zoomLensHeight}%`,
+                        }}
+                      />
+                      <div className="pointer-events-none absolute right-2 top-2 z-30 w-32 overflow-hidden rounded-md border border-border bg-card/95 shadow-lg sm:w-36">
+                        <div className="absolute left-2 top-2 z-20 rounded bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                          {d.preview.zoomValue.replace(
+                            "{value}",
+                            previewZoomLevel.toFixed(1),
+                          )}
                         </div>
-                      ) : null}
+                        <div className="relative aspect-[439.2/583.2]">
+                          <svg
+                            className="absolute inset-0 h-full w-full"
+                            viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
+                            preserveAspectRatio="none"
+                            aria-hidden="true"
+                          >
+                            <title>{d.preview.magnifiedTitle}</title>
+                            <image
+                              href={previewUrl}
+                              x={0}
+                              y={0}
+                              width={PREVIEW_VIEWBOX_WIDTH}
+                              height={PREVIEW_VIEWBOX_HEIGHT}
+                              preserveAspectRatio="none"
+                            />
+                          </svg>
+                          <PreviewTypographyOverlay
+                            className="absolute inset-0 z-20 h-full w-full"
+                            viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
+                            title={d.preview.magnifiedOverlayTitle}
+                            previewTextColor={previewTextColor}
+                            previewDisplayCity={previewDisplayCity}
+                            previewDisplayCountry={previewDisplayCountry}
+                            previewCoords={previewCoords}
+                            previewTextMetrics={previewTextMetrics}
+                            previewTypographyFontFamily={
+                              previewTypographyFontFamily
+                            }
+                            labelPaddingScale={values.labelPaddingScale}
+                          />
+                        </div>
+                      </div>
                     </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {d.status.idle}
+                  ) : null}
+                </figure>
+                <p id={previewKeyboardHintId} className="sr-only">
+                  {d.accessibility.previewKeyboardHint}
+                </p>
+
+                <section
+                  className="rounded-lg border border-dashed px-3 py-3"
+                  aria-labelledby={generationStatusTitleId}
+                  aria-live="polite"
+                  aria-atomic="true"
+                  id={generationStatusLiveId}
+                  aria-busy={Boolean(jobId) && jobQuery.isFetching}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p
+                      id={generationStatusTitleId}
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      {d.status.title}
                     </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                    {jobId ? (
+                      <Badge variant={statusTone}>
+                        {jobQuery.data?.status ?? d.status.queuedBadge}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">{d.status.idleBadge}</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {d.status.description}
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    {jobId ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {d.status.jobLabel}: {jobId.slice(0, 8)}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {jobQuery.data?.progress ?? 0}%
+                          </span>
+                        </div>
+                        <Progress value={jobQuery.data?.progress ?? 0} />
+                        <ul className="space-y-1 text-xs text-muted-foreground">
+                          {(jobQuery.data?.steps ?? [])
+                            .slice(-4)
+                            .map((step) => (
+                              <li key={step}>• {step}</li>
+                            ))}
+                        </ul>
+                        {jobQuery.data?.status === "failed" ? (
+                          <p className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                            <AlertCircle className="h-4 w-4" />
+                            {jobQuery.data.error ?? d.status.generationFailed}
+                          </p>
+                        ) : null}
+                        {jobQuery.data?.status === "complete" ? (
+                          <div className="space-y-2">
+                            <p className="flex items-center gap-2 text-xs text-emerald-700">
+                              <CheckCircle2 className="h-4 w-4" />
+                              {d.status.generationComplete}
+                            </p>
+                            <div className="space-y-1 text-xs text-muted-foreground">
+                              {jobQuery.data.artifacts.map((artifact) => (
+                                <p key={artifact.key}>{artifact.fileName}</p>
+                              ))}
+                            </div>
+                            <Button
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => downloadMutation.mutate(jobId)}
+                              disabled={downloadMutation.isPending}
+                            >
+                              <Download className="h-4 w-4" />
+                              {downloadMutation.isPending
+                                ? d.status.preparingDownload
+                                : d.status.download}
+                            </Button>
+                            {downloadUrl ? (
+                              <p className="break-all text-xs text-muted-foreground">
+                                {downloadUrl}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {d.status.idle}
+                      </p>
+                    )}
+                  </div>
+                </section>
+                <output className="sr-only" aria-live="assertive">
+                  {statusAnnouncement}
+                </output>
+              </CardContent>
+            </Card>
+          </section>
         </motion.aside>
       </section>
 
@@ -2256,6 +2419,6 @@ export function PosterGenerator({
           )}
         </Button>
       </div>
-    </div>
+    </main>
   );
 }

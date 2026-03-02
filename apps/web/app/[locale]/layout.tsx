@@ -87,6 +87,9 @@ export default async function LocaleLayout({
   return (
     <>
       <LocaleHtmlLang locale={locale} />
+      <a href="#main-content" className="skip-link">
+        {dictionary.accessibility.skipToMainContent}
+      </a>
       {children}
       <footer className="mx-auto mt-10 max-w-7xl px-4 pb-24 text-xs text-muted-foreground sm:px-6 lg:px-8">
         <div className="flex flex-wrap gap-4 border-t pt-4">

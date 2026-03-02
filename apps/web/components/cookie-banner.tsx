@@ -55,10 +55,18 @@ export function CookieBanner({
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur">
+    <section
+      className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur"
+      aria-labelledby="cookie-banner-title"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-6 lg:px-8">
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-foreground">
+          <p
+            id="cookie-banner-title"
+            className="text-sm font-semibold text-foreground"
+          >
             {dictionary.cookieBanner.title}
           </p>
           <p className="max-w-3xl text-xs text-muted-foreground sm:text-sm">
@@ -97,6 +105,6 @@ export function CookieBanner({
           </Button>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

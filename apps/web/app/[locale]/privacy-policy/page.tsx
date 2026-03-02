@@ -44,7 +44,10 @@ export default async function PrivacyPolicyPage({ params }: PolicyPageProps) {
   const policy = dictionary.policies.privacy;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+    <main
+      id="main-content"
+      className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8"
+    >
       <h1 className="font-heading text-3xl tracking-tight text-foreground sm:text-4xl">
         {policy.title}
       </h1>

@@ -149,6 +149,11 @@ export type Dictionary = {
     essentialOnly: string;
     acceptAll: string;
   };
+  accessibility: {
+    skipToMainContent: string;
+    closeDialog: string;
+    previewKeyboardHint: string;
+  };
   policies: {
     privacy: PolicyPage;
     cookies: PolicyPage;
@@ -319,6 +324,12 @@ const en: Dictionary = {
       "We use essential cookies to remember language and keep this site reliable. Read our Cookie Policy and Privacy Policy for details.",
     essentialOnly: "Essential only",
     acceptAll: "Accept",
+  },
+  accessibility: {
+    skipToMainContent: "Skip to main content",
+    closeDialog: "Close dialog",
+    previewKeyboardHint:
+      "Use arrow keys to move the zoom lens. Hold Shift for larger movement.",
   },
   policies: {
     privacy: {
@@ -564,6 +575,12 @@ const nl: Dictionary = {
       "We gebruiken essentiële cookies om taalvoorkeur te onthouden en de site betrouwbaar te houden. Lees ons Cookiebeleid en Privacybeleid.",
     essentialOnly: "Alleen essentieel",
     acceptAll: "Alles accepteren",
+  },
+  accessibility: {
+    skipToMainContent: "Ga naar hoofdinhoud",
+    closeDialog: "Dialoog sluiten",
+    previewKeyboardHint:
+      "Gebruik de pijltjestoetsen om de zoomlens te verplaatsen. Houd Shift ingedrukt voor grotere stappen.",
   },
   policies: {
     privacy: {
@@ -814,6 +831,12 @@ const fr: Dictionary = {
       "Nous utilisons des cookies essentiels pour mémoriser la langue et assurer le bon fonctionnement du site.",
     essentialOnly: "Essentiels uniquement",
     acceptAll: "Accepter",
+  },
+  accessibility: {
+    skipToMainContent: "Aller au contenu principal",
+    closeDialog: "Fermer la fenêtre",
+    previewKeyboardHint:
+      "Utilisez les flèches pour déplacer la zone de zoom. Maintenez Shift pour des déplacements plus grands.",
   },
   policies: {
     privacy: {
@@ -1066,6 +1089,12 @@ const de: Dictionary = {
     essentialOnly: "Nur notwendige",
     acceptAll: "Akzeptieren",
   },
+  accessibility: {
+    skipToMainContent: "Zum Hauptinhalt springen",
+    closeDialog: "Dialog schließen",
+    previewKeyboardHint:
+      "Verwende die Pfeiltasten, um die Zoom-Linse zu bewegen. Halte Shift für größere Schritte gedrückt.",
+  },
   policies: {
     privacy: {
       ...en.policies.privacy,
@@ -1315,6 +1344,12 @@ const es: Dictionary = {
       "Usamos cookies esenciales para recordar el idioma y mantener el sitio estable. Consulta nuestra Política de Cookies y Privacidad.",
     essentialOnly: "Solo esenciales",
     acceptAll: "Aceptar",
+  },
+  accessibility: {
+    skipToMainContent: "Saltar al contenido principal",
+    closeDialog: "Cerrar diálogo",
+    previewKeyboardHint:
+      "Usa las flechas para mover la lente de zoom. Mantén Shift para movimientos más amplios.",
   },
   policies: {
     privacy: {
