@@ -11,6 +11,18 @@ const API_BASE =
 
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const payload = (await response.json()) as {
+        detail?: string;
+        message?: string;
+      };
+      throw new Error(
+        payload.detail ||
+          payload.message ||
+          `Request failed with status ${response.status}`,
+      );
+    }
     const text = await response.text();
     throw new Error(text || `Request failed with status ${response.status}`);
   }

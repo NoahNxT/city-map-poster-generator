@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from redis.exceptions import RedisError
 
 from app.captcha import verify_turnstile
 from app.config import settings
@@ -212,17 +213,27 @@ async def create_job(request: Request, body: CreateJobRequest) -> dict:
     redis = get_redis()
     ip = request.client.host if request.client else "unknown"
 
-    check_window_limit(
-        redis,
-        key=f"ratelimit:jobs:{ip}",
-        limit=settings.rate_limit_jobs_count,
-        window_seconds=settings.rate_limit_jobs_window_seconds,
-    )
-    check_concurrency_limit(
-        redis,
-        key=f"ratelimit:active:{ip}",
-        limit=settings.rate_limit_max_concurrent_jobs_per_ip,
-    )
+    try:
+        check_window_limit(
+            redis,
+            key=f"ratelimit:jobs:{ip}",
+            limit=settings.rate_limit_jobs_count,
+            window_seconds=settings.rate_limit_jobs_window_seconds,
+        )
+        check_concurrency_limit(
+            redis,
+            key=f"ratelimit:active:{ip}",
+            limit=settings.rate_limit_max_concurrent_jobs_per_ip,
+        )
+    except RedisError as exc:
+        logger.exception("Job queue unavailable: redis operation failed")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Job queue unavailable. Start backend dependencies "
+                "(redis/minio/worker) before generating."
+            ),
+        ) from exc
 
     if payload.theme not in theme_ids() and not payload.allThemes:
         raise HTTPException(status_code=400, detail=f"Unknown theme: {payload.theme}")
@@ -241,18 +252,28 @@ async def create_job(request: Request, body: CreateJobRequest) -> dict:
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "updatedAt": datetime.now(timezone.utc).isoformat(),
     }
-    redis.setex(f"job:{job_id}", settings.artifact_ttl_seconds, json.dumps(state))
-    redis.sadd(f"ratelimit:active:{ip}", job_id)
+    try:
+        redis.setex(f"job:{job_id}", settings.artifact_ttl_seconds, json.dumps(state))
+        redis.sadd(f"ratelimit:active:{ip}", job_id)
 
-    queue = get_queue(redis)
-    queue.enqueue(
-        run_generation_job,
-        job_id,
-        payload.model_dump(mode="json"),
-        ip,
-        job_id=job_id,
-        result_ttl=settings.artifact_ttl_seconds,
-    )
+        queue = get_queue(redis)
+        queue.enqueue(
+            run_generation_job,
+            job_id,
+            payload.model_dump(mode="json"),
+            ip,
+            job_id=job_id,
+            result_ttl=settings.artifact_ttl_seconds,
+        )
+    except RedisError as exc:
+        logger.exception("Job enqueue failed: redis operation failed")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Job queue unavailable. Start backend dependencies "
+                "(redis/minio/worker) before generating."
+            ),
+        ) from exc
 
     return {
         "jobId": job_id,

@@ -1444,6 +1444,11 @@ export function PosterGenerator() {
                     )}
                   </Button>
                 </div>
+                {createJobMutation.error ? (
+                  <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {createJobMutation.error.message}
+                  </p>
+                ) : null}
               </form>
             </CardContent>
           </Card>

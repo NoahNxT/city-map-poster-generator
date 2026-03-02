@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "turbo run build --filter=web --filter=api",
-    "dev": "turbo run dev --filter=web --filter=api",
+    "dev": "bun run dev:local",
     "dev:local": "docker compose up -d redis minio api worker && bun run dev:web",
     "dev:backend": "docker compose up -d redis minio api worker",
     "dev:backend:logs": "docker compose logs -f api worker redis minio",
