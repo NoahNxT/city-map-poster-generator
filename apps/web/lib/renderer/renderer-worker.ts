@@ -45,6 +45,7 @@ const DEFAULT_TEXT = "#8B4513";
 const DEFAULT_WATER = "#A8C4C4";
 const DEFAULT_PARKS = "#E8E0D0";
 const loadedFontFamilies = new Map<string, Promise<void>>();
+let cachedMapLayer: { key: string; canvas: OffscreenCanvas } | null = null;
 
 type WorkerFontFace = {
   load: () => Promise<WorkerFontFace>;
@@ -583,14 +584,30 @@ function drawGradient(
   }
 }
 
-async function renderToDataUrl(
+function buildMapLayerKey(
   payload: PosterRequest,
   snapshot: RenderSnapshotPayload,
   theme: Theme,
   pixelWidth: number,
   pixelHeight: number,
-  fontBundle: RenderMessage["fontBundle"],
-): Promise<string> {
+): string {
+  return [
+    snapshot.snapshotId,
+    snapshot.schemaVersion,
+    theme.id,
+    payload.includeWater ? "1" : "0",
+    payload.includeParks ? "1" : "0",
+    `${pixelWidth}x${pixelHeight}`,
+  ].join("|");
+}
+
+function buildMapLayerCanvas(
+  payload: PosterRequest,
+  snapshot: RenderSnapshotPayload,
+  theme: Theme,
+  pixelWidth: number,
+  pixelHeight: number,
+): OffscreenCanvas {
   const canvas = new OffscreenCanvas(pixelWidth, pixelHeight);
   const ctx = canvas.getContext("2d");
   if (!ctx) {
@@ -602,12 +619,6 @@ async function renderToDataUrl(
   const waterColor = colors.water ?? DEFAULT_WATER;
   const parksColor = colors.parks ?? DEFAULT_PARKS;
   const gradientColor = colors.gradient_color ?? bg;
-
-  try {
-    await ensureWorkerFonts(fontBundle);
-  } catch {
-    // Keep rendering with fallback fonts when custom font loading fails.
-  }
 
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, pixelWidth, pixelHeight);
@@ -636,6 +647,66 @@ async function renderToDataUrl(
   }
 
   drawGradient(ctx, gradientColor, pixelWidth, pixelHeight);
+  return canvas;
+}
+
+function getMapLayerCanvas(
+  payload: PosterRequest,
+  snapshot: RenderSnapshotPayload,
+  theme: Theme,
+  pixelWidth: number,
+  pixelHeight: number,
+): OffscreenCanvas {
+  const key = buildMapLayerKey(
+    payload,
+    snapshot,
+    theme,
+    pixelWidth,
+    pixelHeight,
+  );
+  if (cachedMapLayer && cachedMapLayer.key === key) {
+    return cachedMapLayer.canvas;
+  }
+  const canvas = buildMapLayerCanvas(
+    payload,
+    snapshot,
+    theme,
+    pixelWidth,
+    pixelHeight,
+  );
+  cachedMapLayer = { key, canvas };
+  return canvas;
+}
+
+async function renderToDataUrl(
+  payload: PosterRequest,
+  snapshot: RenderSnapshotPayload,
+  theme: Theme,
+  pixelWidth: number,
+  pixelHeight: number,
+  fontBundle: RenderMessage["fontBundle"],
+): Promise<string> {
+  const canvas = new OffscreenCanvas(pixelWidth, pixelHeight);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Cannot acquire 2D context");
+  }
+
+  try {
+    await ensureWorkerFonts(fontBundle);
+  } catch {
+    // Keep rendering with fallback fonts when custom font loading fails.
+  }
+
+  const mapLayer = getMapLayerCanvas(
+    payload,
+    snapshot,
+    theme,
+    pixelWidth,
+    pixelHeight,
+  );
+  ctx.drawImage(mapLayer, 0, 0, pixelWidth, pixelHeight);
+
   const labels = computeLabelSpec(
     payload,
     theme,

@@ -169,6 +169,7 @@ const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const PREVIEW_RENDER_DPI = 120;
 const SNAPSHOT_FETCH_TIMEOUT_MS = 60_000;
 const WORKER_RENDER_TIMEOUT_MS = 8_000;
+const WORKER_RENDER_DEBOUNCE_MS = 120;
 
 function supportsLocalRenderer(): boolean {
   return (
@@ -434,6 +435,9 @@ export function PosterGenerator({
   const workerRenderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const workerRenderScheduleRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const pathname = usePathname();
   const router = useRouter();
 
@@ -497,8 +501,16 @@ export function PosterGenerator({
     }
   }, []);
 
+  const clearWorkerRenderSchedule = useCallback(() => {
+    if (workerRenderScheduleRef.current !== null) {
+      clearTimeout(workerRenderScheduleRef.current);
+      workerRenderScheduleRef.current = null;
+    }
+  }, []);
+
   const fallbackToServer = useCallback(
     (reason: string) => {
+      clearWorkerRenderSchedule();
       clearWorkerRenderTimeout();
       const worker = workerRef.current;
       if (worker) {
@@ -510,7 +522,7 @@ export function PosterGenerator({
       setLocalRenderPending(false);
       setLocalPreviewUrl(null);
     },
-    [clearWorkerRenderTimeout],
+    [clearWorkerRenderSchedule, clearWorkerRenderTimeout],
   );
 
   const themesQuery = useQuery({
@@ -638,6 +650,7 @@ export function PosterGenerator({
         if (!message || message.id !== latestWorkerRenderIdRef.current) {
           return;
         }
+        clearWorkerRenderSchedule();
         clearWorkerRenderTimeout();
         if (message.type === "rendered") {
           setLocalPreviewUrl(message.dataUrl || null);
@@ -650,6 +663,7 @@ export function PosterGenerator({
         if (disposed) {
           return;
         }
+        clearWorkerRenderSchedule();
         clearWorkerRenderTimeout();
         fallbackToServer("worker-runtime-error");
       };
@@ -661,13 +675,14 @@ export function PosterGenerator({
 
     return () => {
       disposed = true;
+      clearWorkerRenderSchedule();
       clearWorkerRenderTimeout();
       if (workerRef.current) {
         workerRef.current.terminate();
         workerRef.current = null;
       }
     };
-  }, [clearWorkerRenderTimeout, fallbackToServer]);
+  }, [clearWorkerRenderSchedule, clearWorkerRenderTimeout, fallbackToServer]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -988,15 +1003,10 @@ export function PosterGenerator({
       return;
     }
 
+    clearWorkerRenderSchedule();
     clearWorkerRenderTimeout();
     const renderId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     latestWorkerRenderIdRef.current = renderId;
-    setLocalRenderPending(true);
-    workerRenderTimeoutRef.current = setTimeout(() => {
-      if (latestWorkerRenderIdRef.current === renderId) {
-        fallbackToServer("worker-render-timeout");
-      }
-    }, WORKER_RENDER_TIMEOUT_MS);
     const message: WorkerRenderRequest = {
       type: "render",
       id: renderId,
@@ -1013,7 +1023,18 @@ export function PosterGenerator({
             }
           : null,
     };
-    worker.postMessage(message);
+    workerRenderScheduleRef.current = setTimeout(() => {
+      if (latestWorkerRenderIdRef.current !== renderId) {
+        return;
+      }
+      setLocalRenderPending(true);
+      workerRenderTimeoutRef.current = setTimeout(() => {
+        if (latestWorkerRenderIdRef.current === renderId) {
+          fallbackToServer("worker-render-timeout");
+        }
+      }, WORKER_RENDER_TIMEOUT_MS);
+      worker.postMessage(message);
+    }, WORKER_RENDER_DEBOUNCE_MS);
   }, [
     rendererMode,
     snapshotQuery.data,
@@ -1024,6 +1045,7 @@ export function PosterGenerator({
     previewPayload,
     previewPixelWidth,
     previewPixelHeight,
+    clearWorkerRenderSchedule,
     clearWorkerRenderTimeout,
     fallbackToServer,
   ]);
