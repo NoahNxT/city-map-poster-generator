@@ -48,13 +48,7 @@ import {
 } from "./ui/accordion";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "./ui/card";
 import {
   Command,
   CommandEmpty,
@@ -543,6 +537,8 @@ export function PosterGenerator({
   const generationStatusLiveId = "generation-status-live";
   const generationStatusTitleId = "generation-status-title";
   const distanceSliderId = "distance-slider";
+  const themeSelectId = "theme-select";
+  const formatSelectId = "format-select";
   const includeWaterId = "include-water-switch";
   const includeParksId = "include-parks-switch";
   const blurEnabledId = "text-blur-switch";
@@ -1087,13 +1083,13 @@ export function PosterGenerator({
           <section aria-labelledby="map-controls-title">
             <Card>
               <CardHeader>
-                <CardTitle
+                <h2
                   id="map-controls-title"
-                  className="flex items-center gap-2 text-xl"
+                  className="font-semibold tracking-tight flex items-center gap-2 text-xl"
                 >
                   <MapIcon className="h-5 w-5 text-amber-700" />
                   {d.controls.title}
-                </CardTitle>
+                </h2>
                 <CardDescription>{d.controls.description}</CardDescription>
               </CardHeader>
               <CardContent>
@@ -1304,7 +1300,9 @@ export function PosterGenerator({
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <div className="flex min-h-8 items-center justify-between gap-3">
-                        <Label>{d.controls.theme}</Label>
+                        <Label htmlFor={themeSelectId}>
+                          {d.controls.theme}
+                        </Label>
                         <Dialog
                           open={themeDialogOpen}
                           onOpenChange={setThemeDialogOpen}
@@ -1404,7 +1402,10 @@ export function PosterGenerator({
                           })
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          id={themeSelectId}
+                          aria-label={d.controls.theme}
+                        >
                           <SelectValue placeholder={d.controls.theme} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1418,7 +1419,9 @@ export function PosterGenerator({
                     </div>
                     <div className="space-y-2">
                       <div className="flex min-h-8 items-center">
-                        <Label>{d.controls.format}</Label>
+                        <Label htmlFor={formatSelectId}>
+                          {d.controls.format}
+                        </Label>
                       </div>
                       <Select
                         value={values.format}
@@ -1432,7 +1435,10 @@ export function PosterGenerator({
                           )
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger
+                          id={formatSelectId}
+                          aria-label={d.controls.format}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -2105,13 +2111,13 @@ export function PosterGenerator({
           <section aria-labelledby="live-preview-title">
             <Card>
               <CardHeader>
-                <CardTitle
+                <h2
                   id="live-preview-title"
-                  className="flex items-center gap-2 text-lg"
+                  className="font-semibold tracking-tight flex items-center gap-2 text-lg"
                 >
                   <Sparkles className="h-4 w-4 text-amber-700" />
                   {d.preview.title}
-                </CardTitle>
+                </h2>
                 <CardDescription>{d.preview.description}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -2215,6 +2221,7 @@ export function PosterGenerator({
                     src={previewUrl}
                     alt={d.preview.posterAlt}
                     fill
+                    priority
                     className="h-full w-full object-cover"
                     unoptimized
                   />
