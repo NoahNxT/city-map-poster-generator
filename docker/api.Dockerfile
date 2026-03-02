@@ -1,27 +1,24 @@
-FROM python:3.11-slim AS base
+FROM golang:1.24-alpine AS builder
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+WORKDIR /src
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    gdal-bin \
-    libgdal-dev \
-    libgeos-dev \
-    libproj-dev \
-    libspatialindex-dev \
-    proj-bin \
-    proj-data \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+COPY apps/api/go.mod ./go.mod
+COPY apps/api/go.sum ./go.sum
+RUN /usr/local/go/bin/go mod download
 
+COPY apps/api .
+RUN /usr/local/go/bin/go build -o /out/api ./cmd/api && /usr/local/go/bin/go build -o /out/worker ./cmd/worker
+
+FROM alpine:3.22
+
+RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 
-COPY apps/api/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt
+COPY --from=builder /out/api /app/api
+COPY --from=builder /out/worker /app/worker
+COPY --from=builder /src/assets /app/assets
 
-COPY apps/api/app ./app
-COPY apps/api/.env.example ./.env.example
-
+ENV ASSETS_DIR=/app/assets
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+CMD ["/app/api"]

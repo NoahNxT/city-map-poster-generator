@@ -227,8 +227,7 @@ const en: Dictionary = {
     width: "Width (inches, max 20)",
     height: "Height (inches, max 20)",
     mapLayersTitle: "Map Layers (Export)",
-    mapLayersDescription:
-      "Applies to final generation only. Preview remains on fast server defaults.",
+    mapLayersDescription: "Applies to both live preview and final generation.",
     includeWater: "Include water",
     includeWaterDescription: "Rivers, lakes, canals.",
     includeParks: "Include parks/greens",
@@ -280,7 +279,7 @@ const en: Dictionary = {
   preview: {
     title: "Live Preview",
     description:
-      "Preview is an approximation and may vary slightly from the final exported poster.",
+      "Preview uses the same renderer pipeline as the final exported poster.",
     disableRateLimitTitle: "Disable all API rate limits",
     disableRateLimitDescription:
       "Development only. Disables all API throttling.",
@@ -474,7 +473,7 @@ const nl: Dictionary = {
     height: "Hoogte (inch, max 20)",
     mapLayersTitle: "Kaartlagen (export)",
     mapLayersDescription:
-      "Alleen van toepassing op de uiteindelijke generatie. De preview gebruikt snelle serverinstellingen.",
+      "Van toepassing op zowel de live preview als de uiteindelijke generatie.",
     includeWater: "Water tonen",
     includeWaterDescription: "Rivieren, meren, kanalen.",
     includeParks: "Parken/groen tonen",
@@ -529,7 +528,7 @@ const nl: Dictionary = {
     ...en.preview,
     title: "Live voorbeeld",
     description:
-      "De preview is een benadering en kan licht afwijken van de uiteindelijke export.",
+      "De preview gebruikt dezelfde renderer als de uiteindelijke export.",
     disableRateLimitTitle: "Alle API-rate limits uitschakelen",
     disableRateLimitDescription:
       "Alleen voor development. Schakelt alle API-throttling uit.",
@@ -728,7 +727,7 @@ const fr: Dictionary = {
     height: "Hauteur (pouces, max 20)",
     mapLayersTitle: "Couches de carte (export)",
     mapLayersDescription:
-      "S'applique uniquement à la génération finale. L'aperçu conserve des paramètres serveur rapides.",
+      "S'applique à la fois à l'aperçu en direct et à la génération finale.",
     includeWater: "Inclure l'eau",
     includeWaterDescription: "Rivières, lacs, canaux.",
     includeParks: "Inclure parcs/espaces verts",
@@ -783,8 +782,7 @@ const fr: Dictionary = {
   preview: {
     ...en.preview,
     title: "Aperçu en direct",
-    description:
-      "L'aperçu est une approximation et peut différer légèrement de l'export final.",
+    description: "L'aperçu utilise le même moteur de rendu que l'export final.",
     disableRateLimitTitle: "Désactiver toutes les limites API",
     disableRateLimitDescription:
       "Développement uniquement. Désactive toute limitation API.",
@@ -985,7 +983,7 @@ const de: Dictionary = {
     height: "Höhe (Zoll, max. 20)",
     mapLayersTitle: "Kartenebenen (Export)",
     mapLayersDescription:
-      "Gilt nur für die finale Generierung. Die Vorschau nutzt schnelle Server-Defaults.",
+      "Gilt sowohl für die Live-Vorschau als auch für die finale Generierung.",
     includeWater: "Wasser einbeziehen",
     includeWaterDescription: "Flüsse, Seen, Kanäle.",
     includeParks: "Parks/Grünflächen einbeziehen",
@@ -1041,7 +1039,7 @@ const de: Dictionary = {
     ...en.preview,
     title: "Live-Vorschau",
     description:
-      "Die Vorschau ist eine Annäherung und kann leicht vom finalen Export abweichen.",
+      "Die Vorschau nutzt dieselbe Render-Pipeline wie der finale Export.",
     disableRateLimitTitle: "Alle API-Rate-Limits deaktivieren",
     disableRateLimitDescription:
       "Nur für Development. Deaktiviert sämtliche API-Drosselungen.",
@@ -1297,7 +1295,7 @@ const es: Dictionary = {
     ...en.preview,
     title: "Vista previa en vivo",
     description:
-      "La vista previa es una aproximación y puede variar ligeramente respecto al resultado final.",
+      "La vista previa usa el mismo renderizador que la exportación final.",
     disableRateLimitTitle: "Desactivar todos los límites de API",
     disableRateLimitDescription:
       "Solo para desarrollo. Desactiva toda limitación de API.",

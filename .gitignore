@@ -56,3 +56,9 @@ venv/
 .pyright/
 .pyrightcache/
 *.egg-info/
+
+# Go build artifacts
+apps/api/api
+apps/api/worker
+apps/api/.turbo/
+apps/api/.air-tmp/

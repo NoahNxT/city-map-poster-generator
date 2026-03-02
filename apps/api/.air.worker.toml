@@ -1,0 +1,22 @@
+root = "."
+tmp_dir = ".air-tmp"
+
+[build]
+  cmd = "go build -o .air-tmp/server-worker ./cmd/worker"
+  bin = ".air-tmp/server-worker"
+  include_ext = ["go"]
+  include_dir = ["cmd", "internal"]
+  exclude_dir = ["assets"]
+  delay = 300
+  stop_on_error = true
+  send_interrupt = true
+  kill_delay = "500ms"
+
+[log]
+  time = true
+
+[color]
+  main = "cyan"
+  watcher = "yellow"
+  build = "green"
+  runner = "magenta"

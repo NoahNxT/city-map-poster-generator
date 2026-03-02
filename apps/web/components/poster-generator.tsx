@@ -30,6 +30,7 @@ import {
   fetchFonts,
   fetchJob,
   fetchLocations,
+  fetchPreview,
   fetchThemes,
 } from "@/lib/api";
 import {
@@ -121,8 +122,6 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
-const PREVIEW_VIEWBOX_WIDTH = 439.2;
-const PREVIEW_VIEWBOX_HEIGHT = 583.2;
 const DEFAULT_PREVIEW_ZOOM = 2.5;
 
 type PreviewPointer = {
@@ -148,28 +147,6 @@ function normalizeHexColor(value: string | undefined): string | null {
   return `#${r}${r}${g}${g}${b}${b}`;
 }
 
-function hexToRgba(value: string, alpha: number): string {
-  const normalized = normalizeHexColor(value) ?? "#f5efe6";
-  const r = Number.parseInt(normalized.slice(1, 3), 16);
-  const g = Number.parseInt(normalized.slice(3, 5), 16);
-  const b = Number.parseInt(normalized.slice(5, 7), 16);
-  const safeAlpha = clamp(alpha, 0, 1);
-  return `rgba(${r}, ${g}, ${b}, ${safeAlpha})`;
-}
-
-function isLikelyLatin(text: string): boolean {
-  return /^[A-Za-z0-9\s'".,\-()]+$/.test(text);
-}
-
-function formatPreviewCity(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  if (isLikelyLatin(trimmed)) {
-    return trimmed.toUpperCase().split("").join("  ");
-  }
-  return trimmed;
-}
-
 function sanitizeFontFamily(value: string | undefined): string {
   return (value ?? "").trim().replace(/["']/g, "");
 }
@@ -183,129 +160,6 @@ function buildGoogleFontsStylesheetUrl(
   const familyToken = family.split(/\s+/).join("+");
   const encodedFamily = encodeURIComponent(familyToken).replace(/%2B/g, "+");
   return `https://fonts.googleapis.com/css2?family=${encodedFamily}:wght@300;400;700&display=swap`;
-}
-
-function buildPreviewFontStack(value: string | undefined): string {
-  const family = sanitizeFontFamily(value);
-  if (!family) {
-    return "var(--font-heading)";
-  }
-  return `"${family}", var(--font-heading)`;
-}
-
-function getPreviewTextMetrics(
-  displayCity: string,
-  widthInches: number,
-  heightInches: number,
-  cityFontSizeOverride: number | undefined,
-  countryFontSizeOverride: number | undefined,
-): {
-  cityFontSize: number;
-  countryFontSize: number;
-  coordsFontSize: number;
-  attributionFontSize: number;
-  dividerWidth: number;
-} {
-  const width = Math.max(widthInches, 1);
-  const height = Math.max(heightInches, 1);
-  const scaleFactor = Math.min(height, width) / 12.0;
-  const pointsToPreviewUnits = PREVIEW_VIEWBOX_HEIGHT / (height * 72);
-
-  const baseMain = 60;
-  const baseSub = 22;
-  const baseCoords = 14;
-  const cityCharCount = displayCity.trim().length;
-
-  const adjustedMainFontSize =
-    typeof cityFontSizeOverride === "number"
-      ? cityFontSizeOverride * scaleFactor
-      : cityCharCount > 10
-        ? Math.max(
-            baseMain * scaleFactor * (10 / cityCharCount),
-            10 * scaleFactor,
-          )
-        : baseMain * scaleFactor;
-  const adjustedCountryFontSize =
-    typeof countryFontSizeOverride === "number"
-      ? countryFontSizeOverride * scaleFactor
-      : baseSub * scaleFactor;
-
-  return {
-    cityFontSize: adjustedMainFontSize * pointsToPreviewUnits,
-    countryFontSize: adjustedCountryFontSize * pointsToPreviewUnits,
-    coordsFontSize: baseCoords * scaleFactor * pointsToPreviewUnits,
-    attributionFontSize: Math.max(4, 5 * scaleFactor) * pointsToPreviewUnits,
-    dividerWidth: Math.max(0.4, scaleFactor * pointsToPreviewUnits),
-  };
-}
-
-function getPreviewLabelLayout(
-  metrics: ReturnType<typeof getPreviewTextMetrics>,
-  labelPaddingScale: number,
-): {
-  cityY: number;
-  dividerY: number;
-  countryY: number;
-  coordsY: number;
-  attributionY: number;
-} {
-  const dynamicGapScale = Math.max(
-    metrics.cityFontSize / 30,
-    metrics.countryFontSize / 11,
-    1,
-  );
-  const minGap = Math.min(
-    0.02,
-    0.004 * Math.max(labelPaddingScale, 0.5) * dynamicGapScale,
-  );
-  const cityDesc = (metrics.cityFontSize / PREVIEW_VIEWBOX_HEIGHT) * 0.22;
-  const countryAscent =
-    (metrics.countryFontSize / PREVIEW_VIEWBOX_HEIGHT) * 0.72;
-  const countryDesc = (metrics.countryFontSize / PREVIEW_VIEWBOX_HEIGHT) * 0.22;
-  const coordsAscent = (metrics.coordsFontSize / PREVIEW_VIEWBOX_HEIGHT) * 0.72;
-
-  const coordsAxisY = 0.07;
-  let countryAxisY = 0.1;
-  const coordsTop = coordsAxisY + coordsAscent;
-  if (countryAxisY - countryDesc < coordsTop + minGap) {
-    countryAxisY = coordsTop + minGap + countryDesc;
-  }
-
-  const dividerAxisY = Math.max(0.125, countryAxisY + countryAscent + minGap);
-  const cityAxisY = Math.min(
-    Math.max(0.14, dividerAxisY + cityDesc + minGap),
-    0.32,
-  );
-
-  return {
-    cityY: PREVIEW_VIEWBOX_HEIGHT * (1 - cityAxisY),
-    dividerY: PREVIEW_VIEWBOX_HEIGHT * (1 - dividerAxisY),
-    countryY: PREVIEW_VIEWBOX_HEIGHT * (1 - countryAxisY),
-    coordsY: PREVIEW_VIEWBOX_HEIGHT * (1 - coordsAxisY),
-    attributionY: PREVIEW_VIEWBOX_HEIGHT * (1 - 0.006),
-  };
-}
-
-function formatPreviewCoords(
-  latitude: string | undefined,
-  longitude: string | undefined,
-  unavailableText: string,
-): string {
-  const lat = Number.parseFloat(latitude?.trim() ?? "");
-  const lon = Number.parseFloat(longitude?.trim() ?? "");
-
-  if (
-    Number.isNaN(lat) ||
-    Number.isNaN(lon) ||
-    !Number.isFinite(lat) ||
-    !Number.isFinite(lon)
-  ) {
-    return unavailableText;
-  }
-
-  const latHemisphere = lat >= 0 ? "N" : "S";
-  const lonHemisphere = lon >= 0 ? "E" : "W";
-  return `${Math.abs(lat).toFixed(4)}° ${latHemisphere} / ${Math.abs(lon).toFixed(4)}° ${lonHemisphere}`;
 }
 
 function ThemePreviewImage({
@@ -354,103 +208,6 @@ function ThemePreviewImage({
         </div>
       ) : null}
     </div>
-  );
-}
-
-type PreviewTextMetrics = ReturnType<typeof getPreviewTextMetrics>;
-
-function PreviewTypographyOverlay({
-  className,
-  viewBox = `0 0 ${PREVIEW_VIEWBOX_WIDTH} ${PREVIEW_VIEWBOX_HEIGHT}`,
-  title,
-  previewTextColor,
-  previewDisplayCity,
-  previewDisplayCountry,
-  previewCoords,
-  previewTextMetrics,
-  previewTypographyFontFamily,
-  labelPaddingScale,
-}: {
-  className: string;
-  viewBox?: string;
-  title: string;
-  previewTextColor: string;
-  previewDisplayCity: string;
-  previewDisplayCountry: string;
-  previewCoords: string;
-  previewTextMetrics: PreviewTextMetrics;
-  previewTypographyFontFamily: string;
-  labelPaddingScale: number;
-}) {
-  const labelLayout = getPreviewLabelLayout(
-    previewTextMetrics,
-    labelPaddingScale,
-  );
-
-  return (
-    <svg
-      className={className}
-      viewBox={viewBox}
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <title>{title}</title>
-      <text
-        x={PREVIEW_VIEWBOX_WIDTH * 0.5}
-        y={labelLayout.cityY}
-        textAnchor="middle"
-        xmlSpace="preserve"
-        fontWeight={700}
-        fontSize={previewTextMetrics.cityFontSize}
-        fontFamily={previewTypographyFontFamily}
-        fill={previewTextColor}
-      >
-        {previewDisplayCity}
-      </text>
-      <line
-        x1={PREVIEW_VIEWBOX_WIDTH * 0.4}
-        x2={PREVIEW_VIEWBOX_WIDTH * 0.6}
-        y1={labelLayout.dividerY}
-        y2={labelLayout.dividerY}
-        stroke={previewTextColor}
-        strokeWidth={previewTextMetrics.dividerWidth}
-      />
-      <text
-        x={PREVIEW_VIEWBOX_WIDTH * 0.5}
-        y={labelLayout.countryY}
-        textAnchor="middle"
-        fontWeight={300}
-        fontSize={previewTextMetrics.countryFontSize}
-        fontFamily={previewTypographyFontFamily}
-        fill={previewTextColor}
-      >
-        {previewDisplayCountry}
-      </text>
-      <text
-        x={PREVIEW_VIEWBOX_WIDTH * 0.5}
-        y={labelLayout.coordsY}
-        textAnchor="middle"
-        fontWeight={400}
-        fontSize={previewTextMetrics.coordsFontSize}
-        fontFamily={previewTypographyFontFamily}
-        fill={previewTextColor}
-        opacity={0.7}
-      >
-        {previewCoords}
-      </text>
-      <text
-        x={PREVIEW_VIEWBOX_WIDTH * 0.995}
-        y={labelLayout.attributionY}
-        textAnchor="end"
-        fontWeight={300}
-        fontSize={previewTextMetrics.attributionFontSize}
-        fontFamily={previewTypographyFontFamily}
-        fill={previewTextColor}
-        opacity={0.35}
-      >
-        © OpenStreetMap contributors
-      </text>
-    </svg>
   );
 }
 
@@ -554,6 +311,7 @@ export function PosterGenerator({
     undefined,
   );
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [latestPreviewUrl, setLatestPreviewUrl] = useState<string | null>(null);
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [activePreviewHint, setActivePreviewHint] =
     useState<AdvancedHelpFieldKey | null>(null);
@@ -561,6 +319,8 @@ export function PosterGenerator({
   const [disableRateLimit, setDisableRateLimit] = useState(false);
   const [previewZoomLevel, setPreviewZoomLevel] =
     useState(DEFAULT_PREVIEW_ZOOM);
+  const [debouncedPreviewPayload, setDebouncedPreviewPayload] =
+    useState<PosterRequest>(() => toPayload(defaultValues));
   const [previewPointer, setPreviewPointer] = useState<PreviewPointer | null>(
     null,
   );
@@ -597,6 +357,7 @@ export function PosterGenerator({
     }),
     [watchedValues],
   );
+  const previewPayload = useMemo(() => toPayload(values), [values]);
   const d = dictionary;
 
   const themesQuery = useQuery({
@@ -621,6 +382,18 @@ export function PosterGenerator({
       }),
     enabled: fontComboboxOpen,
     staleTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const previewQuery = useQuery({
+    queryKey: ["preview", debouncedPreviewPayload, disableRateLimit],
+    queryFn: () =>
+      fetchPreview(debouncedPreviewPayload, {
+        disableRateLimit,
+      }),
+    enabled:
+      debouncedPreviewPayload.city.trim().length > 0 &&
+      debouncedPreviewPayload.country.trim().length > 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
 
@@ -673,6 +446,20 @@ export function PosterGenerator({
     }, 250);
     return () => clearTimeout(timer);
   }, [fontSearchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPreviewPayload(previewPayload);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [previewPayload]);
+
+  useEffect(() => {
+    const nextUrl = previewQuery.data?.previewUrl;
+    if (nextUrl) {
+      setLatestPreviewUrl(nextUrl);
+    }
+  }, [previewQuery.data?.previewUrl]);
 
   useEffect(() => {
     if (!fontComboboxOpen) {
@@ -869,80 +656,38 @@ export function PosterGenerator({
     (theme) => theme.id === values.theme,
   );
   const themeTextColor = activeTheme?.colors.text ?? "#8C4A18";
-  const previewTextColor =
-    normalizeHexColor(values.textColor) ?? themeTextColor;
-  const previewDisplayCityRaw = values.city || "";
-  const previewDisplayCity = formatPreviewCity(previewDisplayCityRaw);
-  const previewTextMetrics = getPreviewTextMetrics(
-    previewDisplayCityRaw,
-    values.width,
-    values.height,
-    values.cityFontSize,
-    values.countryFontSize,
-  );
-  const previewLabelLayout = getPreviewLabelLayout(
-    previewTextMetrics,
-    values.labelPaddingScale,
-  );
-  const previewDisplayCountry = (values.country || "").toUpperCase();
-  const previewTypographyFontFamily = buildPreviewFontStack(values.fontFamily);
   const selectedFontFamily = values.fontFamily?.trim() ?? "";
-  const previewCoords = formatPreviewCoords(
-    values.latitude,
-    values.longitude,
-    d.controls.coordsUnavailable,
-  );
-  const previewUrl = `/theme-previews/${values.theme}.svg`;
-  const previewThemeBackground =
-    normalizeHexColor(activeTheme?.colors.bg) ?? "#f5efe6";
-  const previewBlurPanelWidthPct = clamp(52 * values.textBlurSize, 34, 90);
-  const previewBlurPaddingPx =
-    8 * values.textBlurSize * values.labelPaddingScale;
-  const previewBlurTopPx = clamp(
-    previewLabelLayout.cityY -
-      (previewTextMetrics.cityFontSize * 0.78 + previewBlurPaddingPx),
-    0,
-    PREVIEW_VIEWBOX_HEIGHT - 1,
-  );
-  const previewBlurBottomPx = clamp(
-    previewLabelLayout.coordsY +
-      previewTextMetrics.coordsFontSize * 0.35 +
-      previewBlurPaddingPx,
-    previewBlurTopPx + 1,
-    PREVIEW_VIEWBOX_HEIGHT,
-  );
-  const previewBlurTopPct = (previewBlurTopPx / PREVIEW_VIEWBOX_HEIGHT) * 100;
-  const previewBlurHeightPct =
-    ((previewBlurBottomPx - previewBlurTopPx) / PREVIEW_VIEWBOX_HEIGHT) * 100;
-  const previewBlurLeftPct = (100 - previewBlurPanelWidthPct) / 2;
-  const previewBlurTint = hexToRgba(
-    previewThemeBackground,
-    clamp(0.08 + values.textBlurStrength / 120, 0.08, 0.35),
-  );
-  const previewBlurBorder = hexToRgba(
-    previewThemeBackground,
-    clamp(0.15 + values.textBlurStrength / 90, 0.15, 0.45),
-  );
-  const previewBlurRadiusPx = 14 * values.textBlurSize;
+  const previewUrl = latestPreviewUrl;
+  const hasServerPreview = Boolean(previewUrl);
+  const previewWidthInches =
+    Number.isFinite(values.width) && values.width > 0
+      ? values.width
+      : defaultValues.width;
+  const previewHeightInches =
+    Number.isFinite(values.height) && values.height > 0
+      ? values.height
+      : defaultValues.height;
+  const previewViewboxWidth = previewWidthInches * 100;
+  const previewViewboxHeight = previewHeightInches * 100;
   const previewZoomAnchor = previewPointer ?? { x: 0.5, y: 0.5 };
-  const zoomViewWidth = PREVIEW_VIEWBOX_WIDTH / previewZoomLevel;
-  const zoomViewHeight = PREVIEW_VIEWBOX_HEIGHT / previewZoomLevel;
-  const zoomCenterX = previewZoomAnchor.x * PREVIEW_VIEWBOX_WIDTH;
-  const zoomCenterY = previewZoomAnchor.y * PREVIEW_VIEWBOX_HEIGHT;
+  const zoomViewWidth = previewViewboxWidth / previewZoomLevel;
+  const zoomViewHeight = previewViewboxHeight / previewZoomLevel;
+  const zoomCenterX = previewZoomAnchor.x * previewViewboxWidth;
+  const zoomCenterY = previewZoomAnchor.y * previewViewboxHeight;
   const zoomViewX = clamp(
     zoomCenterX - zoomViewWidth / 2,
     0,
-    PREVIEW_VIEWBOX_WIDTH - zoomViewWidth,
+    previewViewboxWidth - zoomViewWidth,
   );
   const zoomViewY = clamp(
     zoomCenterY - zoomViewHeight / 2,
     0,
-    PREVIEW_VIEWBOX_HEIGHT - zoomViewHeight,
+    previewViewboxHeight - zoomViewHeight,
   );
-  const zoomLensLeft = (zoomViewX / PREVIEW_VIEWBOX_WIDTH) * 100;
-  const zoomLensTop = (zoomViewY / PREVIEW_VIEWBOX_HEIGHT) * 100;
-  const zoomLensWidth = (zoomViewWidth / PREVIEW_VIEWBOX_WIDTH) * 100;
-  const zoomLensHeight = (zoomViewHeight / PREVIEW_VIEWBOX_HEIGHT) * 100;
+  const zoomLensLeft = (zoomViewX / previewViewboxWidth) * 100;
+  const zoomLensTop = (zoomViewY / previewViewboxHeight) * 100;
+  const zoomLensWidth = (zoomViewWidth / previewViewboxWidth) * 100;
+  const zoomLensHeight = (zoomViewHeight / previewViewboxHeight) * 100;
   const fallbackFontSuggestions = useMemo(() => {
     const query = fontSearchQuery.trim().toLowerCase();
     if (!query) {
@@ -2195,7 +1940,10 @@ export function PosterGenerator({
                 <figure
                   id={previewFrameId}
                   ref={previewFrameRef}
-                  className="group relative aspect-[439.2/583.2] touch-none select-none overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100"
+                  className="group relative touch-none select-none overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100"
+                  style={{
+                    aspectRatio: `${previewWidthInches} / ${previewHeightInches}`,
+                  }}
                   tabIndex={previewZoomEnabled ? 0 : -1}
                   aria-label={`${d.preview.title}: ${values.city}, ${values.country}`}
                   aria-describedby={previewKeyboardHintId}
@@ -2217,42 +1965,34 @@ export function PosterGenerator({
                   }}
                   onKeyDown={handlePreviewFrameKeyDown}
                 >
-                  <Image
-                    src={previewUrl}
-                    alt={d.preview.posterAlt}
-                    fill
-                    priority
-                    className="h-full w-full object-cover"
-                    unoptimized
-                  />
-                  {values.textBlurEnabled ? (
-                    <div
-                      className="pointer-events-none absolute z-10 border shadow-[0_10px_30px_rgba(0,0,0,0.08)]"
-                      style={{
-                        left: `${previewBlurLeftPct}%`,
-                        top: `${previewBlurTopPct}%`,
-                        width: `${previewBlurPanelWidthPct}%`,
-                        height: `${previewBlurHeightPct}%`,
-                        borderRadius: `${previewBlurRadiusPx}px`,
-                        backgroundColor: previewBlurTint,
-                        borderColor: previewBlurBorder,
-                        backdropFilter: `blur(${values.textBlurStrength}px)`,
-                        WebkitBackdropFilter: `blur(${values.textBlurStrength}px)`,
-                      }}
+                  {previewUrl ? (
+                    <Image
+                      src={previewUrl}
+                      alt={d.preview.posterAlt}
+                      fill
+                      priority
+                      className="h-full w-full object-cover"
+                      unoptimized
                     />
-                  ) : null}
-                  <PreviewTypographyOverlay
-                    className="pointer-events-none absolute inset-0 z-20 h-full w-full"
-                    title={d.preview.textOverlayTitle}
-                    previewTextColor={previewTextColor}
-                    previewDisplayCity={previewDisplayCity}
-                    previewDisplayCountry={previewDisplayCountry}
-                    previewCoords={previewCoords}
-                    previewTextMetrics={previewTextMetrics}
-                    previewTypographyFontFamily={previewTypographyFontFamily}
-                    labelPaddingScale={values.labelPaddingScale}
-                  />
-                  {previewZoomEnabled ? (
+                  ) : (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/65">
+                      <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                        <LoaderCircle
+                          className={
+                            previewQuery.isFetching
+                              ? "h-4 w-4 animate-spin"
+                              : "h-4 w-4"
+                          }
+                        />
+                        <span>
+                          {previewQuery.isError
+                            ? d.themeExplorer.previewUnavailable
+                            : d.themeExplorer.loadingPreview}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {previewZoomEnabled && hasServerPreview ? (
                     <>
                       <div
                         className="pointer-events-none absolute z-20 rounded-sm border border-amber-700/80 bg-amber-200/10 shadow-[0_0_0_1px_rgba(255,255,255,0.35)]"
@@ -2270,7 +2010,12 @@ export function PosterGenerator({
                             previewZoomLevel.toFixed(1),
                           )}
                         </div>
-                        <div className="relative aspect-[439.2/583.2]">
+                        <div
+                          className="relative"
+                          style={{
+                            aspectRatio: `${previewWidthInches} / ${previewHeightInches}`,
+                          }}
+                        >
                           <svg
                             className="absolute inset-0 h-full w-full"
                             viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
@@ -2279,28 +2024,14 @@ export function PosterGenerator({
                           >
                             <title>{d.preview.magnifiedTitle}</title>
                             <image
-                              href={previewUrl}
+                              href={previewUrl ?? ""}
                               x={0}
                               y={0}
-                              width={PREVIEW_VIEWBOX_WIDTH}
-                              height={PREVIEW_VIEWBOX_HEIGHT}
+                              width={previewViewboxWidth}
+                              height={previewViewboxHeight}
                               preserveAspectRatio="none"
                             />
                           </svg>
-                          <PreviewTypographyOverlay
-                            className="absolute inset-0 z-20 h-full w-full"
-                            viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
-                            title={d.preview.magnifiedOverlayTitle}
-                            previewTextColor={previewTextColor}
-                            previewDisplayCity={previewDisplayCity}
-                            previewDisplayCountry={previewDisplayCountry}
-                            previewCoords={previewCoords}
-                            previewTextMetrics={previewTextMetrics}
-                            previewTypographyFontFamily={
-                              previewTypographyFontFamily
-                            }
-                            labelPaddingScale={values.labelPaddingScale}
-                          />
                         </div>
                       </div>
                     </>
@@ -2309,6 +2040,16 @@ export function PosterGenerator({
                 <p id={previewKeyboardHintId} className="sr-only">
                   {d.accessibility.previewKeyboardHint}
                 </p>
+                {previewQuery.isFetching ? (
+                  <p className="text-xs text-muted-foreground">
+                    {d.themeExplorer.loadingPreview}
+                  </p>
+                ) : null}
+                {previewQuery.isError ? (
+                  <p className="text-xs text-destructive">
+                    {d.themeExplorer.previewUnavailable}
+                  </p>
+                ) : null}
 
                 <section
                   className="rounded-lg border border-dashed px-3 py-3"

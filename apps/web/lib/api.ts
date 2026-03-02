@@ -30,7 +30,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 export async function fetchThemes(): Promise<Theme[]> {
-  const response = await fetch(`${API_BASE}/v1/themes`, { cache: "no-store" });
+  const response = await fetch(`${API_BASE}/v2/themes`, { cache: "no-store" });
   const payload = await parseResponse<{ themes: Theme[] }>(response);
   return payload.themes;
 }
@@ -46,7 +46,7 @@ export async function fetchLocations(
     limit: "8",
   });
   const response = await fetch(
-    `${API_BASE}/v1/locations?${params.toString()}`,
+    `${API_BASE}/v2/locations?${params.toString()}`,
     {
       cache: "no-store",
       headers: options?.disableRateLimit
@@ -70,7 +70,7 @@ export async function fetchFonts(
     q: query,
     limit: "12",
   });
-  const response = await fetch(`${API_BASE}/v1/fonts?${params.toString()}`, {
+  const response = await fetch(`${API_BASE}/v2/fonts?${params.toString()}`, {
     cache: "no-store",
     headers: options?.disableRateLimit
       ? { "x-dev-no-rate-limit": "1" }
@@ -88,7 +88,7 @@ export async function fetchPreview(
     disableRateLimit?: boolean;
   },
 ): Promise<{ previewUrl: string; cacheHit: boolean; expiresAt: string }> {
-  const response = await fetch(`${API_BASE}/v1/preview`, {
+  const response = await fetch(`${API_BASE}/v2/preview`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -107,7 +107,7 @@ export async function createJob(
     disableRateLimit?: boolean;
   },
 ): Promise<{ jobId: string; status: string; createdAt: string }> {
-  const response = await fetch(`${API_BASE}/v1/jobs`, {
+  const response = await fetch(`${API_BASE}/v2/jobs`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -119,7 +119,7 @@ export async function createJob(
 }
 
 export async function fetchJob(jobId: string): Promise<JobState> {
-  const response = await fetch(`${API_BASE}/v1/jobs/${jobId}`, {
+  const response = await fetch(`${API_BASE}/v2/jobs/${jobId}`, {
     cache: "no-store",
   });
   return parseResponse(response);
@@ -128,7 +128,7 @@ export async function fetchJob(jobId: string): Promise<JobState> {
 export async function fetchDownload(
   jobId: string,
 ): Promise<{ url: string; expiresAt: string }> {
-  const response = await fetch(`${API_BASE}/v1/jobs/${jobId}/download`, {
+  const response = await fetch(`${API_BASE}/v2/jobs/${jobId}/download`, {
     cache: "no-store",
   });
   return parseResponse(response);
