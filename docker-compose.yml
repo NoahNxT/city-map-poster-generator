@@ -44,17 +44,25 @@ services:
       RATE_LIMIT_PREVIEW_WINDOW_SECONDS: ${RATE_LIMIT_PREVIEW_WINDOW_SECONDS:-600}
       RATE_LIMIT_LOCATIONS_COUNT: ${RATE_LIMIT_LOCATIONS_COUNT:-60}
       RATE_LIMIT_LOCATIONS_WINDOW_SECONDS: ${RATE_LIMIT_LOCATIONS_WINDOW_SECONDS:-600}
+      RATE_LIMIT_FONTS_COUNT: ${RATE_LIMIT_FONTS_COUNT:-120}
+      RATE_LIMIT_FONTS_WINDOW_SECONDS: ${RATE_LIMIT_FONTS_WINDOW_SECONDS:-600}
       RATE_LIMIT_JOBS_COUNT: ${RATE_LIMIT_JOBS_COUNT:-5}
       RATE_LIMIT_JOBS_WINDOW_SECONDS: ${RATE_LIMIT_JOBS_WINDOW_SECONDS:-600}
       RATE_LIMIT_MAX_CONCURRENT_JOBS_PER_IP: ${RATE_LIMIT_MAX_CONCURRENT_JOBS_PER_IP:-2}
       NOMINATIM_SEARCH_URL: ${NOMINATIM_SEARCH_URL:-https://nominatim.openstreetmap.org/search}
       NOMINATIM_USER_AGENT: ${NOMINATIM_USER_AGENT:-city-map-poster-generator/1.0}
+      GOOGLE_FONTS_API_URL: ${GOOGLE_FONTS_API_URL:-https://www.googleapis.com/webfonts/v1/webfonts}
+      GOOGLE_FONTS_API_KEY: ${GOOGLE_FONTS_API_KEY:-}
+      GOOGLE_FONTS_METADATA_URL: ${GOOGLE_FONTS_METADATA_URL:-https://fonts.google.com/metadata/fonts}
+      GOOGLE_FONTS_CACHE_TTL_SECONDS: ${GOOGLE_FONTS_CACHE_TTL_SECONDS:-86400}
     ports:
       - "8000:8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     depends_on:
       - redis
       - minio
     volumes:
+      - ./apps/api/app:/app/app
       - map_cache:/tmp/map-cache
 
   worker:
@@ -88,16 +96,23 @@ services:
       RATE_LIMIT_PREVIEW_WINDOW_SECONDS: ${RATE_LIMIT_PREVIEW_WINDOW_SECONDS:-600}
       RATE_LIMIT_LOCATIONS_COUNT: ${RATE_LIMIT_LOCATIONS_COUNT:-60}
       RATE_LIMIT_LOCATIONS_WINDOW_SECONDS: ${RATE_LIMIT_LOCATIONS_WINDOW_SECONDS:-600}
+      RATE_LIMIT_FONTS_COUNT: ${RATE_LIMIT_FONTS_COUNT:-120}
+      RATE_LIMIT_FONTS_WINDOW_SECONDS: ${RATE_LIMIT_FONTS_WINDOW_SECONDS:-600}
       RATE_LIMIT_JOBS_COUNT: ${RATE_LIMIT_JOBS_COUNT:-5}
       RATE_LIMIT_JOBS_WINDOW_SECONDS: ${RATE_LIMIT_JOBS_WINDOW_SECONDS:-600}
       RATE_LIMIT_MAX_CONCURRENT_JOBS_PER_IP: ${RATE_LIMIT_MAX_CONCURRENT_JOBS_PER_IP:-2}
       NOMINATIM_SEARCH_URL: ${NOMINATIM_SEARCH_URL:-https://nominatim.openstreetmap.org/search}
       NOMINATIM_USER_AGENT: ${NOMINATIM_USER_AGENT:-city-map-poster-generator/1.0}
+      GOOGLE_FONTS_API_URL: ${GOOGLE_FONTS_API_URL:-https://www.googleapis.com/webfonts/v1/webfonts}
+      GOOGLE_FONTS_API_KEY: ${GOOGLE_FONTS_API_KEY:-}
+      GOOGLE_FONTS_METADATA_URL: ${GOOGLE_FONTS_METADATA_URL:-https://fonts.google.com/metadata/fonts}
+      GOOGLE_FONTS_CACHE_TTL_SECONDS: ${GOOGLE_FONTS_CACHE_TTL_SECONDS:-86400}
     command: ["python", "-m", "app.worker"]
     depends_on:
       - redis
       - minio
     volumes:
+      - ./apps/api/app:/app/app
       - map_cache:/tmp/map-cache
 
   redis:
