@@ -609,8 +609,8 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 
 	coordsY := 0.058
 	countryY := coordsY + coordsAscent + countryDesc + gap
-	dividerY := countryY + countryAscent + (gap * 1.15)
-	cityY := dividerY + cityDesc + (gap * 1.2)
+	dividerY := countryY + countryAscent + gap
+	cityY := dividerY + cityDesc + gap
 
 	top := cityY + cityAscent
 	if top > 0.34 {
@@ -655,8 +655,9 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 		textWidthEstimate := clamp(0.34+(float64(cityRuneCount)*0.018*sizeScale), 0.42, 0.9)
 		panelW := clamp(textWidthEstimate+(0.10*blurSize), 0.44, 0.94)
 
-		blockBottom := (coordsY - coordsDesc) - (gap * 1.8)
-		blockTop := (cityY + cityAscent) + (gap * 1.6)
+		blurMargin := gap * 1.7
+		blockBottom := (coordsY - coordsDesc) - blurMargin
+		blockTop := (cityY + cityAscent) + blurMargin
 		panelH := clamp((blockTop-blockBottom)+(0.045*blurSize), 0.12, 0.42)
 		centerY := (blockTop + blockBottom) / 2.0
 		panelX := 0.5 - panelW/2

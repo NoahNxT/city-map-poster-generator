@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"math"
 	"strings"
 	"testing"
 
@@ -131,6 +132,31 @@ func TestComputeLabelSpecPaddingExpandsGaps(t *testing.T) {
 	spaciousCountryGap := spacious.CountryY - spacious.CoordsY
 	if spaciousCountryGap <= baseCountryGap {
 		t.Fatalf("expected larger country/coords gap when padding increases: base=%.5f spacious=%.5f", baseCountryGap, spaciousCountryGap)
+	}
+}
+
+func TestComputeLabelSpecDividerPaddingIsSymmetric(t *testing.T) {
+	req := sampleRequest(types.OutputPNG)
+	req.Width = 12
+	req.Height = 16
+	req.LabelPadding = 1.55
+	req.TextBlurEnabled = false
+
+	labels := computeLabelSpec(req, samplePalette(), 51.22, 4.39)
+
+	pointToAxis := 1.0 / (req.Height * 72.0)
+	cityDesc := labels.CitySizePt * 0.26 * pointToAxis
+	countryAscent := labels.CountrySizePt * 0.72 * pointToAxis
+
+	gapAboveDivider := (labels.CityY - cityDesc) - labels.DividerY
+	gapBelowDivider := labels.DividerY - (labels.CountryY + countryAscent)
+
+	if math.Abs(gapAboveDivider-gapBelowDivider) > 1e-6 {
+		t.Fatalf(
+			"expected symmetric divider padding, got above=%.8f below=%.8f",
+			gapAboveDivider,
+			gapBelowDivider,
+		)
 	}
 }
 

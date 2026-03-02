@@ -8,7 +8,7 @@ import (
 	"city-map-poster-generator/apps/api/internal/types"
 )
 
-const PreviewCacheVersion = "v4"
+const PreviewCacheVersion = "v5"
 
 func PreviewCacheKey(req types.GenerateRequest) (string, error) {
 	payload := req
