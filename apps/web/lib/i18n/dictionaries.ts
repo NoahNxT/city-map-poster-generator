@@ -58,12 +58,18 @@ export type Dictionary = {
     generateAllThemesDescription: string;
     advancedOptions: string;
     latitude: string;
+    latitudeHelp: string;
     longitude: string;
+    longitudeHelp: string;
     sizeUnit: string;
+    sizeUnitHelp: string;
+    explainSizeUnit: string;
     centimeters: string;
     inches: string;
     width: string;
     height: string;
+    dimensionHelp: string;
+    explainDimensions: string;
     mapLayersTitle: string;
     mapLayersDescription: string;
     includeWater: string;
@@ -73,7 +79,11 @@ export type Dictionary = {
     typographyTitle: string;
     typographyDescription: string;
     cityFontSize: string;
+    cityFontSizeHelp: string;
+    explainCityFontSize: string;
     countryFontSize: string;
+    countryFontSizeHelp: string;
+    explainCountryFontSize: string;
     autoThemeDefault: string;
     labelPaddingScale: string;
     labelPaddingHelp: string;
@@ -226,12 +236,22 @@ const en: Dictionary = {
       "Creates all 17 themes and bundles ZIP download.",
     advancedOptions: "Advanced Options",
     latitude: "Latitude",
+    latitudeHelp:
+      "Optional override. Leave empty to keep the coordinates from the selected location.",
     longitude: "Longitude",
+    longitudeHelp:
+      "Optional override. Leave empty to keep the coordinates from the selected location.",
     sizeUnit: "Units",
+    sizeUnitHelp:
+      "Use centimeters for everyday poster sizing. Values are converted internally with full precision.",
+    explainSizeUnit: "Explain units",
     centimeters: "Centimeters (cm)",
     inches: "Inches (in)",
     width: "Width",
     height: "Height",
+    dimensionHelp:
+      "Type decimals with comma or dot (for example 40,6 or 40.6). Allowed range: {min} to {max} {unit}.",
+    explainDimensions: "Explain size input",
     mapLayersTitle: "Map Layers (Export)",
     mapLayersDescription: "Applies to both live preview and final generation.",
     includeWater: "Include water",
@@ -242,7 +262,13 @@ const en: Dictionary = {
     typographyDescription:
       "Optional custom city/country sizes and text color for preview and exports.",
     cityFontSize: "City font size (pt)",
+    cityFontSizeHelp:
+      "Optional override in points. Leave empty to use automatic city sizing.",
+    explainCityFontSize: "Explain city font size",
     countryFontSize: "Country font size (pt)",
+    countryFontSizeHelp:
+      "Optional override in points. Leave empty to use automatic country sizing.",
+    explainCountryFontSize: "Explain country font size",
     autoThemeDefault: "Auto (theme default)",
     labelPaddingScale: "Label padding scale",
     labelPaddingHelp:
@@ -274,7 +300,7 @@ const en: Dictionary = {
     selection: "Selection",
     themeDefaultFont: "Theme default font",
     fallbackFonts: "Fallback Fonts",
-    googleFonts: "Google-lettertypen",
+    googleFonts: "Google Fonts",
     generatedButton: "Generate Poster",
     queueingButton: "Queueing job...",
     captchaMissing:

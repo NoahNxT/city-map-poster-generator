@@ -89,7 +89,13 @@ import {
 import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 
-type AdvancedHelpFieldKey = "fontFamily";
+type AdvancedHelpFieldKey =
+  | "fontFamily"
+  | "sizeUnit"
+  | "width"
+  | "height"
+  | "cityFontSize"
+  | "countryFontSize";
 type SizeUnit = "cm" | "in";
 type DimensionField = "width" | "height";
 
@@ -957,6 +963,30 @@ export function PosterGenerator({
     };
   }
 
+  function renderFieldHelp(
+    field: AdvancedHelpFieldKey,
+    ariaLabel: string,
+    helpText: string,
+  ) {
+    return (
+      <Popover open={activePreviewHint === field}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label={ariaLabel}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            {...getHintTriggerHandlers(field)}
+          >
+            <CircleHelp className="h-3.5 w-3.5" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-72" side="top">
+          <p className="text-xs text-muted-foreground">{helpText}</p>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
   function toInchesFromDisplayValue(displayValue: number): number {
     return sizeUnit === "cm" ? centimetersToInches(displayValue) : displayValue;
   }
@@ -1089,11 +1119,21 @@ export function PosterGenerator({
     fontBundleQuery.isFetching &&
     !fontBundleQuery.data;
   const dimensionUnitLabel = sizeUnit === "cm" ? "cm" : "in";
-  const dimensionRangePlaceholder = `${formatDimensionValue(
+  const dimensionDisplayMin = formatDimensionValue(
     MIN_POSTER_INCHES,
     sizeUnit,
     locale,
-  )} - ${formatDimensionValue(MAX_POSTER_INCHES, sizeUnit, locale)}`;
+  );
+  const dimensionDisplayMax = formatDimensionValue(
+    MAX_POSTER_INCHES,
+    sizeUnit,
+    locale,
+  );
+  const dimensionRangePlaceholder = `${dimensionDisplayMin} - ${dimensionDisplayMax}`;
+  const dimensionHelpText = d.controls.dimensionHelp
+    .replace("{min}", dimensionDisplayMin)
+    .replace("{max}", dimensionDisplayMax)
+    .replace("{unit}", dimensionUnitLabel);
   const autoCityFontSize = computeAutoCityFontSize(values.city);
   const autoCountryFontSize = DEFAULT_COUNTRY_FONT_SIZE;
   const cityFontSizeInputValue =
@@ -1385,6 +1425,7 @@ export function PosterGenerator({
                   className="space-y-6"
                   onSubmit={form.handleSubmit(handleGenerate)}
                   aria-busy={createJobMutation.isPending}
+                  noValidate
                 >
                   <div className="space-y-2">
                     <Label htmlFor={locationInputId}>
@@ -1780,6 +1821,9 @@ export function PosterGenerator({
                                 placeholder="48.8566"
                                 {...form.register("latitude")}
                               />
+                              <p className="text-xs text-muted-foreground">
+                                {d.controls.latitudeHelp}
+                              </p>
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="longitude">
@@ -1790,13 +1834,23 @@ export function PosterGenerator({
                                 placeholder="2.3522"
                                 {...form.register("longitude")}
                               />
+                              <p className="text-xs text-muted-foreground">
+                                {d.controls.longitudeHelp}
+                              </p>
                             </div>
                           </div>
 
                           <div className="space-y-2">
-                            <Label htmlFor={sizeUnitSelectId}>
-                              {d.controls.sizeUnit}
-                            </Label>
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor={sizeUnitSelectId}>
+                                {d.controls.sizeUnit}
+                              </Label>
+                              {renderFieldHelp(
+                                "sizeUnit",
+                                d.controls.explainSizeUnit,
+                                d.controls.sizeUnitHelp,
+                              )}
+                            </div>
                             <Select
                               value={sizeUnit}
                               onValueChange={(value) =>
@@ -1819,13 +1873,23 @@ export function PosterGenerator({
                                 </SelectItem>
                               </SelectContent>
                             </Select>
+                            <p className="text-xs text-muted-foreground">
+                              {d.controls.sizeUnitHelp}
+                            </p>
                           </div>
 
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
-                              <Label htmlFor="width">
-                                {d.controls.width} ({dimensionUnitLabel})
-                              </Label>
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor="width">
+                                  {d.controls.width} ({dimensionUnitLabel})
+                                </Label>
+                                {renderFieldHelp(
+                                  "width",
+                                  d.controls.explainDimensions,
+                                  dimensionHelpText,
+                                )}
+                              </div>
                               <Input
                                 id="width"
                                 type="text"
@@ -1846,11 +1910,21 @@ export function PosterGenerator({
                                   )
                                 }
                               />
+                              <p className="text-xs text-muted-foreground">
+                                {dimensionHelpText}
+                              </p>
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="height">
-                                {d.controls.height} ({dimensionUnitLabel})
-                              </Label>
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor="height">
+                                  {d.controls.height} ({dimensionUnitLabel})
+                                </Label>
+                                {renderFieldHelp(
+                                  "height",
+                                  d.controls.explainDimensions,
+                                  dimensionHelpText,
+                                )}
+                              </div>
                               <Input
                                 id="height"
                                 type="text"
@@ -1873,6 +1947,9 @@ export function PosterGenerator({
                                   )
                                 }
                               />
+                              <p className="text-xs text-muted-foreground">
+                                {dimensionHelpText}
+                              </p>
                             </div>
                           </div>
 
@@ -1948,9 +2025,16 @@ export function PosterGenerator({
                             </p>
                             <div className="mt-3 grid gap-3 sm:grid-cols-2">
                               <div className="space-y-2">
-                                <Label htmlFor="cityFontSize">
-                                  {d.controls.cityFontSize}
-                                </Label>
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor="cityFontSize">
+                                    {d.controls.cityFontSize}
+                                  </Label>
+                                  {renderFieldHelp(
+                                    "cityFontSize",
+                                    d.controls.explainCityFontSize,
+                                    d.controls.cityFontSizeHelp,
+                                  )}
+                                </div>
                                 <Input
                                   id="cityFontSize"
                                   type="number"
@@ -1968,11 +2052,21 @@ export function PosterGenerator({
                                     );
                                   }}
                                 />
+                                <p className="text-xs text-muted-foreground">
+                                  {d.controls.cityFontSizeHelp}
+                                </p>
                               </div>
                               <div className="space-y-2">
-                                <Label htmlFor="countryFontSize">
-                                  {d.controls.countryFontSize}
-                                </Label>
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor="countryFontSize">
+                                    {d.controls.countryFontSize}
+                                  </Label>
+                                  {renderFieldHelp(
+                                    "countryFontSize",
+                                    d.controls.explainCountryFontSize,
+                                    d.controls.countryFontSizeHelp,
+                                  )}
+                                </div>
                                 <Input
                                   id="countryFontSize"
                                   type="number"
@@ -1990,6 +2084,9 @@ export function PosterGenerator({
                                     );
                                   }}
                                 />
+                                <p className="text-xs text-muted-foreground">
+                                  {d.controls.countryFontSizeHelp}
+                                </p>
                               </div>
                             </div>
                             <div className="mt-3 space-y-2">
