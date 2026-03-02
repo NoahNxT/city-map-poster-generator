@@ -6,6 +6,10 @@ Public, no-auth city poster generator built with a **Bun + Turborepo** monorepo:
 - `apps/api`: Go API + Redis queue + MinIO/S3 artifact storage + pure-Go renderer
 - `docker-compose.yml`: web, api, worker, redis, minio
 
+## Preview
+
+![Antwerp poster preview](docs/assets/preview-antwerp.png)
+
 ## Stack
 
 - Frontend: Next.js 16, React 19, Tailwind, `react-hook-form`, `zod`, `framer-motion`
