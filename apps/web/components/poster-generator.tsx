@@ -6,7 +6,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
+  Check,
   CheckCircle2,
+  ChevronsUpDown,
   CircleHelp,
   Download,
   Eye,
@@ -45,6 +47,15 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "./ui/command";
 import {
   Dialog,
   DialogContent,
@@ -544,7 +555,10 @@ export function PosterGenerator() {
   );
   const [locationAutocompleteOpen, setLocationAutocompleteOpen] =
     useState(false);
-  const [fontAutocompleteOpen, setFontAutocompleteOpen] = useState(false);
+  const [fontComboboxOpen, setFontComboboxOpen] = useState(false);
+  const [fontSearchQuery, setFontSearchQuery] = useState<string>(
+    defaultValues.fontFamily ?? "",
+  );
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
 
   const form = useForm<FormValues>({
@@ -582,7 +596,7 @@ export function PosterGenerator() {
       fetchFonts(debouncedFontQuery, {
         disableRateLimit: disablePreviewRateLimit,
       }),
-    enabled: fontAutocompleteOpen,
+    enabled: fontComboboxOpen,
     staleTime: 60 * 60_000,
     refetchOnWindowFocus: false,
   });
@@ -629,10 +643,17 @@ export function PosterGenerator() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedFontQuery(values.fontFamily?.trim() ?? "");
+      setDebouncedFontQuery(fontSearchQuery.trim());
     }, 250);
     return () => clearTimeout(timer);
-  }, [values.fontFamily]);
+  }, [fontSearchQuery]);
+
+  useEffect(() => {
+    if (!fontComboboxOpen) {
+      return;
+    }
+    setFontSearchQuery(values.fontFamily?.trim() ?? "");
+  }, [fontComboboxOpen, values.fontFamily]);
 
   useEffect(() => {
     const href = buildGoogleFontsStylesheetUrl(values.fontFamily);
@@ -720,7 +741,14 @@ export function PosterGenerator() {
 
   function handleFontSelect(family: string) {
     form.setValue("fontFamily", family, { shouldValidate: true });
-    setFontAutocompleteOpen(false);
+    setFontSearchQuery(family);
+    setFontComboboxOpen(false);
+  }
+
+  function clearFontSelection() {
+    form.setValue("fontFamily", undefined, { shouldValidate: true });
+    setFontSearchQuery("");
+    setFontComboboxOpen(false);
   }
 
   function getHintTriggerHandlers(field: AdvancedHelpFieldKey): {
@@ -770,6 +798,7 @@ export function PosterGenerator() {
   );
   const previewDisplayCountry = (values.country || "").toUpperCase();
   const previewTypographyFontFamily = buildPreviewFontStack(values.fontFamily);
+  const selectedFontFamily = values.fontFamily?.trim() ?? "";
   const previewCoords = formatPreviewCoords(values.latitude, values.longitude);
   const previewUrl = `/theme-previews/${values.theme}.svg`;
   const previewThemeBackground =
@@ -823,14 +852,16 @@ export function PosterGenerator() {
   const zoomLensWidth = (zoomViewWidth / PREVIEW_VIEWBOX_WIDTH) * 100;
   const zoomLensHeight = (zoomViewHeight / PREVIEW_VIEWBOX_HEIGHT) * 100;
   const fallbackFontSuggestions = useMemo(() => {
-    const query = (values.fontFamily ?? "").trim().toLowerCase();
+    const query = fontSearchQuery.trim().toLowerCase();
     if (!query) {
       return fallbackFontFamilies.slice(0, 10);
     }
     return fallbackFontFamilies.filter((font) =>
       font.family.toLowerCase().includes(query),
     );
-  }, [values.fontFamily]);
+  }, [fontSearchQuery]);
+  const fontCommandItemClassName =
+    "data-[selected=true]:bg-muted data-[selected=true]:text-foreground";
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6 lg:px-8">
@@ -1503,95 +1534,178 @@ export function PosterGenerator() {
                               </PopoverContent>
                             </Popover>
                           </div>
-                          <div className="relative">
-                            <Input
-                              id="fontFamily"
-                              value={values.fontFamily ?? ""}
-                              placeholder="Search Google Fonts..."
-                              onFocus={() => setFontAutocompleteOpen(true)}
-                              onBlur={() =>
-                                setTimeout(
-                                  () => setFontAutocompleteOpen(false),
-                                  120,
-                                )
+                          <Popover
+                            open={fontComboboxOpen}
+                            onOpenChange={(open) => {
+                              setFontComboboxOpen(open);
+                              if (open) {
+                                setFontSearchQuery(selectedFontFamily);
                               }
-                              onChange={(event) =>
-                                form.setValue(
-                                  "fontFamily",
-                                  event.currentTarget.value,
-                                  {
-                                    shouldValidate: true,
-                                  },
-                                )
-                              }
-                            />
-                            {fontAutocompleteOpen ? (
-                              <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
-                                {fontSuggestionsQuery.isLoading ? (
-                                  <p className="px-3 py-2 text-xs text-muted-foreground">
-                                    Searching fonts...
-                                  </p>
-                                ) : fontSuggestionsQuery.isError ? (
-                                  <>
-                                    <p className="px-3 py-2 text-xs text-red-700">
-                                      Font search unavailable. Showing fallback
-                                      suggestions.
+                            }}
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                id="fontFamily"
+                                type="button"
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={fontComboboxOpen}
+                                className="w-full justify-between font-normal hover:bg-muted hover:text-foreground"
+                              >
+                                <span
+                                  className={
+                                    selectedFontFamily
+                                      ? "truncate text-left"
+                                      : "truncate text-left text-muted-foreground"
+                                  }
+                                >
+                                  {selectedFontFamily ||
+                                    "Select Google Font..."}
+                                </span>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              align="start"
+                              className="w-[var(--radix-popover-trigger-width)] p-0"
+                            >
+                              <Command shouldFilter={false}>
+                                <CommandInput
+                                  value={fontSearchQuery}
+                                  placeholder="Search Google Fonts..."
+                                  onValueChange={setFontSearchQuery}
+                                />
+                                <CommandList>
+                                  {fontSuggestionsQuery.isLoading ? (
+                                    <p className="px-3 py-3 text-xs text-muted-foreground">
+                                      Searching fonts...
                                     </p>
-                                    {fallbackFontSuggestions.length ? (
-                                      fallbackFontSuggestions.map((font) => (
-                                        <button
-                                          key={font.family}
-                                          type="button"
-                                          className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
-                                          onMouseDown={(event) => {
-                                            event.preventDefault();
-                                            handleFontSelect(font.family);
-                                          }}
+                                  ) : (
+                                    <>
+                                      <CommandGroup heading="Selection">
+                                        <CommandItem
+                                          className={fontCommandItemClassName}
+                                          value="theme-default-font"
+                                          onSelect={clearFontSelection}
                                         >
-                                          <p className="truncate font-medium">
-                                            {font.family}
+                                          <Check
+                                            className={`mr-2 h-4 w-4 ${
+                                              selectedFontFamily
+                                                ? "opacity-0"
+                                                : "opacity-100"
+                                            }`}
+                                          />
+                                          Theme default font
+                                        </CommandItem>
+                                      </CommandGroup>
+                                      <CommandSeparator />
+                                      {fontSuggestionsQuery.isError ? (
+                                        <>
+                                          <p className="px-3 py-2 text-xs text-red-700">
+                                            Font search unavailable. Showing
+                                            fallback suggestions.
                                           </p>
-                                          <p className="truncate text-xs text-muted-foreground">
-                                            {font.category}
-                                          </p>
-                                        </button>
-                                      ))
-                                    ) : (
-                                      <p className="px-3 py-2 text-xs text-muted-foreground">
-                                        No fallback fonts match this query.
-                                      </p>
-                                    )}
-                                  </>
-                                ) : fontSuggestionsQuery.data?.length ? (
-                                  fontSuggestionsQuery.data.map((font) => (
-                                    <button
-                                      key={font.family}
-                                      type="button"
-                                      className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
-                                      onMouseDown={(event) => {
-                                        event.preventDefault();
-                                        handleFontSelect(font.family);
-                                      }}
-                                    >
-                                      <p className="truncate font-medium">
-                                        {font.family}
-                                      </p>
-                                      <p className="truncate text-xs text-muted-foreground">
-                                        {font.category ?? "Google Font"}
-                                      </p>
-                                    </button>
-                                  ))
-                                ) : (
-                                  <p className="px-3 py-2 text-xs text-muted-foreground">
-                                    No matching fonts found.
-                                  </p>
-                                )}
-                              </div>
-                            ) : null}
-                          </div>
+                                          <CommandGroup heading="Fallback Fonts">
+                                            {fallbackFontSuggestions.length ? (
+                                              fallbackFontSuggestions.map(
+                                                (font) => {
+                                                  const isSelected =
+                                                    selectedFontFamily.toLowerCase() ===
+                                                    font.family.toLowerCase();
+                                                  return (
+                                                    <CommandItem
+                                                      className={
+                                                        fontCommandItemClassName
+                                                      }
+                                                      key={font.family}
+                                                      value={`fallback-${font.family.toLowerCase()}`}
+                                                      onSelect={() =>
+                                                        handleFontSelect(
+                                                          font.family,
+                                                        )
+                                                      }
+                                                    >
+                                                      <Check
+                                                        className={`mr-2 h-4 w-4 ${
+                                                          isSelected
+                                                            ? "opacity-100"
+                                                            : "opacity-0"
+                                                        }`}
+                                                      />
+                                                      <div className="min-w-0">
+                                                        <p className="truncate font-medium">
+                                                          {font.family}
+                                                        </p>
+                                                        <p className="truncate text-xs text-muted-foreground">
+                                                          {font.category}
+                                                        </p>
+                                                      </div>
+                                                    </CommandItem>
+                                                  );
+                                                },
+                                              )
+                                            ) : (
+                                              <CommandEmpty>
+                                                No fallback fonts match this
+                                                query.
+                                              </CommandEmpty>
+                                            )}
+                                          </CommandGroup>
+                                        </>
+                                      ) : fontSuggestionsQuery.data?.length ? (
+                                        <CommandGroup heading="Google Fonts">
+                                          {fontSuggestionsQuery.data.map(
+                                            (font) => {
+                                              const isSelected =
+                                                selectedFontFamily.toLowerCase() ===
+                                                font.family.toLowerCase();
+                                              return (
+                                                <CommandItem
+                                                  className={
+                                                    fontCommandItemClassName
+                                                  }
+                                                  key={font.family}
+                                                  value={`google-${font.family.toLowerCase()}`}
+                                                  onSelect={() =>
+                                                    handleFontSelect(
+                                                      font.family,
+                                                    )
+                                                  }
+                                                >
+                                                  <Check
+                                                    className={`mr-2 h-4 w-4 ${
+                                                      isSelected
+                                                        ? "opacity-100"
+                                                        : "opacity-0"
+                                                    }`}
+                                                  />
+                                                  <div className="min-w-0">
+                                                    <p className="truncate font-medium">
+                                                      {font.family}
+                                                    </p>
+                                                    <p className="truncate text-xs text-muted-foreground">
+                                                      {font.category ??
+                                                        "Google Font"}
+                                                    </p>
+                                                  </div>
+                                                </CommandItem>
+                                              );
+                                            },
+                                          )}
+                                        </CommandGroup>
+                                      ) : (
+                                        <CommandEmpty>
+                                          No matching fonts found.
+                                        </CommandEmpty>
+                                      )}
+                                    </>
+                                  )}
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                           <p className="text-xs text-muted-foreground">
-                            Search and pick from Google Fonts, or type a custom
-                            family name.
+                            Search and select from Google Fonts results only.
                           </p>
                         </div>
                       </div>
