@@ -388,8 +388,8 @@ const defaultValues: FormValues = {
   textBlurSize: 1,
   textBlurStrength: 8,
   distance: 12000,
-  width: 12,
-  height: 16,
+  width: centimetersToInches(30),
+  height: centimetersToInches(40),
   format: "png",
 };
 
