@@ -422,14 +422,15 @@ func drawBlurRaster(dc *gg.Context, blur *blurSpec, bgColor string, width, heigh
 	fillR, fillG, fillB := blurFillColor(bgColor)
 	for layer := blur.Layers; layer > 0; layer-- {
 		t := float64(layer) / float64(blur.Layers)
-		spread := (1 - t) * (0.06 * blur.BlurSize)
+		spreadY := (1 - t) * (0.06 * blur.BlurSize)
+		spreadX := spreadY * (height / math.Max(width, 1))
 		alpha := (blur.EdgeAlpha * (t * t)) / float64(blur.Layers)
 		dc.SetRGBA(fillR, fillG, fillB, clamp(alpha, 0, 1))
-		x := (blur.PanelX - spread) * width
-		y := axisToCanvasY(blur.PanelY+blur.PanelH+spread, height)
-		w := (blur.PanelW + (spread * 2)) * width
-		h := (blur.PanelH + (spread * 2)) * height
-		r := (blur.CornerRadius + spread) * math.Min(width, height)
+		x := (blur.PanelX - spreadX) * width
+		y := axisToCanvasY(blur.PanelY+blur.PanelH+spreadY, height)
+		w := (blur.PanelW + (spreadX * 2)) * width
+		h := (blur.PanelH + (spreadY * 2)) * height
+		r := (blur.CornerRadius * math.Min(width, height)) + (spreadY * height)
 		dc.DrawRoundedRectangle(x, y, w, h, r)
 		dc.Fill()
 	}
@@ -461,13 +462,14 @@ func drawLabelsSVG(b *strings.Builder, labels labelSpec, pal palette, width, hei
 	if labels.Blur != nil {
 		for layer := labels.Blur.Layers; layer > 0; layer-- {
 			t := float64(layer) / float64(labels.Blur.Layers)
-			spread := (1 - t) * (0.06 * labels.Blur.BlurSize)
+			spreadY := (1 - t) * (0.06 * labels.Blur.BlurSize)
+			spreadX := spreadY * (height / math.Max(width, 1))
 			alpha := (labels.Blur.EdgeAlpha * (t * t)) / float64(labels.Blur.Layers)
-			x := (labels.Blur.PanelX - spread) * width
-			y := axisToCanvasY(labels.Blur.PanelY+labels.Blur.PanelH+spread, height)
-			w := (labels.Blur.PanelW + spread*2) * width
-			h := (labels.Blur.PanelH + spread*2) * height
-			r := (labels.Blur.CornerRadius + spread) * math.Min(width, height)
+			x := (labels.Blur.PanelX - spreadX) * width
+			y := axisToCanvasY(labels.Blur.PanelY+labels.Blur.PanelH+spreadY, height)
+			w := (labels.Blur.PanelW + spreadX*2) * width
+			h := (labels.Blur.PanelH + spreadY*2) * height
+			r := (labels.Blur.CornerRadius * math.Min(width, height)) + (spreadY * height)
 			fmt.Fprintf(b, `<rect x="%.3f" y="%.3f" width="%.3f" height="%.3f" rx="%.3f" ry="%.3f" fill="%s" fill-opacity="%.4f"/>`, x, y, w, h, r, r, fillHex, alpha)
 		}
 		x := labels.Blur.PanelX * width
@@ -514,13 +516,14 @@ func drawLabelsPDF(pdf *gofpdf.Fpdf, labels labelSpec, pal palette, width, heigh
 		}
 		for layer := labels.Blur.Layers; layer > 0; layer-- {
 			t := float64(layer) / float64(labels.Blur.Layers)
-			spread := (1 - t) * (0.06 * labels.Blur.BlurSize)
+			spreadY := (1 - t) * (0.06 * labels.Blur.BlurSize)
+			spreadX := spreadY * (height / math.Max(width, 1))
 			alpha := (labels.Blur.EdgeAlpha * (t * t)) / float64(labels.Blur.Layers)
-			x := (labels.Blur.PanelX - spread) * width
-			y := axisToCanvasY(labels.Blur.PanelY+labels.Blur.PanelH+spread, height)
-			w := (labels.Blur.PanelW + spread*2) * width
-			h := (labels.Blur.PanelH + spread*2) * height
-			r := (labels.Blur.CornerRadius + spread) * math.Min(width, height)
+			x := (labels.Blur.PanelX - spreadX) * width
+			y := axisToCanvasY(labels.Blur.PanelY+labels.Blur.PanelH+spreadY, height)
+			w := (labels.Blur.PanelW + spreadX*2) * width
+			h := (labels.Blur.PanelH + spreadY*2) * height
+			r := (labels.Blur.CornerRadius * math.Min(width, height)) + (spreadY * height)
 			pdf.SetAlpha(alpha, "Normal")
 			pdf.SetFillColor(bg.R, bg.G, bg.B)
 			pdf.RoundedRect(x, y, w, h, r, "1234", "F")
@@ -670,16 +673,20 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 		blurSize := clamp(req.TextBlurSize, 0.6, 2.5)
 		blurStrength := clamp(req.TextBlurStrength, 0, 30)
 		blurScale := clamp(blurStrength/30.0, 0, 1)
+		axisYToAxisX := req.Height / math.Max(req.Width, 1e-6)
 
 		cityRuneCount := maxInt(len([]rune(strings.TrimSpace(req.City))), 4)
 		sizeScale := clamp(mainSize/math.Max(baseMain*scaleFactor, 1e-6), 0.7, 2.2)
 		textWidthEstimate := clamp(0.34+(float64(cityRuneCount)*0.018*sizeScale), 0.42, 0.9)
-		panelW := clamp(textWidthEstimate+(0.10*blurSize), 0.44, 0.94)
+		blurPaddingY := gap * 1.7
+		blurPaddingX := blurPaddingY * axisYToAxisX
+		blurFeatherY := 0.0225 * blurSize
+		blurFeatherX := blurFeatherY * axisYToAxisX
+		panelW := clamp(textWidthEstimate+((blurPaddingX+blurFeatherX)*2), 0.44, 0.94)
 
-		blurMargin := gap * 1.7
-		blockBottom := (coordsY - coordsDesc) - blurMargin
-		blockTop := (cityY + cityAscent) + blurMargin
-		panelH := clamp((blockTop-blockBottom)+(0.045*blurSize), 0.12, 0.42)
+		blockBottom := (coordsY - coordsDesc) - blurPaddingY
+		blockTop := (cityY + cityAscent) + blurPaddingY
+		panelH := clamp((blockTop-blockBottom)+(blurFeatherY*2), 0.12, 0.42)
 		centerY := (blockTop + blockBottom) / 2.0
 		panelX := 0.5 - panelW/2
 		panelY := clamp(centerY-panelH/2, 0.01, 1-panelH-0.01)

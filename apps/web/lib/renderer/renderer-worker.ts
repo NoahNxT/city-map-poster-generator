@@ -431,6 +431,7 @@ function computeLabelSpec(
     const blurSize = clamp(payload.textBlurSize, 0.6, 2.5);
     const blurStrength = clamp(payload.textBlurStrength, 0, 30);
     const blurScale = clamp(blurStrength / 30, 0, 1);
+    const axisYToAxisX = payload.height / Math.max(payload.width, 1e-6);
     const cityRuneCount = Math.max(Array.from(cityRaw).length, 4);
     const sizeScale = clamp(
       citySize / Math.max(baseMain * scaleFactor, 1e-6),
@@ -442,11 +443,18 @@ function computeLabelSpec(
       0.42,
       0.9,
     );
-    const panelW = clamp(textWidthEstimate + 0.1 * blurSize, 0.44, 0.94);
-    const blurMargin = gap * 1.7;
-    const blockBottom = coordsY - coordsDesc - blurMargin;
-    const blockTop = cityY + cityAscent + blurMargin;
-    const panelH = clamp(blockTop - blockBottom + 0.045 * blurSize, 0.12, 0.42);
+    const blurPaddingY = gap * 1.7;
+    const blurPaddingX = blurPaddingY * axisYToAxisX;
+    const blurFeatherY = 0.0225 * blurSize;
+    const blurFeatherX = blurFeatherY * axisYToAxisX;
+    const panelW = clamp(
+      textWidthEstimate + (blurPaddingX + blurFeatherX) * 2,
+      0.44,
+      0.94,
+    );
+    const blockBottom = coordsY - coordsDesc - blurPaddingY;
+    const blockTop = cityY + cityAscent + blurPaddingY;
+    const panelH = clamp(blockTop - blockBottom + blurFeatherY * 2, 0.12, 0.42);
     const centerY = (blockTop + blockBottom) / 2;
     blur = {
       panelX: 0.5 - panelW / 2,
@@ -492,16 +500,18 @@ function drawLabelBlock(
     const fill = hexToRgba(theme.colors?.bg ?? DEFAULT_BG, 1);
     for (let layer = labels.blur.layers; layer > 0; layer -= 1) {
       const t = layer / labels.blur.layers;
-      const spread = (1 - t) * (0.06 * labels.blur.blurSize);
+      const spreadY = (1 - t) * (0.06 * labels.blur.blurSize);
+      const spreadX = spreadY * (height / Math.max(width, 1));
       const alpha = (labels.blur.edgeAlpha * (t * t)) / labels.blur.layers;
-      const x = (labels.blur.panelX - spread) * width;
+      const x = (labels.blur.panelX - spreadX) * width;
       const y = axisToCanvasY(
-        labels.blur.panelY + labels.blur.panelH + spread,
+        labels.blur.panelY + labels.blur.panelH + spreadY,
         height,
       );
-      const w = (labels.blur.panelW + spread * 2) * width;
-      const h = (labels.blur.panelH + spread * 2) * height;
-      const r = (labels.blur.cornerRadius + spread) * Math.min(width, height);
+      const w = (labels.blur.panelW + spreadX * 2) * width;
+      const h = (labels.blur.panelH + spreadY * 2) * height;
+      const r =
+        labels.blur.cornerRadius * Math.min(width, height) + spreadY * height;
       ctx.fillStyle = fill.replace("1)", `${clamp(alpha, 0, 1)})`);
       ctx.beginPath();
       ctx.roundRect(x, y, w, h, r);
