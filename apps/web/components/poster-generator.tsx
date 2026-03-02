@@ -124,6 +124,9 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
+const PREVIEW_VIEWBOX_WIDTH = 439.2;
+const PREVIEW_VIEWBOX_HEIGHT = 583.2;
+
 function isLikelyLatin(text: string): boolean {
   return /^[A-Za-z0-9\s'".,\-()]+$/.test(text);
 }
@@ -132,55 +135,44 @@ function formatPreviewCity(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return "";
   if (isLikelyLatin(trimmed)) {
-    return trimmed.toUpperCase();
+    return trimmed.toUpperCase().split("").join("  ");
   }
   return trimmed;
 }
 
-function getPreviewCityStyle(city: string): {
-  fontSize: string;
-  letterSpacing: string;
-  lineHeight: string;
-  whiteSpace: "nowrap";
+function getPreviewTextMetrics(
+  displayCity: string,
+  widthInches: number,
+  heightInches: number,
+): {
+  cityFontSize: number;
+  countryFontSize: number;
+  coordsFontSize: number;
+  attributionFontSize: number;
+  dividerWidth: number;
 } {
-  const normalized = city.trim();
-  if (!normalized) {
-    return {
-      fontSize: "clamp(20px, 5vw, 48px)",
-      letterSpacing: "0.1em",
-      lineHeight: "0.95",
-      whiteSpace: "nowrap",
-    };
-  }
+  const width = Math.max(widthInches, 1);
+  const height = Math.max(heightInches, 1);
+  const scaleFactor = Math.min(height, width) / 12.0;
+  const pointsToPreviewUnits = PREVIEW_VIEWBOX_HEIGHT / (height * 72);
 
-  const latin = isLikelyLatin(normalized);
-  const length = normalized.length;
-  const scale = latin
-    ? Math.max(0.7, Math.min(1, 9 / length))
-    : Math.max(0.75, Math.min(1, 12 / length));
+  const baseMain = 60;
+  const baseSub = 22;
+  const baseCoords = 14;
+  const cityCharCount = displayCity.trim().length;
 
-  const minPx = Math.round(20 * scale);
-  const maxPx = Math.round(48 * scale);
-  const vw = (5 * scale).toFixed(2);
-
-  let letterSpacing = "0.02em";
-  if (latin) {
-    if (length <= 8) {
-      letterSpacing = "0.12em";
-    } else if (length <= 12) {
-      letterSpacing = "0.08em";
-    } else if (length <= 16) {
-      letterSpacing = "0.06em";
-    } else {
-      letterSpacing = "0.04em";
-    }
-  }
+  const baseAdjustedMain = baseMain * scaleFactor;
+  const adjustedMainFontSize =
+    cityCharCount > 10
+      ? Math.max(baseAdjustedMain * (10 / cityCharCount), 10 * scaleFactor)
+      : baseAdjustedMain;
 
   return {
-    fontSize: `clamp(${minPx}px, ${vw}vw, ${maxPx}px)`,
-    letterSpacing,
-    lineHeight: "0.95",
-    whiteSpace: "nowrap",
+    cityFontSize: adjustedMainFontSize * pointsToPreviewUnits,
+    countryFontSize: baseSub * scaleFactor * pointsToPreviewUnits,
+    coordsFontSize: baseCoords * scaleFactor * pointsToPreviewUnits,
+    attributionFontSize: Math.max(4, 5 * scaleFactor) * pointsToPreviewUnits,
+    dividerWidth: Math.max(0.4, scaleFactor * pointsToPreviewUnits),
   };
 }
 
@@ -471,16 +463,26 @@ export function PosterGenerator() {
     (theme) => theme.id === values.theme,
   );
   const previewTextColor = activeTheme?.colors.text ?? "#8C4A18";
-  const previewDisplayCity = formatPreviewCity(
-    values.displayCity?.trim() || values.city || "",
+  const previewDisplayCityRaw = values.displayCity?.trim() || values.city || "";
+  const previewDisplayCity = formatPreviewCity(previewDisplayCityRaw);
+  const previewTextMetrics = getPreviewTextMetrics(
+    previewDisplayCityRaw,
+    values.width,
+    values.height,
   );
   const previewDisplayCountry = (
     values.displayCountry?.trim() ||
     values.country ||
     ""
   ).toUpperCase();
+  const previewTypographyFontFamily =
+    values.fontFamily?.trim() || "var(--font-heading)";
   const previewCoords = formatPreviewCoords(values.latitude, values.longitude);
-  const previewCityStyle = getPreviewCityStyle(previewDisplayCity);
+  const previewCityY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.14);
+  const previewDividerY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.125);
+  const previewCountryY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.1);
+  const previewCoordsY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.07);
+  const previewAttributionY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.006);
   const previewUrl = `/theme-previews/${values.theme}.svg`;
   const fallbackFontSuggestions = useMemo(() => {
     const query = (values.fontFamily ?? "").trim().toLowerCase();
@@ -1187,45 +1189,77 @@ export function PosterGenerator() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="relative aspect-[3/4] overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100">
+              <div className="relative aspect-[439.2/583.2] overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100">
                 <Image
                   src={previewUrl}
                   alt="Poster preview"
                   fill
-                  className="h-full w-full object-contain"
+                  className="h-full w-full object-cover"
                   unoptimized
                 />
-                <div className="pointer-events-none absolute inset-x-0 bottom-0">
-                  <div className="bg-gradient-to-t from-background/70 via-background/40 to-transparent px-4 pb-3 pt-16">
-                    <div className="relative mx-auto w-[86%] text-center">
-                      <p
-                        className="font-heading overflow-hidden font-bold leading-none"
-                        style={{ color: previewTextColor, ...previewCityStyle }}
-                      >
-                        {previewDisplayCity}
-                      </p>
-                      <p
-                        className="mt-1 text-[clamp(11px,2vw,25px)] leading-tight"
-                        style={{ color: previewTextColor }}
-                      >
-                        {previewDisplayCountry}
-                      </p>
-                      <p
-                        className="mt-1 text-[clamp(9px,1.5vw,15px)] opacity-80"
-                        style={{ color: previewTextColor }}
-                      >
-                        {previewCoords}
-                      </p>
-                      <div
-                        className="mx-auto mt-1 h-px w-24 opacity-70"
-                        style={{ backgroundColor: previewTextColor }}
-                      />
-                    </div>
-                  </div>
-                  <p className="absolute bottom-1 right-2 text-[9px] text-muted-foreground/80">
+                <svg
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  viewBox={`0 0 ${PREVIEW_VIEWBOX_WIDTH} ${PREVIEW_VIEWBOX_HEIGHT}`}
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <title>Poster text preview overlay</title>
+                  <text
+                    x={PREVIEW_VIEWBOX_WIDTH * 0.5}
+                    y={previewCityY}
+                    textAnchor="middle"
+                    xmlSpace="preserve"
+                    fontWeight={700}
+                    fontSize={previewTextMetrics.cityFontSize}
+                    fontFamily={previewTypographyFontFamily}
+                    fill={previewTextColor}
+                  >
+                    {previewDisplayCity}
+                  </text>
+                  <line
+                    x1={PREVIEW_VIEWBOX_WIDTH * 0.4}
+                    x2={PREVIEW_VIEWBOX_WIDTH * 0.6}
+                    y1={previewDividerY}
+                    y2={previewDividerY}
+                    stroke={previewTextColor}
+                    strokeWidth={previewTextMetrics.dividerWidth}
+                  />
+                  <text
+                    x={PREVIEW_VIEWBOX_WIDTH * 0.5}
+                    y={previewCountryY}
+                    textAnchor="middle"
+                    fontWeight={300}
+                    fontSize={previewTextMetrics.countryFontSize}
+                    fontFamily={previewTypographyFontFamily}
+                    fill={previewTextColor}
+                  >
+                    {previewDisplayCountry}
+                  </text>
+                  <text
+                    x={PREVIEW_VIEWBOX_WIDTH * 0.5}
+                    y={previewCoordsY}
+                    textAnchor="middle"
+                    fontWeight={400}
+                    fontSize={previewTextMetrics.coordsFontSize}
+                    fontFamily={previewTypographyFontFamily}
+                    fill={previewTextColor}
+                    opacity={0.7}
+                  >
+                    {previewCoords}
+                  </text>
+                  <text
+                    x={PREVIEW_VIEWBOX_WIDTH * 0.995}
+                    y={previewAttributionY}
+                    textAnchor="end"
+                    fontWeight={300}
+                    fontSize={previewTextMetrics.attributionFontSize}
+                    fontFamily={previewTypographyFontFamily}
+                    fill={previewTextColor}
+                    opacity={0.35}
+                  >
                     © OpenStreetMap contributors
-                  </p>
-                </div>
+                  </text>
+                </svg>
               </div>
             </CardContent>
           </Card>
