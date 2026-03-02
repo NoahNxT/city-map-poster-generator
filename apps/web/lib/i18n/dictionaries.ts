@@ -511,9 +511,26 @@ const nl: Dictionary = {
       "Genereert alle 17 thema's en bundelt ze als ZIP-download.",
     advancedOptions: "Geavanceerde opties",
     latitude: "Breedtegraad",
+    latitudeHelp:
+      "Optionele overschrijving. Laat leeg om de coördinaten van de gekozen locatie te behouden.",
     longitude: "Lengtegraad",
+    longitudeHelp:
+      "Optionele overschrijving. Laat leeg om de coördinaten van de gekozen locatie te behouden.",
+    sizeUnit: "Eenheden",
+    sizeUnitHelp:
+      "Gebruik centimeters voor gangbare posterformaten. Waarden worden intern met volledige precisie omgerekend.",
+    explainSizeUnit: "Eenheden uitleggen",
+    centimeters: "Centimeters (cm)",
+    inches: "Inches (in)",
     width: "Breedte",
     height: "Hoogte",
+    dimensionHelp:
+      "Typ decimalen met komma of punt (bijvoorbeeld 40,6 of 40.6). Toegestaan bereik: {min} tot {max} {unit}.",
+    dimensionHelpCentimeters:
+      "Typ decimalen met komma of punt (bijvoorbeeld 40,6 of 40.6). Toegestaan bereik: {min} tot {max} cm.",
+    dimensionHelpInches:
+      "Typ decimalen met komma of punt (bijvoorbeeld 12,5 of 12.5). Toegestaan bereik: {min} tot {max} in.",
+    explainDimensions: "Formaatinvoer uitleggen",
     mapLayersTitle: "Kaartlagen (export)",
     mapLayersDescription:
       "Van toepassing op zowel de live preview als de uiteindelijke generatie.",
@@ -525,7 +542,13 @@ const nl: Dictionary = {
     typographyDescription:
       "Optionele aangepaste grootte voor stad/land en tekstkleur voor preview en export.",
     cityFontSize: "Lettergrootte stad (pt)",
+    cityFontSizeHelp:
+      "Optionele overschrijving in punten. Laat leeg om automatische stadsgrootte te gebruiken.",
+    explainCityFontSize: "Grootte van stadslettertype uitleggen",
     countryFontSize: "Lettergrootte land (pt)",
+    countryFontSizeHelp:
+      "Optionele overschrijving in punten. Laat leeg om automatische landsgrootte te gebruiken.",
+    explainCountryFontSize: "Grootte van landslettertype uitleggen",
     generatedButton: "Poster genereren",
     queueingButton: "Job in wachtrij...",
     autoThemeDefault: "Auto (thema-standaard)",
@@ -561,7 +584,7 @@ const nl: Dictionary = {
     selection: "Selectie",
     themeDefaultFont: "Standaard lettertype van thema",
     fallbackFonts: "Fallback-lettertypen",
-    googleFonts: "Polices Google",
+    googleFonts: "Google-lettertypen",
     captchaMissing:
       "CAPTCHA site key is niet geconfigureerd. Stel NEXT_PUBLIC_TURNSTILE_SITE_KEY in.",
     coordsUnavailable: "Selecteer een locatie om coördinaten te tonen",
@@ -575,11 +598,14 @@ const nl: Dictionary = {
     disableRateLimitTitle: "Alle API-rate limits uitschakelen",
     disableRateLimitDescription:
       "Alleen voor development. Schakelt alle API-throttling uit.",
+    disableCaptchaTitle: "CAPTCHA-verificatie uitschakelen",
+    disableCaptchaDescription:
+      "Alleen voor development. Slaat CAPTCHA-controles over bij generatieverzoeken.",
     zoomTitle: "Zoombox",
     zoomDescription: "Bekijk kleine tekst in de preview.",
     zoomLevel: "Zoomniveau",
     zoomLevelValue: "{value}x",
-    zoomValue: "Agrandissement {value}x",
+    zoomValue: "Zoom {value}x",
     posterAlt: "Poster voorbeeld",
     textOverlayTitle: "Voorbeeldoverlay van postertekst",
     magnifiedTitle: "Vergroot postervoorbeeld",
@@ -765,9 +791,26 @@ const fr: Dictionary = {
       "Génère les 17 thèmes et crée un téléchargement ZIP.",
     advancedOptions: "Options avancées",
     latitude: "Latitude",
+    latitudeHelp:
+      "Remplacement optionnel. Laissez vide pour conserver les coordonnées du lieu sélectionné.",
     longitude: "Longitude",
+    longitudeHelp:
+      "Remplacement optionnel. Laissez vide pour conserver les coordonnées du lieu sélectionné.",
+    sizeUnit: "Unités",
+    sizeUnitHelp:
+      "Utilisez les centimètres pour les formats d'affiche courants. Les valeurs sont converties en interne avec une précision complète.",
+    explainSizeUnit: "Expliquer les unités",
+    centimeters: "Centimètres (cm)",
+    inches: "Pouces (in)",
     width: "Largeur",
     height: "Hauteur",
+    dimensionHelp:
+      "Saisissez les décimales avec une virgule ou un point (par exemple 40,6 ou 40.6). Plage autorisée : de {min} à {max} {unit}.",
+    dimensionHelpCentimeters:
+      "Saisissez les décimales avec une virgule ou un point (par exemple 40,6 ou 40.6). Plage autorisée : de {min} à {max} cm.",
+    dimensionHelpInches:
+      "Saisissez les décimales avec une virgule ou un point (par exemple 12,5 ou 12.5). Plage autorisée : de {min} à {max} in.",
+    explainDimensions: "Expliquer la saisie des dimensions",
     mapLayersTitle: "Couches de carte (export)",
     mapLayersDescription:
       "S'applique à la fois à l'aperçu en direct et à la génération finale.",
@@ -779,7 +822,13 @@ const fr: Dictionary = {
     typographyDescription:
       "Tailles ville/pays et couleur de texte personnalisées pour l'aperçu et l'export.",
     cityFontSize: "Taille police ville (pt)",
+    cityFontSizeHelp:
+      "Remplacement optionnel en points. Laissez vide pour utiliser la taille automatique de la ville.",
+    explainCityFontSize: "Expliquer la taille de police de la ville",
     countryFontSize: "Taille police pays (pt)",
+    countryFontSizeHelp:
+      "Remplacement optionnel en points. Laissez vide pour utiliser la taille automatique du pays.",
+    explainCountryFontSize: "Expliquer la taille de police du pays",
     generatedButton: "Générer l'affiche",
     queueingButton: "Mise en file...",
     autoThemeDefault: "Auto (thème par défaut)",
@@ -829,11 +878,14 @@ const fr: Dictionary = {
     disableRateLimitTitle: "Désactiver toutes les limites API",
     disableRateLimitDescription:
       "Développement uniquement. Désactive toute limitation API.",
+    disableCaptchaTitle: "Désactiver la vérification CAPTCHA",
+    disableCaptchaDescription:
+      "Développement uniquement. Ignore les contrôles CAPTCHA sur les requêtes de génération.",
     zoomTitle: "Zone de zoom",
     zoomDescription: "Inspectez les petits textes dans l'aperçu.",
     zoomLevel: "Niveau de zoom",
     zoomLevelValue: "{value}x",
-    zoomValue: "Vergrößerung {value}x",
+    zoomValue: "Agrandissement {value}x",
     posterAlt: "Aperçu du poster",
     textOverlayTitle: "Superposition texte de l'aperçu du poster",
     magnifiedTitle: "Aperçu du poster agrandi",
@@ -1021,9 +1073,26 @@ const de: Dictionary = {
       "Erstellt alle 17 Themes und bündelt sie als ZIP-Download.",
     advancedOptions: "Erweiterte Optionen",
     latitude: "Breitengrad",
+    latitudeHelp:
+      "Optionale Überschreibung. Leer lassen, um die Koordinaten des ausgewählten Ortes beizubehalten.",
     longitude: "Längengrad",
+    longitudeHelp:
+      "Optionale Überschreibung. Leer lassen, um die Koordinaten des ausgewählten Ortes beizubehalten.",
+    sizeUnit: "Einheiten",
+    sizeUnitHelp:
+      "Verwende Zentimeter für gängige Postergrößen. Werte werden intern mit voller Präzision umgerechnet.",
+    explainSizeUnit: "Einheiten erklären",
+    centimeters: "Zentimeter (cm)",
+    inches: "Zoll (in)",
     width: "Breite",
     height: "Höhe",
+    dimensionHelp:
+      "Dezimalzahlen mit Komma oder Punkt eingeben (zum Beispiel 40,6 oder 40.6). Erlaubter Bereich: {min} bis {max} {unit}.",
+    dimensionHelpCentimeters:
+      "Dezimalzahlen mit Komma oder Punkt eingeben (zum Beispiel 40,6 oder 40.6). Erlaubter Bereich: {min} bis {max} cm.",
+    dimensionHelpInches:
+      "Dezimalzahlen mit Komma oder Punkt eingeben (zum Beispiel 12,5 oder 12.5). Erlaubter Bereich: {min} bis {max} in.",
+    explainDimensions: "Größeneingabe erklären",
     mapLayersTitle: "Kartenebenen (Export)",
     mapLayersDescription:
       "Gilt sowohl für die Live-Vorschau als auch für die finale Generierung.",
@@ -1035,7 +1104,13 @@ const de: Dictionary = {
     typographyDescription:
       "Optionale Größenanpassungen für Stadt/Land und Textfarbe für Vorschau und Export.",
     cityFontSize: "Schriftgröße Stadt (pt)",
+    cityFontSizeHelp:
+      "Optionale Überschreibung in Punkt. Leer lassen, um die automatische Stadtgröße zu verwenden.",
+    explainCityFontSize: "Schriftgröße der Stadt erklären",
     countryFontSize: "Schriftgröße Land (pt)",
+    countryFontSizeHelp:
+      "Optionale Überschreibung in Punkt. Leer lassen, um die automatische Landesgröße zu verwenden.",
+    explainCountryFontSize: "Schriftgröße des Landes erklären",
     generatedButton: "Poster generieren",
     queueingButton: "Job wird eingereiht...",
     autoThemeDefault: "Auto (Theme-Standard)",
@@ -1086,11 +1161,14 @@ const de: Dictionary = {
     disableRateLimitTitle: "Alle API-Rate-Limits deaktivieren",
     disableRateLimitDescription:
       "Nur für Development. Deaktiviert sämtliche API-Drosselungen.",
+    disableCaptchaTitle: "CAPTCHA-Verifizierung deaktivieren",
+    disableCaptchaDescription:
+      "Nur für Development. Umgeht CAPTCHA-Prüfungen bei Generierungsanfragen.",
     zoomTitle: "Zoomfenster",
     zoomDescription: "Prüfe kleinere Texte in der Vorschau.",
     zoomLevel: "Zoomstufe",
     zoomLevelValue: "{value}x",
-    zoomValue: "Ampliación {value}x",
+    zoomValue: "Vergrößerung {value}x",
     posterAlt: "Poster-Vorschau",
     textOverlayTitle: "Text-Overlay der Postervorschau",
     magnifiedTitle: "Vergrößerte Postervorschau",
@@ -1277,12 +1355,29 @@ const es: Dictionary = {
       "Genera los 17 temas y crea una descarga en ZIP.",
     advancedOptions: "Opciones avanzadas",
     latitude: "Latitud",
+    latitudeHelp:
+      "Anulación opcional. Déjalo vacío para mantener las coordenadas de la ubicación seleccionada.",
     longitude: "Longitud",
+    longitudeHelp:
+      "Anulación opcional. Déjalo vacío para mantener las coordenadas de la ubicación seleccionada.",
+    sizeUnit: "Unidades",
+    sizeUnitHelp:
+      "Usa centímetros para tamaños de póster habituales. Los valores se convierten internamente con precisión completa.",
+    explainSizeUnit: "Explicar unidades",
+    centimeters: "Centímetros (cm)",
+    inches: "Pulgadas (in)",
     width: "Ancho",
     height: "Alto",
+    dimensionHelp:
+      "Escribe decimales con coma o punto (por ejemplo 40,6 o 40.6). Rango permitido: de {min} a {max} {unit}.",
+    dimensionHelpCentimeters:
+      "Escribe decimales con coma o punto (por ejemplo 40,6 o 40.6). Rango permitido: de {min} a {max} cm.",
+    dimensionHelpInches:
+      "Escribe decimales con coma o punto (por ejemplo 12,5 o 12.5). Rango permitido: de {min} a {max} in.",
+    explainDimensions: "Explicar tamaño",
     mapLayersTitle: "Capas del mapa (exportación)",
     mapLayersDescription:
-      "Se aplica solo a la generación final. La vista previa mantiene ajustes rápidos del servidor.",
+      "Se aplica tanto a la vista previa en vivo como a la generación final.",
     includeWater: "Incluir agua",
     includeWaterDescription: "Ríos, lagos, canales.",
     includeParks: "Incluir parques/zonas verdes",
@@ -1291,7 +1386,13 @@ const es: Dictionary = {
     typographyDescription:
       "Tamaño personalizado de ciudad/país y color de texto para vista previa y exportaciones.",
     cityFontSize: "Tamaño de fuente ciudad (pt)",
+    cityFontSizeHelp:
+      "Anulación opcional en puntos. Déjalo vacío para usar el tamaño automático de ciudad.",
+    explainCityFontSize: "Explicar tamaño de fuente de ciudad",
     countryFontSize: "Tamaño de fuente país (pt)",
+    countryFontSizeHelp:
+      "Anulación opcional en puntos. Déjalo vacío para usar el tamaño automático de país.",
+    explainCountryFontSize: "Explicar tamaño de fuente de país",
     generatedButton: "Generar póster",
     queueingButton: "Encolando tarea...",
     autoThemeDefault: "Auto (tema predeterminado)",
@@ -1342,6 +1443,9 @@ const es: Dictionary = {
     disableRateLimitTitle: "Desactivar todos los límites de API",
     disableRateLimitDescription:
       "Solo para desarrollo. Desactiva toda limitación de API.",
+    disableCaptchaTitle: "Desactivar verificación CAPTCHA",
+    disableCaptchaDescription:
+      "Solo para desarrollo. Omite las comprobaciones CAPTCHA en las solicitudes de generación.",
     zoomTitle: "Caja de zoom",
     zoomDescription: "Inspecciona textos pequeños en la vista previa.",
     zoomLevel: "Nivel de zoom",
