@@ -153,3 +153,72 @@ func (s *Store) GetPreviewCache(ctx context.Context, key string) (string, error)
 func (s *Store) SetPreviewCache(ctx context.Context, key, objectKey string, ttlSeconds int) error {
 	return s.redis.SetEx(ctx, key, objectKey, time.Duration(ttlSeconds)*time.Second).Err()
 }
+
+func (s *Store) GetExportState(ctx context.Context, exportID string) (*types.ExportState, error) {
+	key := fmt.Sprintf("export:%s", exportID)
+	raw, err := s.redis.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var state types.ExportState
+	if err := json.Unmarshal([]byte(raw), &state); err != nil {
+		return nil, err
+	}
+	return &state, nil
+}
+
+func (s *Store) SaveExportState(ctx context.Context, state types.ExportState, ttlSeconds int) error {
+	key := fmt.Sprintf("export:%s", state.ExportID)
+	encoded, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	return s.redis.SetEx(ctx, key, encoded, time.Duration(ttlSeconds)*time.Second).Err()
+}
+
+func (s *Store) UpdateExportState(
+	ctx context.Context,
+	exportID string,
+	ttlSeconds int,
+	status *types.ExportStatus,
+	progress *int,
+	step *string,
+	artifacts *[]types.Artifact,
+	downloadKey *string,
+	errorMsg *string,
+) (types.ExportState, error) {
+	existing, err := s.GetExportState(ctx, exportID)
+	if err != nil {
+		return types.ExportState{}, err
+	}
+	state := types.NewExportState(exportID)
+	if existing != nil {
+		state = *existing
+	}
+	if status != nil {
+		state.Status = *status
+	}
+	if progress != nil {
+		state.Progress = *progress
+	}
+	if step != nil && *step != "" {
+		state.Steps = append(state.Steps, *step)
+	}
+	if artifacts != nil {
+		state.Artifacts = *artifacts
+	}
+	if downloadKey != nil {
+		state.DownloadKey = downloadKey
+	}
+	if errorMsg != nil {
+		state.Error = errorMsg
+	}
+	state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	if err := s.SaveExportState(ctx, state, ttlSeconds); err != nil {
+		return types.ExportState{}, err
+	}
+	return state, nil
+}

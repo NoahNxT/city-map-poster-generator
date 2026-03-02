@@ -63,7 +63,8 @@ type blurSpec struct {
 	Layers       int
 	EdgeAlpha    float64
 	CoreAlpha    float64
-	BlurSize     float64
+	BlurSizeX    float64
+	BlurSizeY    float64
 }
 
 type labelSpec struct {
@@ -109,6 +110,19 @@ func (r *Renderer) ThemeIDs() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func (r *Renderer) FetchFeaturesForSnapshot(
+	ctx context.Context,
+	req types.RenderSnapshotRequest,
+	lat float64,
+	lon float64,
+) (*osm.FeatureSet, error) {
+	targetAspect := req.Width / req.Height
+	if targetAspect <= 0 {
+		targetAspect = 1
+	}
+	return r.osmClient.Fetch(ctx, lat, lon, req.Distance, targetAspect, req.IncludeWater, req.IncludeParks, "all")
 }
 
 func (r *Renderer) Render(ctx context.Context, req types.GenerateRequest, lat, lon float64, profile RenderProfile) (RenderResult, error) {
@@ -409,14 +423,15 @@ func drawBlurRaster(dc *gg.Context, blur *blurSpec, bgColor string, width, heigh
 	fillR, fillG, fillB := blurFillColor(bgColor)
 	for layer := blur.Layers; layer > 0; layer-- {
 		t := float64(layer) / float64(blur.Layers)
-		spread := (1 - t) * (0.06 * blur.BlurSize)
+		spreadY := (1 - t) * (0.040 * blur.BlurSizeY)
+		spreadX := (1 - t) * (0.040 * blur.BlurSizeX) * (height / math.Max(width, 1))
 		alpha := (blur.EdgeAlpha * (t * t)) / float64(blur.Layers)
 		dc.SetRGBA(fillR, fillG, fillB, clamp(alpha, 0, 1))
-		x := (blur.PanelX - spread) * width
-		y := axisToCanvasY(blur.PanelY+blur.PanelH+spread, height)
-		w := (blur.PanelW + (spread * 2)) * width
-		h := (blur.PanelH + (spread * 2)) * height
-		r := (blur.CornerRadius + spread) * math.Min(width, height)
+		x := (blur.PanelX - spreadX) * width
+		y := axisToCanvasY(blur.PanelY+blur.PanelH+spreadY, height)
+		w := (blur.PanelW + (spreadX * 2)) * width
+		h := (blur.PanelH + (spreadY * 2)) * height
+		r := (blur.CornerRadius * math.Min(width, height)) + (spreadY * height)
 		dc.DrawRoundedRectangle(x, y, w, h, r)
 		dc.Fill()
 	}
@@ -448,13 +463,14 @@ func drawLabelsSVG(b *strings.Builder, labels labelSpec, pal palette, width, hei
 	if labels.Blur != nil {
 		for layer := labels.Blur.Layers; layer > 0; layer-- {
 			t := float64(layer) / float64(labels.Blur.Layers)
-			spread := (1 - t) * (0.06 * labels.Blur.BlurSize)
+			spreadY := (1 - t) * (0.040 * labels.Blur.BlurSizeY)
+			spreadX := (1 - t) * (0.040 * labels.Blur.BlurSizeX) * (height / math.Max(width, 1))
 			alpha := (labels.Blur.EdgeAlpha * (t * t)) / float64(labels.Blur.Layers)
-			x := (labels.Blur.PanelX - spread) * width
-			y := axisToCanvasY(labels.Blur.PanelY+labels.Blur.PanelH+spread, height)
-			w := (labels.Blur.PanelW + spread*2) * width
-			h := (labels.Blur.PanelH + spread*2) * height
-			r := (labels.Blur.CornerRadius + spread) * math.Min(width, height)
+			x := (labels.Blur.PanelX - spreadX) * width
+			y := axisToCanvasY(labels.Blur.PanelY+labels.Blur.PanelH+spreadY, height)
+			w := (labels.Blur.PanelW + spreadX*2) * width
+			h := (labels.Blur.PanelH + spreadY*2) * height
+			r := (labels.Blur.CornerRadius * math.Min(width, height)) + (spreadY * height)
 			fmt.Fprintf(b, `<rect x="%.3f" y="%.3f" width="%.3f" height="%.3f" rx="%.3f" ry="%.3f" fill="%s" fill-opacity="%.4f"/>`, x, y, w, h, r, r, fillHex, alpha)
 		}
 		x := labels.Blur.PanelX * width
@@ -501,13 +517,14 @@ func drawLabelsPDF(pdf *gofpdf.Fpdf, labels labelSpec, pal palette, width, heigh
 		}
 		for layer := labels.Blur.Layers; layer > 0; layer-- {
 			t := float64(layer) / float64(labels.Blur.Layers)
-			spread := (1 - t) * (0.06 * labels.Blur.BlurSize)
+			spreadY := (1 - t) * (0.040 * labels.Blur.BlurSizeY)
+			spreadX := (1 - t) * (0.040 * labels.Blur.BlurSizeX) * (height / math.Max(width, 1))
 			alpha := (labels.Blur.EdgeAlpha * (t * t)) / float64(labels.Blur.Layers)
-			x := (labels.Blur.PanelX - spread) * width
-			y := axisToCanvasY(labels.Blur.PanelY+labels.Blur.PanelH+spread, height)
-			w := (labels.Blur.PanelW + spread*2) * width
-			h := (labels.Blur.PanelH + spread*2) * height
-			r := (labels.Blur.CornerRadius + spread) * math.Min(width, height)
+			x := (labels.Blur.PanelX - spreadX) * width
+			y := axisToCanvasY(labels.Blur.PanelY+labels.Blur.PanelH+spreadY, height)
+			w := (labels.Blur.PanelW + spreadX*2) * width
+			h := (labels.Blur.PanelH + spreadY*2) * height
+			r := (labels.Blur.CornerRadius * math.Min(width, height)) + (spreadY * height)
 			pdf.SetAlpha(alpha, "Normal")
 			pdf.SetFillColor(bg.R, bg.G, bg.B)
 			pdf.RoundedRect(x, y, w, h, r, "1234", "F")
@@ -579,7 +596,8 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 	baseCoords := 14.0
 
 	displayCity := strings.TrimSpace(req.City)
-	if isLikelyLatin(displayCity) {
+	latinDisplay := isLikelyLatin(displayCity)
+	if latinDisplay {
 		displayCity = strings.ToUpper(displayCity)
 		displayCity = strings.Join(strings.Split(displayCity, ""), "  ")
 	}
@@ -597,11 +615,18 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 	coordsSize := baseCoords * scaleFactor
 	attrSize := math.Max(4, 5*scaleFactor)
 
+	paddingScale := math.Pow(clamp(req.LabelPadding, 0.5, 3), 1.25)
 	dynamicGapScale := math.Max(math.Max(mainSize/math.Max(baseMain*scaleFactor, 1e-6), countrySize/math.Max(baseSub*scaleFactor, 1e-6)), 1.0)
-	gap := 0.0036 * req.LabelPadding * dynamicGapScale
+	gap := 0.0072 * paddingScale * dynamicGapScale
 	pointToAxis := 1.0 / (req.Height * 72.0)
 	cityAscent := mainSize * 0.74 * pointToAxis
 	cityDesc := mainSize * 0.26 * pointToAxis
+	cityDescForDivider := cityDesc
+	if latinDisplay {
+		// Uppercase latin labels have minimal visible descenders.
+		// Use a smaller optical offset to balance divider spacing.
+		cityDescForDivider = mainSize * 0.08 * pointToAxis
+	}
 	countryAscent := countrySize * 0.72 * pointToAxis
 	countryDesc := countrySize * 0.28 * pointToAxis
 	coordsAscent := coordsSize * 0.70 * pointToAxis
@@ -610,7 +635,7 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 	coordsY := 0.058
 	countryY := coordsY + coordsAscent + countryDesc + gap
 	dividerY := countryY + countryAscent + gap
-	cityY := dividerY + cityDesc + gap
+	cityY := dividerY + cityDescForDivider + gap
 
 	top := cityY + cityAscent
 	if top > 0.34 {
@@ -646,20 +671,24 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 	}
 
 	if req.TextBlurEnabled {
-		blurSize := clamp(req.TextBlurSize, 0.6, 2.5)
+		blurSizeX := clamp(req.TextBlurSizeX, 0.6, 2.5)
+		blurSizeY := clamp(req.TextBlurSizeY, 0.6, 2.5)
 		blurStrength := clamp(req.TextBlurStrength, 0, 30)
 		blurScale := clamp(blurStrength/30.0, 0, 1)
 
-		cityRuneCount := maxInt(len([]rune(strings.TrimSpace(req.City))), 4)
-		sizeScale := clamp(mainSize/math.Max(baseMain*scaleFactor, 1e-6), 0.7, 2.2)
-		textWidthEstimate := clamp(0.34+(float64(cityRuneCount)*0.018*sizeScale), 0.42, 0.9)
-		panelW := clamp(textWidthEstimate+(0.10*blurSize), 0.44, 0.94)
-
-		blurMargin := gap * 1.7
-		blockBottom := (coordsY - coordsDesc) - blurMargin
-		blockTop := (cityY + cityAscent) + blurMargin
-		panelH := clamp((blockTop-blockBottom)+(0.045*blurSize), 0.12, 0.42)
-		centerY := (blockTop + blockBottom) / 2.0
+		cityWidthEstimate := estimateTextWidthAxis(displayCity, mainSize, pointToAxis)
+		countryWidthEstimate := estimateTextWidthAxis(strings.ToUpper(strings.TrimSpace(req.Country)), countrySize, pointToAxis)
+		dividerWidthEstimate := 0.2
+		textBlockWidth := math.Max(math.Max(cityWidthEstimate, countryWidthEstimate), dividerWidthEstimate)
+		textBlockBottom := coordsY - coordsDesc
+		textBlockTop := cityY + cityAscent
+		textBlockHeight := math.Max(textBlockTop-textBlockBottom, 0.012)
+		scaleX := blurAxisScale(blurSizeX)
+		scaleY := blurAxisScale(blurSizeY)
+		// X gets a slightly wider baseline footprint than Y for better optical balance.
+		panelW := clamp(textBlockWidth*1.5*scaleX, 0.16, 0.94)
+		panelH := clamp(textBlockHeight*1.3*scaleY, 0.04, 0.42)
+		centerY := (textBlockTop + textBlockBottom) / 2.0
 		panelX := 0.5 - panelW/2
 		panelY := clamp(centerY-panelH/2, 0.01, 1-panelH-0.01)
 		label.Blur = &blurSpec{
@@ -667,11 +696,12 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 			PanelY:       panelY,
 			PanelW:       panelW,
 			PanelH:       panelH,
-			CornerRadius: 0.026 * blurSize,
+			CornerRadius: 0.018 * ((blurSizeX + blurSizeY) / 2.0),
 			Layers:       maxInt(6, int(math.Round(10+blurScale*12))),
 			EdgeAlpha:    0.18 + (0.32 * blurScale),
 			CoreAlpha:    0.42 + (0.40 * blurScale),
-			BlurSize:     blurSize,
+			BlurSizeX:    blurSizeX,
+			BlurSizeY:    blurSizeY,
 		}
 	}
 
@@ -958,6 +988,42 @@ func clamp(v, min, max float64) float64 {
 		return max
 	}
 	return v
+}
+
+func blurAxisScale(size float64) float64 {
+	normalized := clamp((size-0.6)/(2.5-0.6), 0, 1)
+	// 50% maps to 1.0 (text bounds +10%), then scales smaller/larger symmetrically.
+	return clamp(1+((normalized-0.5)*1.2), 0.6, 1.6)
+}
+
+func estimateGlyphWidthEm(r rune) float64 {
+	switch {
+	case r == ' ':
+		return 0.25
+	case strings.ContainsRune("MW@#%&", r):
+		return 0.88
+	case strings.ContainsRune("Il1|!", r):
+		return 0.36
+	case strings.ContainsRune(".,:;'`", r):
+		return 0.24
+	case r >= '0' && r <= '9':
+		return 0.58
+	case r >= 'A' && r <= 'Z':
+		return 0.64
+	default:
+		return 0.6
+	}
+}
+
+func estimateTextWidthAxis(text string, fontSizePt, pointToAxis float64) float64 {
+	if strings.TrimSpace(text) == "" {
+		return 0
+	}
+	widthEm := 0.0
+	for _, r := range text {
+		widthEm += estimateGlyphWidthEm(r)
+	}
+	return widthEm * fontSizePt * pointToAxis
 }
 
 func maxInt(a, b int) int {

@@ -1,8 +1,14 @@
 import type {
+  ExportCompleteUpload,
+  ExportInitRequest,
+  ExportInitResponse,
+  ExportState,
   FontSuggestion,
   JobState,
   LocationSuggestion,
   PosterRequest,
+  RenderSnapshotPayload,
+  RenderSnapshotRequest,
   Theme,
 } from "./types";
 
@@ -105,6 +111,7 @@ export async function createJob(
   captchaToken?: string,
   options?: {
     disableRateLimit?: boolean;
+    disableCaptchaCheck?: boolean;
   },
 ): Promise<{ jobId: string; status: string; createdAt: string }> {
   const response = await fetch(`${API_BASE}/v2/jobs`, {
@@ -112,6 +119,7 @@ export async function createJob(
     headers: {
       "Content-Type": "application/json",
       ...(options?.disableRateLimit ? { "x-dev-no-rate-limit": "1" } : {}),
+      ...(options?.disableCaptchaCheck ? { "x-dev-no-captcha": "1" } : {}),
     },
     body: JSON.stringify({ payload, captchaToken }),
   });
@@ -140,5 +148,175 @@ export async function fetchApiHealth(): Promise<{
   time: string;
 }> {
   const response = await fetch(`${API_BASE}/health`, { cache: "no-store" });
+  return parseResponse(response);
+}
+
+async function parseGzipJSON<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+  if (typeof DecompressionStream === "undefined") {
+    throw new Error("Gzip decompression is not supported in this browser");
+  }
+  const raw = await response.arrayBuffer();
+  const ds = new DecompressionStream("gzip");
+  // Start reading before writing to avoid stream backpressure deadlocks.
+  const readPromise = new Response(ds.readable).arrayBuffer();
+  const writer = ds.writable.getWriter();
+  await writer.write(new Uint8Array(raw));
+  await writer.close();
+  const decompressed = await readPromise;
+  const text = new TextDecoder().decode(decompressed);
+  return JSON.parse(text) as T;
+}
+
+export async function fetchRenderSnapshot(
+  payload: RenderSnapshotRequest,
+  options?: {
+    disableRateLimit?: boolean;
+  },
+): Promise<RenderSnapshotPayload> {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options?.disableRateLimit ? { "x-dev-no-rate-limit": "1" } : {}),
+  };
+
+  const response = await fetch(`${API_BASE}/v2/render/snapshot`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    return parseResponse<RenderSnapshotPayload>(response);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return parseResponse<RenderSnapshotPayload>(response);
+  }
+
+  try {
+    return await parseGzipJSON<RenderSnapshotPayload>(response);
+  } catch {
+    const jsonResponse = await fetch(
+      `${API_BASE}/v2/render/snapshot?encoding=json`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      },
+    );
+    return parseResponse<RenderSnapshotPayload>(jsonResponse);
+  }
+}
+
+export async function fetchFontBundle(
+  family: string,
+  weights = "300,400,700",
+): Promise<ArrayBuffer> {
+  const encodedFamily = encodeURIComponent(family.trim());
+  const params = new URLSearchParams({ weights });
+  const response = await fetch(
+    `${API_BASE}/v2/fonts/${encodedFamily}/bundle?${params.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Font bundle request failed with status ${response.status}`,
+    );
+  }
+  return response.arrayBuffer();
+}
+
+export type FontBundleData = {
+  family: string;
+  weights: string[];
+  files: Record<string, string>;
+};
+
+export async function fetchFontBundleData(
+  family: string,
+  weights = "300,400,700",
+): Promise<FontBundleData> {
+  const encodedFamily = encodeURIComponent(family.trim());
+  const params = new URLSearchParams({ weights, encoding: "json" });
+  const response = await fetch(
+    `${API_BASE}/v2/fonts/${encodedFamily}/bundle?${params.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
+  return parseResponse<FontBundleData>(response);
+}
+
+export async function initExport(
+  payload: ExportInitRequest,
+  options?: {
+    disableRateLimit?: boolean;
+    disableCaptchaCheck?: boolean;
+  },
+): Promise<ExportInitResponse> {
+  const response = await fetch(`${API_BASE}/v2/exports/init`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options?.disableRateLimit ? { "x-dev-no-rate-limit": "1" } : {}),
+      ...(options?.disableCaptchaCheck ? { "x-dev-no-captcha": "1" } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+export async function uploadExportArtifact(
+  uploadUrl: string,
+  bytes: ArrayBuffer,
+  contentType: string,
+): Promise<void> {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": contentType,
+    },
+    body: bytes,
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(
+      body || `Export upload failed with status ${response.status}`,
+    );
+  }
+}
+
+export async function completeExport(
+  exportId: string,
+  uploads: ExportCompleteUpload[],
+  downloadKey: string,
+): Promise<ExportState> {
+  const response = await fetch(`${API_BASE}/v2/exports/${exportId}/complete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ uploads, downloadKey }),
+  });
+  return parseResponse(response);
+}
+
+export async function fetchExport(exportId: string): Promise<ExportState> {
+  const response = await fetch(`${API_BASE}/v2/exports/${exportId}`, {
+    cache: "no-store",
+  });
+  return parseResponse(response);
+}
+
+export async function fetchExportDownload(
+  exportId: string,
+): Promise<{ url: string; expiresAt: string }> {
+  const response = await fetch(`${API_BASE}/v2/exports/${exportId}/download`, {
+    cache: "no-store",
+  });
   return parseResponse(response);
 }
