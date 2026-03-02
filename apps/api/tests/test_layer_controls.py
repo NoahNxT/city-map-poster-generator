@@ -19,6 +19,10 @@ def test_poster_request_defaults_include_layers() -> None:
 
     assert payload.includeWater is True
     assert payload.includeParks is True
+    assert payload.cityFontSize is None
+    assert payload.countryFontSize is None
+    assert payload.textColor is None
+    assert payload.labelPaddingScale == 1.0
 
 
 def test_generation_job_passes_export_layer_flags_to_renderer() -> None:
@@ -30,6 +34,10 @@ def test_generation_job_passes_export_layer_flags_to_renderer() -> None:
         "allThemes": False,
         "includeWater": False,
         "includeParks": True,
+        "cityFontSize": 58,
+        "countryFontSize": 20,
+        "textColor": "#8c4a18",
+        "labelPaddingScale": 1.6,
         "distance": 12000,
         "width": 12,
         "height": 16,
@@ -50,6 +58,11 @@ def test_generation_job_passes_export_layer_flags_to_renderer() -> None:
     kwargs = render_mock.call_args.kwargs
     assert kwargs["include_water"] is False
     assert kwargs["include_parks"] is True
+    payload_arg = render_mock.call_args.args[0]
+    assert payload_arg.cityFontSize == 58
+    assert payload_arg.countryFontSize == 20
+    assert payload_arg.textColor == "#8c4a18"
+    assert payload_arg.labelPaddingScale == 1.6
 
 
 def test_preview_ignores_export_layer_toggles() -> None:

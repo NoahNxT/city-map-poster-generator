@@ -103,4 +103,8 @@ def render_poster(
         include_parks=include_parks,
         include_labels=include_labels,
         include_attribution=include_attribution,
+        city_font_size=payload.cityFontSize,
+        country_font_size=payload.countryFontSize,
+        text_color=payload.textColor,
+        label_padding_scale=payload.labelPaddingScale,
     )

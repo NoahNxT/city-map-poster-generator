@@ -40,3 +40,49 @@ def test_lat_lon_pair_required_together() -> None:
         assert False, "Validation should fail"
     except Exception:
         assert True
+
+
+def test_text_color_must_be_hex() -> None:
+    try:
+        PosterRequest.model_validate(
+            {
+                "city": "Paris",
+                "country": "France",
+                "theme": "terracotta",
+                "textColor": "orange",
+            }
+        )
+        assert False, "Validation should fail"
+    except Exception:
+        assert True
+
+
+def test_city_and_country_font_size_bounds() -> None:
+    try:
+        PosterRequest.model_validate(
+            {
+                "city": "Paris",
+                "country": "France",
+                "theme": "terracotta",
+                "cityFontSize": 4,
+                "countryFontSize": 200,
+            }
+        )
+        assert False, "Validation should fail"
+    except Exception:
+        assert True
+
+
+def test_label_padding_scale_bounds() -> None:
+    try:
+        PosterRequest.model_validate(
+            {
+                "city": "Paris",
+                "country": "France",
+                "theme": "terracotta",
+                "labelPaddingScale": 0.1,
+            }
+        )
+        assert False, "Validation should fail"
+    except Exception:
+        assert True

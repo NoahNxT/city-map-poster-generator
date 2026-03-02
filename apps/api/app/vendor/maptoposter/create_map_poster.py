@@ -518,6 +518,10 @@ def create_poster(
     include_parks=True,
     include_labels=True,
     include_attribution=True,
+    city_font_size=None,
+    country_font_size=None,
+    text_color=None,
+    label_padding_scale=1.0,
 ):
     """
     Generate a complete map poster with roads, water, parks, and typography.
@@ -654,16 +658,23 @@ def create_poster(
     base_sub = 22
     base_coords = 14
     base_attr = 8
+    label_color = text_color or THEME["text"]
 
     # 4. Typography - use custom fonts if provided, otherwise use default FONTS
     active_fonts = fonts or FONTS
+    coords_font_size = base_coords * scale_factor
+    sub_font_size = (
+        float(country_font_size) * scale_factor
+        if country_font_size is not None
+        else base_sub * scale_factor
+    )
     if active_fonts:
         # font_main is calculated dynamically later based on length
         font_sub = FontProperties(
-            fname=active_fonts["light"], size=base_sub * scale_factor
+            fname=active_fonts["light"], size=sub_font_size
         )
         font_coords = FontProperties(
-            fname=active_fonts["regular"], size=base_coords * scale_factor
+            fname=active_fonts["regular"], size=coords_font_size
         )
         font_attr = FontProperties(
             fname=active_fonts["light"], size=base_attr * scale_factor
@@ -671,10 +682,10 @@ def create_poster(
     else:
         # Fallback to system fonts
         font_sub = FontProperties(
-            family="monospace", weight="normal", size=base_sub * scale_factor
+            family="monospace", weight="normal", size=sub_font_size
         )
         font_coords = FontProperties(
-            family="monospace", size=base_coords * scale_factor
+            family="monospace", size=coords_font_size
         )
         font_attr = FontProperties(family="monospace", size=base_attr * scale_factor)
 
@@ -689,17 +700,17 @@ def create_poster(
         # For scripts like Arabic, Thai, Japanese, etc.
         spaced_city = display_city
 
-    # Dynamically adjust font size based on city name length to prevent truncation
-    # We use the already scaled "main" font size as the starting point.
-    base_adjusted_main = base_main * scale_factor
-    city_char_count = len(display_city)
-
-    # Heuristic: If length is > 10, start reducing.
-    if city_char_count > 10:
-        length_factor = 10 / city_char_count
-        adjusted_font_size = max(base_adjusted_main * length_factor, 10 * scale_factor)
+    # If explicit city size is not provided, dynamically adjust by city length
+    if city_font_size is not None:
+        adjusted_font_size = float(city_font_size) * scale_factor
     else:
-        adjusted_font_size = base_adjusted_main
+        base_adjusted_main = base_main * scale_factor
+        city_char_count = len(display_city)
+        if city_char_count > 10:
+            length_factor = 10 / city_char_count
+            adjusted_font_size = max(base_adjusted_main * length_factor, 10 * scale_factor)
+        else:
+            adjusted_font_size = base_adjusted_main
 
     if active_fonts:
         font_main_adjusted = FontProperties(
@@ -710,14 +721,36 @@ def create_poster(
             family="monospace", weight="bold", size=adjusted_font_size
         )
 
+    # Dynamically separate the label stack when large font overrides are used.
+    # Defaults still render close to upstream placement.
+    dynamic_gap_scale = max(
+        adjusted_font_size / max(base_main * scale_factor, 1e-6),
+        sub_font_size / max(base_sub * scale_factor, 1e-6),
+        1.0,
+    )
+    min_gap = 0.004 * float(label_padding_scale) * dynamic_gap_scale
+    point_to_axis = 1 / (height * 72.0)
+    city_desc = adjusted_font_size * 0.22 * point_to_axis
+    country_ascent = sub_font_size * 0.72 * point_to_axis
+    country_desc = sub_font_size * 0.22 * point_to_axis
+    coords_ascent = coords_font_size * 0.72 * point_to_axis
+
+    coords_y = 0.07
+    country_y = 0.10
+    coords_top = coords_y + coords_ascent
+    if country_y - country_desc < coords_top + min_gap:
+        country_y = coords_top + min_gap + country_desc
+    divider_y = max(0.125, country_y + country_ascent + min_gap)
+    city_y = min(max(0.14, divider_y + city_desc + min_gap), 0.32)
+
     if include_labels:
         # --- BOTTOM TEXT ---
         ax.text(
             0.5,
-            0.14,
+            city_y,
             spaced_city,
             transform=ax.transAxes,
-            color=THEME["text"],
+            color=label_color,
             ha="center",
             fontproperties=font_main_adjusted,
             zorder=11,
@@ -725,10 +758,10 @@ def create_poster(
 
         ax.text(
             0.5,
-            0.10,
+            country_y,
             display_country.upper(),
             transform=ax.transAxes,
-            color=THEME["text"],
+            color=label_color,
             ha="center",
             fontproperties=font_sub,
             zorder=11,
@@ -745,10 +778,10 @@ def create_poster(
 
         ax.text(
             0.5,
-            0.07,
+            coords_y,
             coords,
             transform=ax.transAxes,
-            color=THEME["text"],
+            color=label_color,
             alpha=0.7,
             ha="center",
             fontproperties=font_coords,
@@ -757,9 +790,9 @@ def create_poster(
 
         ax.plot(
             [0.4, 0.6],
-            [0.125, 0.125],
+            [divider_y, divider_y],
             transform=ax.transAxes,
-            color=THEME["text"],
+            color=label_color,
             linewidth=1 * scale_factor,
             zorder=11,
         )
@@ -778,7 +811,7 @@ def create_poster(
             0.006,
             "© OpenStreetMap contributors",
             transform=ax.transAxes,
-            color=THEME["text"],
+            color=label_color,
             alpha=0.35,
             ha="right",
             va="bottom",

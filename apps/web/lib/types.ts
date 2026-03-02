@@ -13,6 +13,10 @@ export type PosterRequest = {
   allThemes: boolean;
   includeWater: boolean;
   includeParks: boolean;
+  cityFontSize?: number;
+  countryFontSize?: number;
+  textColor?: string;
+  labelPaddingScale: number;
   distance: number;
   width: number;
   height: number;

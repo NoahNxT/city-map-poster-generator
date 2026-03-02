@@ -26,6 +26,10 @@ class PosterRequest(BaseModel):
     allThemes: bool = False
     includeWater: bool = True
     includeParks: bool = True
+    cityFontSize: float | None = Field(default=None, ge=8, le=120)
+    countryFontSize: float | None = Field(default=None, ge=6, le=80)
+    textColor: str | None = Field(default=None, max_length=16)
+    labelPaddingScale: float = Field(default=1.0, ge=0.5, le=3.0)
     distance: int = Field(default=18000, ge=1000, le=50000)
     width: float = Field(default=12, ge=1, le=20)
     height: float = Field(default=16, ge=1, le=20)
@@ -36,6 +40,30 @@ class PosterRequest(BaseModel):
     def normalize_string(cls, value: Any) -> Any:
         if isinstance(value, str):
             return value.strip()
+        return value
+
+    @field_validator("textColor", mode="before")
+    @classmethod
+    def normalize_text_color(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            return value
+        trimmed = value.strip()
+        if not trimmed:
+            return None
+        return trimmed
+
+    @field_validator("textColor")
+    @classmethod
+    def validate_text_color(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if len(value) not in {4, 7} or not value.startswith("#"):
+            raise ValueError("textColor must be a hex color like #abc or #aabbcc")
+        valid_hex = "0123456789abcdefABCDEF"
+        if not all(ch in valid_hex for ch in value[1:]):
+            raise ValueError("textColor must be a valid hex color")
         return value
 
     @model_validator(mode="after")

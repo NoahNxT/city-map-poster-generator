@@ -94,6 +94,13 @@ const schema = z
     allThemes: z.boolean(),
     includeWater: z.boolean(),
     includeParks: z.boolean(),
+    cityFontSize: z.number().min(8).max(120).optional(),
+    countryFontSize: z.number().min(6).max(80).optional(),
+    textColor: z
+      .string()
+      .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
+      .optional(),
+    labelPaddingScale: z.number().min(0.5).max(3),
     distance: z.number().min(1000).max(50000),
     width: z.number().min(1).max(20),
     height: z.number().min(1).max(20),
@@ -121,8 +128,22 @@ type PreviewPointer = {
   y: number;
 };
 
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function normalizeHexColor(value: string | undefined): string | null {
+  const raw = value?.trim();
+  if (!raw || !HEX_COLOR_PATTERN.test(raw)) {
+    return null;
+  }
+  if (raw.length === 7) {
+    return raw;
+  }
+  const [r, g, b] = raw.slice(1).split("");
+  return `#${r}${r}${g}${g}${b}${b}`;
 }
 
 function isLikelyLatin(text: string): boolean {
@@ -142,6 +163,8 @@ function getPreviewTextMetrics(
   displayCity: string,
   widthInches: number,
   heightInches: number,
+  cityFontSizeOverride: number | undefined,
+  countryFontSizeOverride: number | undefined,
 ): {
   cityFontSize: number;
   countryFontSize: number;
@@ -159,18 +182,73 @@ function getPreviewTextMetrics(
   const baseCoords = 14;
   const cityCharCount = displayCity.trim().length;
 
-  const baseAdjustedMain = baseMain * scaleFactor;
   const adjustedMainFontSize =
-    cityCharCount > 10
-      ? Math.max(baseAdjustedMain * (10 / cityCharCount), 10 * scaleFactor)
-      : baseAdjustedMain;
+    typeof cityFontSizeOverride === "number"
+      ? cityFontSizeOverride * scaleFactor
+      : cityCharCount > 10
+        ? Math.max(
+            baseMain * scaleFactor * (10 / cityCharCount),
+            10 * scaleFactor,
+          )
+        : baseMain * scaleFactor;
+  const adjustedCountryFontSize =
+    typeof countryFontSizeOverride === "number"
+      ? countryFontSizeOverride * scaleFactor
+      : baseSub * scaleFactor;
 
   return {
     cityFontSize: adjustedMainFontSize * pointsToPreviewUnits,
-    countryFontSize: baseSub * scaleFactor * pointsToPreviewUnits,
+    countryFontSize: adjustedCountryFontSize * pointsToPreviewUnits,
     coordsFontSize: baseCoords * scaleFactor * pointsToPreviewUnits,
     attributionFontSize: Math.max(4, 5 * scaleFactor) * pointsToPreviewUnits,
     dividerWidth: Math.max(0.4, scaleFactor * pointsToPreviewUnits),
+  };
+}
+
+function getPreviewLabelLayout(
+  metrics: ReturnType<typeof getPreviewTextMetrics>,
+  labelPaddingScale: number,
+): {
+  cityY: number;
+  dividerY: number;
+  countryY: number;
+  coordsY: number;
+  attributionY: number;
+} {
+  const dynamicGapScale = Math.max(
+    metrics.cityFontSize / 30,
+    metrics.countryFontSize / 11,
+    1,
+  );
+  const minGap = Math.min(
+    0.02,
+    0.004 * Math.max(labelPaddingScale, 0.5) * dynamicGapScale,
+  );
+  const cityDesc = (metrics.cityFontSize / PREVIEW_VIEWBOX_HEIGHT) * 0.22;
+  const countryAscent =
+    (metrics.countryFontSize / PREVIEW_VIEWBOX_HEIGHT) * 0.72;
+  const countryDesc = (metrics.countryFontSize / PREVIEW_VIEWBOX_HEIGHT) * 0.22;
+  const coordsAscent = (metrics.coordsFontSize / PREVIEW_VIEWBOX_HEIGHT) * 0.72;
+
+  const coordsAxisY = 0.07;
+  let countryAxisY = 0.1;
+  const coordsTop = coordsAxisY + coordsAscent;
+  if (countryAxisY - countryDesc < coordsTop + minGap) {
+    countryAxisY = coordsTop + minGap + countryDesc;
+  }
+
+  const dividerAxisY = Math.max(0.125, countryAxisY + countryAscent + minGap);
+  const cityAxisY = Math.min(
+    Math.max(0.14, dividerAxisY + cityDesc + minGap),
+    0.32,
+  );
+
+  return {
+    cityY: PREVIEW_VIEWBOX_HEIGHT * (1 - cityAxisY),
+    dividerY: PREVIEW_VIEWBOX_HEIGHT * (1 - dividerAxisY),
+    countryY: PREVIEW_VIEWBOX_HEIGHT * (1 - countryAxisY),
+    coordsY: PREVIEW_VIEWBOX_HEIGHT * (1 - coordsAxisY),
+    attributionY: PREVIEW_VIEWBOX_HEIGHT * (1 - 0.006),
   };
 }
 
@@ -252,6 +330,7 @@ function PreviewTypographyOverlay({
   previewCoords,
   previewTextMetrics,
   previewTypographyFontFamily,
+  labelPaddingScale,
 }: {
   className: string;
   viewBox?: string;
@@ -262,12 +341,12 @@ function PreviewTypographyOverlay({
   previewCoords: string;
   previewTextMetrics: PreviewTextMetrics;
   previewTypographyFontFamily: string;
+  labelPaddingScale: number;
 }) {
-  const previewCityY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.14);
-  const previewDividerY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.125);
-  const previewCountryY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.1);
-  const previewCoordsY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.07);
-  const previewAttributionY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.006);
+  const labelLayout = getPreviewLabelLayout(
+    previewTextMetrics,
+    labelPaddingScale,
+  );
 
   return (
     <svg
@@ -279,7 +358,7 @@ function PreviewTypographyOverlay({
       <title>{title}</title>
       <text
         x={PREVIEW_VIEWBOX_WIDTH * 0.5}
-        y={previewCityY}
+        y={labelLayout.cityY}
         textAnchor="middle"
         xmlSpace="preserve"
         fontWeight={700}
@@ -292,14 +371,14 @@ function PreviewTypographyOverlay({
       <line
         x1={PREVIEW_VIEWBOX_WIDTH * 0.4}
         x2={PREVIEW_VIEWBOX_WIDTH * 0.6}
-        y1={previewDividerY}
-        y2={previewDividerY}
+        y1={labelLayout.dividerY}
+        y2={labelLayout.dividerY}
         stroke={previewTextColor}
         strokeWidth={previewTextMetrics.dividerWidth}
       />
       <text
         x={PREVIEW_VIEWBOX_WIDTH * 0.5}
-        y={previewCountryY}
+        y={labelLayout.countryY}
         textAnchor="middle"
         fontWeight={300}
         fontSize={previewTextMetrics.countryFontSize}
@@ -310,7 +389,7 @@ function PreviewTypographyOverlay({
       </text>
       <text
         x={PREVIEW_VIEWBOX_WIDTH * 0.5}
-        y={previewCoordsY}
+        y={labelLayout.coordsY}
         textAnchor="middle"
         fontWeight={400}
         fontSize={previewTextMetrics.coordsFontSize}
@@ -322,7 +401,7 @@ function PreviewTypographyOverlay({
       </text>
       <text
         x={PREVIEW_VIEWBOX_WIDTH * 0.995}
-        y={previewAttributionY}
+        y={labelLayout.attributionY}
         textAnchor="end"
         fontWeight={300}
         fontSize={previewTextMetrics.attributionFontSize}
@@ -365,6 +444,10 @@ const defaultValues: FormValues = {
   allThemes: false,
   includeWater: true,
   includeParks: true,
+  cityFontSize: undefined,
+  countryFontSize: undefined,
+  textColor: undefined,
+  labelPaddingScale: 1,
   distance: 12000,
   width: 12,
   height: 16,
@@ -382,6 +465,10 @@ function toPayload(values: FormValues): PosterRequest {
     allThemes: values.allThemes,
     includeWater: values.includeWater,
     includeParks: values.includeParks,
+    cityFontSize: values.cityFontSize,
+    countryFontSize: values.countryFontSize,
+    textColor: values.textColor?.trim() || undefined,
+    labelPaddingScale: values.labelPaddingScale,
     distance: values.distance,
     width: values.width,
     height: values.height,
@@ -576,13 +663,17 @@ export function PosterGenerator() {
   const activeTheme = themesQuery.data?.find(
     (theme) => theme.id === values.theme,
   );
-  const previewTextColor = activeTheme?.colors.text ?? "#8C4A18";
+  const themeTextColor = activeTheme?.colors.text ?? "#8C4A18";
+  const previewTextColor =
+    normalizeHexColor(values.textColor) ?? themeTextColor;
   const previewDisplayCityRaw = values.city || "";
   const previewDisplayCity = formatPreviewCity(previewDisplayCityRaw);
   const previewTextMetrics = getPreviewTextMetrics(
     previewDisplayCityRaw,
     values.width,
     values.height,
+    values.cityFontSize,
+    values.countryFontSize,
   );
   const previewDisplayCountry = (values.country || "").toUpperCase();
   const previewTypographyFontFamily =
@@ -1045,6 +1136,153 @@ export function PosterGenerator() {
                           </div>
                         </div>
 
+                        <div className="rounded-lg border border-dashed px-3 py-3">
+                          <p className="text-sm font-medium text-foreground">
+                            Typography Overrides
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Optional custom city/country sizes and text color
+                            for preview and exports.
+                          </p>
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="cityFontSize">
+                                City font size (pt)
+                              </Label>
+                              <Input
+                                id="cityFontSize"
+                                type="number"
+                                min={8}
+                                max={120}
+                                step={1}
+                                placeholder="Auto (theme default)"
+                                value={
+                                  typeof values.cityFontSize === "number"
+                                    ? values.cityFontSize
+                                    : ""
+                                }
+                                onChange={(event) => {
+                                  const nextRaw = event.currentTarget.value;
+                                  form.setValue(
+                                    "cityFontSize",
+                                    nextRaw ? Number(nextRaw) : undefined,
+                                    { shouldValidate: true },
+                                  );
+                                }}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="countryFontSize">
+                                Country font size (pt)
+                              </Label>
+                              <Input
+                                id="countryFontSize"
+                                type="number"
+                                min={6}
+                                max={80}
+                                step={1}
+                                placeholder="Auto (theme default)"
+                                value={
+                                  typeof values.countryFontSize === "number"
+                                    ? values.countryFontSize
+                                    : ""
+                                }
+                                onChange={(event) => {
+                                  const nextRaw = event.currentTarget.value;
+                                  form.setValue(
+                                    "countryFontSize",
+                                    nextRaw ? Number(nextRaw) : undefined,
+                                    { shouldValidate: true },
+                                  );
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <Label htmlFor="labelPaddingScale">
+                                Label padding scale
+                              </Label>
+                              <span className="text-xs text-muted-foreground">
+                                {values.labelPaddingScale.toFixed(2)}x
+                              </span>
+                            </div>
+                            <Slider
+                              id="labelPaddingScale"
+                              min={0.5}
+                              max={3}
+                              step={0.05}
+                              value={[values.labelPaddingScale]}
+                              onValueChange={(nextValue) =>
+                                form.setValue(
+                                  "labelPaddingScale",
+                                  nextValue[0] ?? 1,
+                                  { shouldValidate: true },
+                                )
+                              }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Increases spacing between city, divider, country,
+                              and coordinates when typography is larger.
+                            </p>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            <Label htmlFor="textColor">
+                              Text color override
+                            </Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                id="textColor"
+                                className="flex-1"
+                                placeholder="Auto (theme text color)"
+                                value={values.textColor ?? ""}
+                                onChange={(event) => {
+                                  const nextRaw =
+                                    event.currentTarget.value.trim();
+                                  form.setValue(
+                                    "textColor",
+                                    nextRaw || undefined,
+                                    { shouldValidate: true },
+                                  );
+                                }}
+                              />
+                              <Input
+                                type="color"
+                                className="h-11 w-14 p-1"
+                                aria-label="Pick custom text color"
+                                value={
+                                  normalizeHexColor(values.textColor) ??
+                                  normalizeHexColor(themeTextColor) ??
+                                  "#8c4a18"
+                                }
+                                onChange={(event) =>
+                                  form.setValue(
+                                    "textColor",
+                                    event.currentTarget.value,
+                                    { shouldValidate: true },
+                                  )
+                                }
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() =>
+                                  form.setValue("textColor", undefined, {
+                                    shouldValidate: true,
+                                  })
+                                }
+                              >
+                                Reset
+                              </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Supports hex colors like <code>#8C4A18</code> or{" "}
+                              <code>#abc</code>. Leave empty to use theme text
+                              color.
+                            </p>
+                          </div>
+                        </div>
+
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <Label htmlFor="fontFamily">
@@ -1301,6 +1539,7 @@ export function PosterGenerator() {
                   previewCoords={previewCoords}
                   previewTextMetrics={previewTextMetrics}
                   previewTypographyFontFamily={previewTypographyFontFamily}
+                  labelPaddingScale={values.labelPaddingScale}
                 />
                 {previewZoomEnabled ? (
                   <>
@@ -1346,6 +1585,7 @@ export function PosterGenerator() {
                           previewTypographyFontFamily={
                             previewTypographyFontFamily
                           }
+                          labelPaddingScale={values.labelPaddingScale}
                         />
                       </div>
                     </div>
