@@ -107,6 +107,12 @@ const MAX_POSTER_CENTIMETERS = 200;
 const MIN_POSTER_INCHES = MIN_POSTER_CENTIMETERS / CM_PER_INCH;
 const MIN_DISTANCE_METERS = 1000;
 const MAX_DISTANCE_METERS = 18000;
+const MIN_TEXT_BLUR_SIZE = 0.6;
+const MAX_TEXT_BLUR_SIZE = 2.5;
+const MIN_TEXT_BLUR_STRENGTH = 0;
+const MAX_TEXT_BLUR_STRENGTH = 30;
+const MIN_PERCENT = 1;
+const MAX_PERCENT = 100;
 const MAX_LOCAL_PREVIEW_LONG_EDGE_PX = 2048;
 const PREVIEW_FRAME_MAX_WIDTH_PX = 420;
 const PREVIEW_FRAME_MAX_HEIGHT_PX = 560;
@@ -132,8 +138,11 @@ const schema = z
       .optional(),
     labelPaddingScale: z.number().min(0.5).max(3),
     textBlurEnabled: z.boolean(),
-    textBlurSize: z.number().min(0.6).max(2.5),
-    textBlurStrength: z.number().min(0).max(30),
+    textBlurSize: z.number().min(MIN_TEXT_BLUR_SIZE).max(MAX_TEXT_BLUR_SIZE),
+    textBlurStrength: z
+      .number()
+      .min(MIN_TEXT_BLUR_STRENGTH)
+      .max(MAX_TEXT_BLUR_STRENGTH),
     distance: z.number().min(MIN_DISTANCE_METERS).max(MAX_DISTANCE_METERS),
     width: z.number().min(MIN_POSTER_INCHES).max(MAX_POSTER_INCHES),
     height: z.number().min(MIN_POSTER_INCHES).max(MAX_POSTER_INCHES),
@@ -225,6 +234,39 @@ async function withTimeout<T>(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function valueToPercent(value: number, min: number, max: number): number {
+  const clamped = clamp(value, min, max);
+  const ratio = (clamped - min) / Math.max(max - min, 1e-6);
+  return Math.round(MIN_PERCENT + ratio * (MAX_PERCENT - MIN_PERCENT));
+}
+
+function percentToValue(percent: number, min: number, max: number): number {
+  const clamped = clamp(percent, MIN_PERCENT, MAX_PERCENT);
+  const ratio =
+    (clamped - MIN_PERCENT) / Math.max(MAX_PERCENT - MIN_PERCENT, 1e-6);
+  return min + ratio * (max - min);
+}
+
+function blurSizeToPercent(value: number): number {
+  return valueToPercent(value, MIN_TEXT_BLUR_SIZE, MAX_TEXT_BLUR_SIZE);
+}
+
+function blurSizeFromPercent(percent: number): number {
+  return percentToValue(percent, MIN_TEXT_BLUR_SIZE, MAX_TEXT_BLUR_SIZE);
+}
+
+function blurStrengthToPercent(value: number): number {
+  return valueToPercent(value, MIN_TEXT_BLUR_STRENGTH, MAX_TEXT_BLUR_STRENGTH);
+}
+
+function blurStrengthFromPercent(percent: number): number {
+  return percentToValue(
+    percent,
+    MIN_TEXT_BLUR_STRENGTH,
+    MAX_TEXT_BLUR_STRENGTH,
+  );
 }
 
 function inchesToCentimeters(inches: number): number {
@@ -391,8 +433,8 @@ const defaultValues: FormValues = {
   textColor: undefined,
   labelPaddingScale: 1.2,
   textBlurEnabled: false,
-  textBlurSize: 1,
-  textBlurStrength: 8,
+  textBlurSize: MAX_TEXT_BLUR_SIZE,
+  textBlurStrength: MAX_TEXT_BLUR_STRENGTH,
   distance: 12000,
   width: centimetersToInches(30),
   height: centimetersToInches(40),
@@ -503,11 +545,11 @@ export function PosterGenerator({
   const [labelPaddingSliderValue, setLabelPaddingSliderValue] = useState(
     defaultValues.labelPaddingScale,
   );
-  const [blurSizeSliderValue, setBlurSizeSliderValue] = useState(
-    defaultValues.textBlurSize,
+  const [blurSizeSliderValue, setBlurSizeSliderValue] = useState(() =>
+    blurSizeToPercent(defaultValues.textBlurSize),
   );
-  const [blurStrengthSliderValue, setBlurStrengthSliderValue] = useState(
-    defaultValues.textBlurStrength,
+  const [blurStrengthSliderValue, setBlurStrengthSliderValue] = useState(() =>
+    blurStrengthToPercent(defaultValues.textBlurStrength),
   );
   const [previewZoomSliderValue, setPreviewZoomSliderValue] =
     useState(DEFAULT_PREVIEW_ZOOM);
@@ -921,11 +963,11 @@ export function PosterGenerator({
   }, [values.labelPaddingScale]);
 
   useEffect(() => {
-    setBlurSizeSliderValue(values.textBlurSize);
+    setBlurSizeSliderValue(blurSizeToPercent(values.textBlurSize));
   }, [values.textBlurSize]);
 
   useEffect(() => {
-    setBlurStrengthSliderValue(values.textBlurStrength);
+    setBlurStrengthSliderValue(blurStrengthToPercent(values.textBlurStrength));
   }, [values.textBlurStrength]);
 
   useEffect(() => {
@@ -2283,11 +2325,25 @@ export function PosterGenerator({
                                 <Switch
                                   id={blurEnabledId}
                                   checked={values.textBlurEnabled}
-                                  onCheckedChange={(checked) =>
+                                  onCheckedChange={(checked) => {
                                     form.setValue("textBlurEnabled", checked, {
                                       shouldValidate: true,
-                                    })
-                                  }
+                                    });
+                                    if (checked) {
+                                      form.setValue(
+                                        "textBlurSize",
+                                        MAX_TEXT_BLUR_SIZE,
+                                        { shouldValidate: true },
+                                      );
+                                      form.setValue(
+                                        "textBlurStrength",
+                                        MAX_TEXT_BLUR_STRENGTH,
+                                        { shouldValidate: true },
+                                      );
+                                      setBlurSizeSliderValue(MAX_PERCENT);
+                                      setBlurStrengthSliderValue(MAX_PERCENT);
+                                    }
+                                  }}
                                 />
                               </div>
                               {values.textBlurEnabled ? (
@@ -2296,41 +2352,43 @@ export function PosterGenerator({
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                       <span>{d.controls.blurSize}</span>
                                       <span>
-                                        {blurSizeSliderValue.toFixed(2)}x
+                                        {Math.round(blurSizeSliderValue)}%
                                       </span>
                                     </div>
                                     <Slider
                                       aria-label={d.controls.blurSize}
-                                      min={0.6}
-                                      max={2.5}
-                                      step={0.05}
+                                      min={MIN_PERCENT}
+                                      max={MAX_PERCENT}
+                                      step={1}
                                       value={[blurSizeSliderValue]}
                                       onValueChange={(nextValue) =>
                                         setBlurSizeSliderValue(
                                           nextValue[0] ?? blurSizeSliderValue,
                                         )
                                       }
-                                      onValueCommit={(nextValue) =>
+                                      onValueCommit={(nextValue) => {
+                                        const committedPercent =
+                                          nextValue[0] ?? blurSizeSliderValue;
                                         form.setValue(
                                           "textBlurSize",
-                                          nextValue[0] ?? blurSizeSliderValue,
+                                          blurSizeFromPercent(committedPercent),
                                           { shouldValidate: true },
-                                        )
-                                      }
+                                        );
+                                      }}
                                     />
                                   </div>
                                   <div className="space-y-2">
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                       <span>{d.controls.blurStrength}</span>
                                       <span>
-                                        {blurStrengthSliderValue.toFixed(1)}px
+                                        {Math.round(blurStrengthSliderValue)}%
                                       </span>
                                     </div>
                                     <Slider
                                       aria-label={d.controls.blurStrength}
-                                      min={0}
-                                      max={30}
-                                      step={0.5}
+                                      min={MIN_PERCENT}
+                                      max={MAX_PERCENT}
+                                      step={1}
                                       value={[blurStrengthSliderValue]}
                                       onValueChange={(nextValue) =>
                                         setBlurStrengthSliderValue(
@@ -2338,14 +2396,18 @@ export function PosterGenerator({
                                             blurStrengthSliderValue,
                                         )
                                       }
-                                      onValueCommit={(nextValue) =>
+                                      onValueCommit={(nextValue) => {
+                                        const committedPercent =
+                                          nextValue[0] ??
+                                          blurStrengthSliderValue;
                                         form.setValue(
                                           "textBlurStrength",
-                                          nextValue[0] ??
-                                            blurStrengthSliderValue,
+                                          blurStrengthFromPercent(
+                                            committedPercent,
+                                          ),
                                           { shouldValidate: true },
-                                        )
-                                      }
+                                        );
+                                      }}
                                     />
                                   </div>
                                 </div>

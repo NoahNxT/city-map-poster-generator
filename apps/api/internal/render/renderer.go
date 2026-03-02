@@ -678,10 +678,10 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 		cityRuneCount := maxInt(len([]rune(strings.TrimSpace(req.City))), 4)
 		sizeScale := clamp(mainSize/math.Max(baseMain*scaleFactor, 1e-6), 0.7, 2.2)
 		textWidthEstimate := clamp(0.34+(float64(cityRuneCount)*0.018*sizeScale), 0.42, 0.9)
-		blurPaddingY := gap * 1.7
-		blurPaddingX := blurPaddingY * axisYToAxisX
-		blurFeatherY := 0.0225 * blurSize
-		blurFeatherX := blurFeatherY * axisYToAxisX
+		blurPaddingY := gap * 1.35
+		blurPaddingX := math.Max(blurPaddingY*axisYToAxisX*1.65, 0.012)
+		blurFeatherY := 0.016 * blurSize
+		blurFeatherX := math.Max(blurFeatherY*axisYToAxisX*1.35, 0.006)
 		panelW := clamp(textWidthEstimate+((blurPaddingX+blurFeatherX)*2), 0.44, 0.94)
 
 		blockBottom := (coordsY - coordsDesc) - blurPaddingY

@@ -443,10 +443,10 @@ function computeLabelSpec(
       0.42,
       0.9,
     );
-    const blurPaddingY = gap * 1.7;
-    const blurPaddingX = blurPaddingY * axisYToAxisX;
-    const blurFeatherY = 0.0225 * blurSize;
-    const blurFeatherX = blurFeatherY * axisYToAxisX;
+    const blurPaddingY = gap * 1.35;
+    const blurPaddingX = Math.max(blurPaddingY * axisYToAxisX * 1.65, 0.012);
+    const blurFeatherY = 0.016 * blurSize;
+    const blurFeatherX = Math.max(blurFeatherY * axisYToAxisX * 1.35, 0.006);
     const panelW = clamp(
       textWidthEstimate + (blurPaddingX + blurFeatherX) * 2,
       0.44,
