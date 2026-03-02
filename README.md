@@ -3,7 +3,7 @@
 Public, no-auth city poster generator built with a **Bun + Turborepo** monorepo:
 
 - `apps/web`: Next.js (App Router) + Tailwind + `shadcn/ui`-style components + TanStack Query
-- `apps/api-go`: Go API + Redis queue + MinIO/S3 artifact storage + pure-Go renderer
+- `apps/api`: Go API + Redis queue + MinIO/S3 artifact storage + pure-Go renderer
 - `docker-compose.yml`: web, api, worker, redis, minio
 
 ## Stack
@@ -79,7 +79,7 @@ bun run dev:web
 bun run dev:api       # go API (requires local Go toolchain)
 bun run dev:worker    # go worker (requires local Go toolchain)
 
-bun run lint          # biome (web) + go vet (api-go)
+bun run lint          # biome (web) + go vet (api)
 bun run check-types   # tsc/next + go test
 bun run format        # biome format
 ```

@@ -1,0 +1,13 @@
+{
+  "name": "api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "go run ./cmd/api",
+    "worker": "go run ./cmd/worker",
+    "build": "sh -lc 'if command -v go >/dev/null 2>&1; then go build ./cmd/api && go build ./cmd/worker; else docker run --rm -v \"$PWD\":/src -w /src golang:1.24 sh -lc \"/usr/local/go/bin/go build ./cmd/api && /usr/local/go/bin/go build ./cmd/worker\"; fi'",
+    "lint": "sh -lc 'if command -v go >/dev/null 2>&1; then go vet ./...; else docker run --rm -v \"$PWD\":/src -w /src golang:1.24 sh -lc \"/usr/local/go/bin/go vet ./...\"; fi'",
+    "check-types": "sh -lc 'if command -v go >/dev/null 2>&1; then go test ./...; else docker run --rm -v \"$PWD\":/src -w /src golang:1.24 sh -lc \"/usr/local/go/bin/go test ./...\"; fi'",
+    "test": "sh -lc 'if command -v go >/dev/null 2>&1; then go test ./...; else docker run --rm -v \"$PWD\":/src -w /src golang:1.24 sh -lc \"/usr/local/go/bin/go test ./...\"; fi'"
+  }
+}

@@ -15,7 +15,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: docker/api-go.Dockerfile
+      dockerfile: docker/api.Dockerfile
     container_name: city-map-api
     environment:
       APP_ENV: ${APP_ENV:-development}
@@ -72,7 +72,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: docker/api-go.Dockerfile
+      dockerfile: docker/api.Dockerfile
     container_name: city-map-worker
     environment:
       APP_ENV: ${APP_ENV:-development}

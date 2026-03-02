@@ -58,5 +58,6 @@ venv/
 *.egg-info/
 
 # Go build artifacts
-apps/api-go/api
-apps/api-go/worker
+apps/api/api
+apps/api/worker
+apps/api/.turbo/
