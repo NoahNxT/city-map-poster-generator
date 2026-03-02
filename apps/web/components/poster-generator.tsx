@@ -493,6 +493,20 @@ export function PosterGenerator({
   );
   const [previewZoomLevel, setPreviewZoomLevel] =
     useState(DEFAULT_PREVIEW_ZOOM);
+  const [distanceSliderValue, setDistanceSliderValue] = useState(
+    defaultValues.distance,
+  );
+  const [labelPaddingSliderValue, setLabelPaddingSliderValue] = useState(
+    defaultValues.labelPaddingScale,
+  );
+  const [blurSizeSliderValue, setBlurSizeSliderValue] = useState(
+    defaultValues.textBlurSize,
+  );
+  const [blurStrengthSliderValue, setBlurStrengthSliderValue] = useState(
+    defaultValues.textBlurStrength,
+  );
+  const [previewZoomSliderValue, setPreviewZoomSliderValue] =
+    useState(DEFAULT_PREVIEW_ZOOM);
   const [debouncedSnapshotRequest, setDebouncedSnapshotRequest] =
     useState<RenderSnapshotRequest>(() => toSnapshotRequest(defaultValues));
   const [debouncedPreviewPayload, setDebouncedPreviewPayload] =
@@ -893,6 +907,26 @@ export function PosterGenerator({
       );
     }
   }, [activeDimensionField, locale, sizeUnit, values.height, values.width]);
+
+  useEffect(() => {
+    setDistanceSliderValue(values.distance);
+  }, [values.distance]);
+
+  useEffect(() => {
+    setLabelPaddingSliderValue(values.labelPaddingScale);
+  }, [values.labelPaddingScale]);
+
+  useEffect(() => {
+    setBlurSizeSliderValue(values.textBlurSize);
+  }, [values.textBlurSize]);
+
+  useEffect(() => {
+    setBlurStrengthSliderValue(values.textBlurStrength);
+  }, [values.textBlurStrength]);
+
+  useEffect(() => {
+    setPreviewZoomSliderValue(previewZoomLevel);
+  }, [previewZoomLevel]);
 
   useEffect(() => {
     const minInches = minDimensionInInchesForUnit(sizeUnit);
@@ -1705,7 +1739,7 @@ export function PosterGenerator({
                     <div className="space-y-2">
                       <Label htmlFor={distanceSliderId}>
                         {d.controls.distance}:{" "}
-                        {values.distance.toLocaleString()}m
+                        {distanceSliderValue.toLocaleString()}m
                       </Label>
                       <Slider
                         id={distanceSliderId}
@@ -1713,11 +1747,14 @@ export function PosterGenerator({
                         min={MIN_DISTANCE_METERS}
                         max={MAX_DISTANCE_METERS}
                         step={500}
-                        value={[values.distance]}
+                        value={[distanceSliderValue]}
+                        onValueChange={(next) =>
+                          setDistanceSliderValue(next[0] ?? distanceSliderValue)
+                        }
                         onValueCommit={(next) =>
                           form.setValue(
                             "distance",
-                            next[0] ?? values.distance,
+                            next[0] ?? distanceSliderValue,
                             {
                               shouldValidate: true,
                             },
@@ -2196,7 +2233,7 @@ export function PosterGenerator({
                                   {d.controls.labelPaddingScale}
                                 </Label>
                                 <span className="text-xs text-muted-foreground">
-                                  {values.labelPaddingScale.toFixed(2)}x
+                                  {labelPaddingSliderValue.toFixed(2)}x
                                 </span>
                               </div>
                               <Slider
@@ -2205,11 +2242,16 @@ export function PosterGenerator({
                                 min={0.5}
                                 max={3}
                                 step={0.05}
-                                value={[values.labelPaddingScale]}
+                                value={[labelPaddingSliderValue]}
+                                onValueChange={(nextValue) =>
+                                  setLabelPaddingSliderValue(
+                                    nextValue[0] ?? labelPaddingSliderValue,
+                                  )
+                                }
                                 onValueCommit={(nextValue) =>
                                   form.setValue(
                                     "labelPaddingScale",
-                                    nextValue[0] ?? 1,
+                                    nextValue[0] ?? labelPaddingSliderValue,
                                     { shouldValidate: true },
                                   )
                                 }
@@ -2247,7 +2289,7 @@ export function PosterGenerator({
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                       <span>{d.controls.blurSize}</span>
                                       <span>
-                                        {values.textBlurSize.toFixed(2)}x
+                                        {blurSizeSliderValue.toFixed(2)}x
                                       </span>
                                     </div>
                                     <Slider
@@ -2255,11 +2297,16 @@ export function PosterGenerator({
                                       min={0.6}
                                       max={2.5}
                                       step={0.05}
-                                      value={[values.textBlurSize]}
+                                      value={[blurSizeSliderValue]}
+                                      onValueChange={(nextValue) =>
+                                        setBlurSizeSliderValue(
+                                          nextValue[0] ?? blurSizeSliderValue,
+                                        )
+                                      }
                                       onValueCommit={(nextValue) =>
                                         form.setValue(
                                           "textBlurSize",
-                                          nextValue[0] ?? 1,
+                                          nextValue[0] ?? blurSizeSliderValue,
                                           { shouldValidate: true },
                                         )
                                       }
@@ -2269,7 +2316,7 @@ export function PosterGenerator({
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                       <span>{d.controls.blurStrength}</span>
                                       <span>
-                                        {values.textBlurStrength.toFixed(1)}px
+                                        {blurStrengthSliderValue.toFixed(1)}px
                                       </span>
                                     </div>
                                     <Slider
@@ -2277,11 +2324,18 @@ export function PosterGenerator({
                                       min={0}
                                       max={30}
                                       step={0.5}
-                                      value={[values.textBlurStrength]}
+                                      value={[blurStrengthSliderValue]}
+                                      onValueChange={(nextValue) =>
+                                        setBlurStrengthSliderValue(
+                                          nextValue[0] ??
+                                            blurStrengthSliderValue,
+                                        )
+                                      }
                                       onValueCommit={(nextValue) =>
                                         form.setValue(
                                           "textBlurStrength",
-                                          nextValue[0] ?? 8,
+                                          nextValue[0] ??
+                                            blurStrengthSliderValue,
                                           { shouldValidate: true },
                                         )
                                       }
@@ -2718,7 +2772,7 @@ export function PosterGenerator({
                         <span>
                           {d.preview.zoomLevelValue.replace(
                             "{value}",
-                            previewZoomLevel.toFixed(1),
+                            previewZoomSliderValue.toFixed(1),
                           )}
                         </span>
                       </div>
@@ -2728,10 +2782,15 @@ export function PosterGenerator({
                         min={1.5}
                         max={6}
                         step={0.5}
-                        value={[previewZoomLevel]}
+                        value={[previewZoomSliderValue]}
+                        onValueChange={(nextValue) =>
+                          setPreviewZoomSliderValue(
+                            nextValue[0] ?? previewZoomSliderValue,
+                          )
+                        }
                         onValueCommit={(nextValue) =>
                           setPreviewZoomLevel(
-                            nextValue[0] ?? DEFAULT_PREVIEW_ZOOM,
+                            nextValue[0] ?? previewZoomSliderValue,
                           )
                         }
                       />
