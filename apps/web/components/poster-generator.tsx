@@ -113,6 +113,8 @@ const MIN_TEXT_BLUR_STRENGTH = 0;
 const MAX_TEXT_BLUR_STRENGTH = 30;
 const MIN_PERCENT = 1;
 const MAX_PERCENT = 100;
+const DEFAULT_TEXT_BLUR_SIZE_PERCENT = 50;
+const DEFAULT_TEXT_BLUR_STRENGTH_PERCENT = 100;
 const MAX_LOCAL_PREVIEW_LONG_EDGE_PX = 2048;
 const PREVIEW_FRAME_MAX_WIDTH_PX = 420;
 const PREVIEW_FRAME_MAX_HEIGHT_PX = 560;
@@ -433,8 +435,8 @@ const defaultValues: FormValues = {
   textColor: undefined,
   labelPaddingScale: 1.2,
   textBlurEnabled: false,
-  textBlurSize: MAX_TEXT_BLUR_SIZE,
-  textBlurStrength: MAX_TEXT_BLUR_STRENGTH,
+  textBlurSize: blurSizeFromPercent(DEFAULT_TEXT_BLUR_SIZE_PERCENT),
+  textBlurStrength: blurStrengthFromPercent(DEFAULT_TEXT_BLUR_STRENGTH_PERCENT),
   distance: 12000,
   width: centimetersToInches(30),
   height: centimetersToInches(40),
@@ -2332,16 +2334,24 @@ export function PosterGenerator({
                                     if (checked) {
                                       form.setValue(
                                         "textBlurSize",
-                                        MAX_TEXT_BLUR_SIZE,
+                                        blurSizeFromPercent(
+                                          DEFAULT_TEXT_BLUR_SIZE_PERCENT,
+                                        ),
                                         { shouldValidate: true },
                                       );
                                       form.setValue(
                                         "textBlurStrength",
-                                        MAX_TEXT_BLUR_STRENGTH,
+                                        blurStrengthFromPercent(
+                                          DEFAULT_TEXT_BLUR_STRENGTH_PERCENT,
+                                        ),
                                         { shouldValidate: true },
                                       );
-                                      setBlurSizeSliderValue(MAX_PERCENT);
-                                      setBlurStrengthSliderValue(MAX_PERCENT);
+                                      setBlurSizeSliderValue(
+                                        DEFAULT_TEXT_BLUR_SIZE_PERCENT,
+                                      );
+                                      setBlurStrengthSliderValue(
+                                        DEFAULT_TEXT_BLUR_STRENGTH_PERCENT,
+                                      );
                                     }
                                   }}
                                 />

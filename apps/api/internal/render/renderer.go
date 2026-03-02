@@ -678,7 +678,7 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 		cityRuneCount := maxInt(len([]rune(strings.TrimSpace(req.City))), 4)
 		sizeScale := clamp(mainSize/math.Max(baseMain*scaleFactor, 1e-6), 0.7, 2.2)
 		textWidthEstimate := clamp(0.34+(float64(cityRuneCount)*0.018*sizeScale), 0.42, 0.9)
-		blurPaddingY := gap * 1.35
+		blurPaddingY := gap * 0.9
 		blurPaddingX := math.Max(blurPaddingY*axisYToAxisX*1.65, 0.012)
 		blurFeatherY := 0.016 * blurSize
 		blurFeatherX := math.Max(blurFeatherY*axisYToAxisX*1.35, 0.006)
@@ -686,7 +686,7 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 
 		blockBottom := (coordsY - coordsDesc) - blurPaddingY
 		blockTop := (cityY + cityAscent) + blurPaddingY
-		panelH := clamp((blockTop-blockBottom)+(blurFeatherY*2), 0.12, 0.42)
+		panelH := clamp((blockTop-blockBottom)+(blurFeatherY*2), 0.09, 0.42)
 		centerY := (blockTop + blockBottom) / 2.0
 		panelX := 0.5 - panelW/2
 		panelY := clamp(centerY-panelH/2, 0.01, 1-panelH-0.01)

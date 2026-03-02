@@ -443,7 +443,7 @@ function computeLabelSpec(
       0.42,
       0.9,
     );
-    const blurPaddingY = gap * 1.35;
+    const blurPaddingY = gap * 0.9;
     const blurPaddingX = Math.max(blurPaddingY * axisYToAxisX * 1.65, 0.012);
     const blurFeatherY = 0.016 * blurSize;
     const blurFeatherX = Math.max(blurFeatherY * axisYToAxisX * 1.35, 0.006);
@@ -454,7 +454,7 @@ function computeLabelSpec(
     );
     const blockBottom = coordsY - coordsDesc - blurPaddingY;
     const blockTop = cityY + cityAscent + blurPaddingY;
-    const panelH = clamp(blockTop - blockBottom + blurFeatherY * 2, 0.12, 0.42);
+    const panelH = clamp(blockTop - blockBottom + blurFeatherY * 2, 0.09, 0.42);
     const centerY = (blockTop + blockBottom) / 2;
     blur = {
       panelX: 0.5 - panelW / 2,
