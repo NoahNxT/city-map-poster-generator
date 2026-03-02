@@ -67,7 +67,7 @@ import {
 import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 
-type AdvancedHelpFieldKey = "displayCity" | "displayCountry" | "fontFamily";
+type AdvancedHelpFieldKey = "fontFamily";
 
 const advancedFieldHelp: Record<
   AdvancedHelpFieldKey,
@@ -76,16 +76,6 @@ const advancedFieldHelp: Record<
     description: string;
   }
 > = {
-  displayCity: {
-    title: "Display city text",
-    description:
-      "Overrides the large city title at the bottom of the poster. Useful for i18n labels like native scripts.",
-  },
-  displayCountry: {
-    title: "Display country text",
-    description:
-      "Overrides the country line under the city title. If empty, the Country field value is used.",
-  },
   fontFamily: {
     title: "Typography family",
     description:
@@ -99,8 +89,6 @@ const schema = z
     country: z.string().trim().min(1, "Country is required"),
     latitude: z.string().optional(),
     longitude: z.string().optional(),
-    displayCity: z.string().optional(),
-    displayCountry: z.string().optional(),
     fontFamily: z.string().optional(),
     theme: z.string().min(1),
     allThemes: z.boolean(),
@@ -266,8 +254,6 @@ const defaultValues: FormValues = {
   country: "Belgium",
   latitude: "51.2211097",
   longitude: "4.3997081",
-  displayCity: "",
-  displayCountry: "",
   fontFamily: "",
   theme: "terracotta",
   allThemes: false,
@@ -285,8 +271,6 @@ function toPayload(values: FormValues): PosterRequest {
     country: values.country,
     latitude: values.latitude?.trim() || undefined,
     longitude: values.longitude?.trim() || undefined,
-    displayCity: values.displayCity?.trim() || undefined,
-    displayCountry: values.displayCountry?.trim() || undefined,
     fontFamily: values.fontFamily?.trim() || undefined,
     theme: values.theme,
     allThemes: values.allThemes,
@@ -463,18 +447,14 @@ export function PosterGenerator() {
     (theme) => theme.id === values.theme,
   );
   const previewTextColor = activeTheme?.colors.text ?? "#8C4A18";
-  const previewDisplayCityRaw = values.displayCity?.trim() || values.city || "";
+  const previewDisplayCityRaw = values.city || "";
   const previewDisplayCity = formatPreviewCity(previewDisplayCityRaw);
   const previewTextMetrics = getPreviewTextMetrics(
     previewDisplayCityRaw,
     values.width,
     values.height,
   );
-  const previewDisplayCountry = (
-    values.displayCountry?.trim() ||
-    values.country ||
-    ""
-  ).toUpperCase();
+  const previewDisplayCountry = (values.country || "").toUpperCase();
   const previewTypographyFontFamily =
     values.fontFamily?.trim() || "var(--font-heading)";
   const previewCoords = formatPreviewCoords(values.latitude, values.longitude);
@@ -869,90 +849,6 @@ export function PosterGenerator() {
                                   { shouldValidate: true },
                                 )
                               }
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Label htmlFor="displayCity">
-                                Display City (i18n label)
-                              </Label>
-                              <Popover
-                                open={activePreviewHint === "displayCity"}
-                              >
-                                <PopoverTrigger asChild>
-                                  <button
-                                    type="button"
-                                    aria-label="Explain Display City"
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                    {...getHintTriggerHandlers("displayCity")}
-                                  >
-                                    <CircleHelp className="h-3.5 w-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                  align="start"
-                                  className="w-72"
-                                  side="top"
-                                >
-                                  <p className="text-xs font-semibold text-foreground">
-                                    {advancedFieldHelp.displayCity.title}
-                                  </p>
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    {advancedFieldHelp.displayCity.description}
-                                  </p>
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <Input
-                              id="displayCity"
-                              placeholder="東京"
-                              {...form.register("displayCity")}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Label htmlFor="displayCountry">
-                                Display Country (i18n label)
-                              </Label>
-                              <Popover
-                                open={activePreviewHint === "displayCountry"}
-                              >
-                                <PopoverTrigger asChild>
-                                  <button
-                                    type="button"
-                                    aria-label="Explain Display Country"
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                    {...getHintTriggerHandlers(
-                                      "displayCountry",
-                                    )}
-                                  >
-                                    <CircleHelp className="h-3.5 w-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                  align="start"
-                                  className="w-72"
-                                  side="top"
-                                >
-                                  <p className="text-xs font-semibold text-foreground">
-                                    {advancedFieldHelp.displayCountry.title}
-                                  </p>
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    {
-                                      advancedFieldHelp.displayCountry
-                                        .description
-                                    }
-                                  </p>
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <Input
-                              id="displayCountry"
-                              placeholder="日本"
-                              {...form.register("displayCountry")}
                             />
                           </div>
                         </div>
