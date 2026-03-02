@@ -385,7 +385,7 @@ const defaultValues: FormValues = {
   cityFontSize: undefined,
   countryFontSize: undefined,
   textColor: undefined,
-  labelPaddingScale: 1,
+  labelPaddingScale: 1.2,
   textBlurEnabled: false,
   textBlurSize: 1,
   textBlurStrength: 8,
