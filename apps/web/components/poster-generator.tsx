@@ -205,6 +205,51 @@ function formatPreviewCoords(
   return `${Math.abs(lat).toFixed(4)}° ${latHemisphere} / ${Math.abs(lon).toFixed(4)}° ${lonHemisphere}`;
 }
 
+function ThemePreviewImage({
+  themeId,
+  themeName,
+  priority = false,
+}: {
+  themeId: string;
+  themeName: string;
+  priority?: boolean;
+}) {
+  const [status, setStatus] = useState<"loading" | "loaded" | "error">(
+    "loading",
+  );
+
+  return (
+    <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
+      {status !== "loaded" ? (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-card/80">
+          <LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
+          <p className="text-[11px] text-muted-foreground">Loading preview</p>
+        </div>
+      ) : null}
+      <Image
+        src={`/theme-previews/${themeId}.svg`}
+        alt={`${themeName} preview`}
+        fill
+        priority={priority}
+        sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 28vw"
+        className={
+          status === "loaded"
+            ? "object-cover opacity-100 transition-opacity duration-200"
+            : "object-cover opacity-0 transition-opacity duration-200"
+        }
+        unoptimized
+        onLoad={() => setStatus("loaded")}
+        onError={() => setStatus("error")}
+      />
+      {status === "error" ? (
+        <div className="absolute inset-x-3 bottom-3 z-20 rounded-sm bg-background/85 px-2 py-1 text-center text-[11px] text-muted-foreground">
+          Preview unavailable
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const distancePresets = [
   { label: "6km", value: 6000 },
   { label: "12km", value: 12000 },
@@ -636,7 +681,7 @@ export function PosterGenerator() {
                           </DialogHeader>
                           <div className="max-h-[68vh] overflow-y-auto px-5 pb-5">
                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {themesQuery.data?.map((theme) => {
+                              {themesQuery.data?.map((theme, index) => {
                                 const selected = values.theme === theme.id;
                                 return (
                                   <button
@@ -650,15 +695,11 @@ export function PosterGenerator() {
                                         : "border-border hover:border-amber-600/60 hover:shadow-sm",
                                     ].join(" ")}
                                   >
-                                    <div className="relative aspect-[3/4] w-full bg-muted">
-                                      <Image
-                                        src={`/theme-previews/${theme.id}.svg`}
-                                        alt={`${theme.name} preview`}
-                                        fill
-                                        className="object-cover"
-                                        unoptimized
-                                      />
-                                    </div>
+                                    <ThemePreviewImage
+                                      themeId={theme.id}
+                                      themeName={theme.name}
+                                      priority={index < 6}
+                                    />
                                     <div className="space-y-2 px-3 py-3">
                                       <div className="flex items-center justify-between gap-2">
                                         <p className="text-sm font-semibold text-foreground">
