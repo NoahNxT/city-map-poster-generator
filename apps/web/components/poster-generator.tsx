@@ -1776,8 +1776,8 @@ export function PosterGenerator() {
                 Live Preview
               </CardTitle>
               <CardDescription>
-                Preview uses pregenerated theme SVG backgrounds and performs no
-                API calls.
+                Preview is an approximation and may vary slightly from the final
+                exported poster.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
