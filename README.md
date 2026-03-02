@@ -95,6 +95,66 @@ bun run check-types   # tsc/next + go test
 bun run format        # biome format
 ```
 
+## Deployments (Hetzner + GHCR)
+
+Deployment files:
+
+- `.docker/staging/compose.yaml`
+- `.docker/staging/.env.example`
+- `.docker/production/compose.yaml`
+- `.docker/production/.env.example`
+
+Workflows:
+
+- `.github/workflows/staging-deploy.yml`
+  - Trigger: push to `main` (or manual `workflow_dispatch`)
+  - Builds and pushes:
+    - `ghcr.io/<owner>/city-map-api:staging`
+    - `ghcr.io/<owner>/city-map-web:staging`
+  - Deploys on VPS via SSH + `docker compose pull && up -d`
+- `.github/workflows/production-deploy.yml`
+  - Trigger: push tag `v*` (for example `v1.0.0`) or manual `workflow_dispatch`
+  - Builds and pushes:
+    - `ghcr.io/<owner>/city-map-api:production`
+    - `ghcr.io/<owner>/city-map-web:production`
+  - Deploys on production VPS via SSH
+- `.github/workflows/release.yml`
+  - Trigger: push tag `v*`
+  - Creates GitHub Release automatically with generated notes
+
+Required GitHub repository secrets:
+
+- `STAGING_HOST`
+- `STAGING_USER`
+- `STAGING_SSH_KEY`
+- `STAGING_PORT` (optional, defaults to `22`)
+- `STAGING_PATH` (example: `/opt/city-map-poster-generator`)
+- `PRODUCTION_HOST`
+- `PRODUCTION_USER`
+- `PRODUCTION_SSH_KEY`
+- `PRODUCTION_PORT` (optional, defaults to `22`)
+- `PRODUCTION_PATH` (example: `/opt/city-map-poster-generator`)
+- `GHCR_USERNAME` (for VPS pulls)
+- `GHCR_TOKEN` (PAT with `read:packages` for VPS pulls)
+
+Recommended GitHub repository variables (build-time web config):
+
+- `STAGING_NEXT_PUBLIC_API_BASE_URL`
+- `STAGING_NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+- `STAGING_NEXT_PUBLIC_SITE_URL`
+- `PRODUCTION_NEXT_PUBLIC_API_BASE_URL`
+- `PRODUCTION_NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+- `PRODUCTION_NEXT_PUBLIC_SITE_URL`
+
+First-time VPS bootstrap:
+
+```bash
+mkdir -p /opt/city-map-poster-generator/.docker/staging
+mkdir -p /opt/city-map-poster-generator/.docker/production
+```
+
+On first deploy run, each workflow copies `.env.example` to `.env` on the VPS and stops once so you can fill real values before re-running.
+
 ## API Endpoints
 
 - `GET /health`
