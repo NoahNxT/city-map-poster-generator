@@ -72,6 +72,29 @@ function blurAxisScale(size: number): number {
   return clamp(1 + (normalized - 0.5) * 1.2, 0.6, 1.6);
 }
 
+function estimateGlyphWidthEm(char: string): number {
+  if (char === " ") return 0.25;
+  if ("MW@#%&".includes(char)) return 0.88;
+  if ("Il1|!".includes(char)) return 0.36;
+  if (".,:;'`".includes(char)) return 0.24;
+  if (/[0-9]/.test(char)) return 0.58;
+  if (/[A-Z]/.test(char)) return 0.64;
+  return 0.6;
+}
+
+function estimateTextWidthAxis(
+  text: string,
+  fontSizePt: number,
+  pointToAxis: number,
+): number {
+  if (!text) return 0;
+  let widthEm = 0;
+  for (const char of text) {
+    widthEm += estimateGlyphWidthEm(char);
+  }
+  return widthEm * fontSizePt * pointToAxis;
+}
+
 function axisToCanvasY(axisY: number, canvasHeight: number): number {
   return (1 - axisY) * canvasHeight;
 }
@@ -439,17 +462,21 @@ function computeLabelSpec(
     const blurSizeY = clamp(payload.textBlurSizeY, 0.6, 2.5);
     const blurStrength = clamp(payload.textBlurStrength, 0, 30);
     const blurScale = clamp(blurStrength / 30, 0, 1);
-    const cityRuneCount = Math.max(Array.from(cityRaw).length, 4);
-    const cityVisualCount = latinDisplay ? cityRuneCount * 1.45 : cityRuneCount;
-    const sizeScale = clamp(
-      citySize / Math.max(baseMain * scaleFactor, 1e-6),
-      0.55,
-      2.6,
+    const cityWidthEstimate = estimateTextWidthAxis(
+      displayCity,
+      citySize,
+      pointToAxis,
     );
-    const textWidthEstimate = clamp(
-      (0.22 + cityVisualCount * 0.018) * sizeScale,
-      0.24,
-      0.9,
+    const countryWidthEstimate = estimateTextWidthAxis(
+      displayCountry,
+      countrySize,
+      pointToAxis,
+    );
+    const dividerWidthEstimate = 0.2;
+    const textBlockWidth = Math.max(
+      cityWidthEstimate,
+      countryWidthEstimate,
+      dividerWidthEstimate,
     );
     const textBlockBottom = coordsY - coordsDesc;
     const textBlockTop = cityY + cityAscent;
@@ -457,8 +484,8 @@ function computeLabelSpec(
     const scaleX = blurAxisScale(blurSizeX);
     const scaleY = blurAxisScale(blurSizeY);
     // 50% means text bounds +15% on each side (total +30%) on that axis.
-    const panelW = clamp(textWidthEstimate * 1.3 * scaleX, 0.24, 0.94);
-    const panelH = clamp(textBlockHeight * 1.3 * scaleY, 0.05, 0.42);
+    const panelW = clamp(textBlockWidth * 1.3 * scaleX, 0.12, 0.94);
+    const panelH = clamp(textBlockHeight * 1.3 * scaleY, 0.04, 0.42);
     const centerY = (textBlockTop + textBlockBottom) / 2;
     blur = {
       panelX: 0.5 - panelW / 2,

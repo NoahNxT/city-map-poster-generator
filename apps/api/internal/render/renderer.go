@@ -676,21 +676,18 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 		blurStrength := clamp(req.TextBlurStrength, 0, 30)
 		blurScale := clamp(blurStrength/30.0, 0, 1)
 
-		cityRuneCount := maxInt(len([]rune(strings.TrimSpace(req.City))), 4)
-		cityVisualCount := float64(cityRuneCount)
-		if latinDisplay {
-			cityVisualCount = cityVisualCount * 1.45
-		}
-		sizeScale := clamp(mainSize/math.Max(baseMain*scaleFactor, 1e-6), 0.55, 2.6)
-		textWidthEstimate := clamp((0.22+(cityVisualCount*0.018))*sizeScale, 0.24, 0.9)
+		cityWidthEstimate := estimateTextWidthAxis(displayCity, mainSize, pointToAxis)
+		countryWidthEstimate := estimateTextWidthAxis(strings.ToUpper(strings.TrimSpace(req.Country)), countrySize, pointToAxis)
+		dividerWidthEstimate := 0.2
+		textBlockWidth := math.Max(math.Max(cityWidthEstimate, countryWidthEstimate), dividerWidthEstimate)
 		textBlockBottom := coordsY - coordsDesc
 		textBlockTop := cityY + cityAscent
 		textBlockHeight := math.Max(textBlockTop-textBlockBottom, 0.012)
 		scaleX := blurAxisScale(blurSizeX)
 		scaleY := blurAxisScale(blurSizeY)
 		// 50% means text bounds +15% on each side (total +30%) on that axis.
-		panelW := clamp(textWidthEstimate*1.3*scaleX, 0.24, 0.94)
-		panelH := clamp(textBlockHeight*1.3*scaleY, 0.05, 0.42)
+		panelW := clamp(textBlockWidth*1.3*scaleX, 0.12, 0.94)
+		panelH := clamp(textBlockHeight*1.3*scaleY, 0.04, 0.42)
 		centerY := (textBlockTop + textBlockBottom) / 2.0
 		panelX := 0.5 - panelW/2
 		panelY := clamp(centerY-panelH/2, 0.01, 1-panelH-0.01)
@@ -997,6 +994,36 @@ func blurAxisScale(size float64) float64 {
 	normalized := clamp((size-0.6)/(2.5-0.6), 0, 1)
 	// 50% maps to 1.0 (text bounds +10%), then scales smaller/larger symmetrically.
 	return clamp(1+((normalized-0.5)*1.2), 0.6, 1.6)
+}
+
+func estimateGlyphWidthEm(r rune) float64 {
+	switch {
+	case r == ' ':
+		return 0.25
+	case strings.ContainsRune("MW@#%&", r):
+		return 0.88
+	case strings.ContainsRune("Il1|!", r):
+		return 0.36
+	case strings.ContainsRune(".,:;'`", r):
+		return 0.24
+	case r >= '0' && r <= '9':
+		return 0.58
+	case r >= 'A' && r <= 'Z':
+		return 0.64
+	default:
+		return 0.6
+	}
+}
+
+func estimateTextWidthAxis(text string, fontSizePt, pointToAxis float64) float64 {
+	if strings.TrimSpace(text) == "" {
+		return 0
+	}
+	widthEm := 0.0
+	for _, r := range text {
+		widthEm += estimateGlyphWidthEm(r)
+	}
+	return widthEm * fontSizePt * pointToAxis
 }
 
 func maxInt(a, b int) int {
