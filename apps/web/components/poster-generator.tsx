@@ -67,67 +67,29 @@ import {
 import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 
-type AdvancedHelpFieldKey =
-  | "displayCity"
-  | "displayCountry"
-  | "countryLabel"
-  | "fontFamily";
+type AdvancedHelpFieldKey = "displayCity" | "displayCountry" | "fontFamily";
 
 const advancedFieldHelp: Record<
   AdvancedHelpFieldKey,
   {
     title: string;
     description: string;
-    previewLabel: string;
   }
 > = {
   displayCity: {
     title: "Display city text",
     description:
       "Overrides the large city title at the bottom of the poster. Useful for i18n labels like native scripts.",
-    previewLabel: "City title",
   },
   displayCountry: {
     title: "Display country text",
     description:
-      "Overrides the country line under the city title. This has higher priority than Country Label Override.",
-    previewLabel: "Country line",
-  },
-  countryLabel: {
-    title: "Fallback country text",
-    description:
-      "Used when Display Country is empty. It updates the same country line under the main city title.",
-    previewLabel: "Country fallback",
+      "Overrides the country line under the city title. If empty, the Country field value is used.",
   },
   fontFamily: {
     title: "Typography family",
     description:
       "Downloads and applies a Google Font family to city, country, and coordinate labels in the final render.",
-    previewLabel: "Typography block",
-  },
-};
-
-const previewHintBoxes: Record<
-  AdvancedHelpFieldKey,
-  {
-    className: string;
-  }
-> = {
-  displayCity: {
-    className:
-      "left-[15%] top-[72%] h-[11%] w-[70%] border-amber-700/90 bg-amber-100/25",
-  },
-  displayCountry: {
-    className:
-      "left-[29%] top-[82%] h-[5%] w-[42%] border-sky-700/90 bg-sky-100/30",
-  },
-  countryLabel: {
-    className:
-      "left-[29%] top-[82%] h-[5%] w-[42%] border-emerald-700/90 bg-emerald-100/30",
-  },
-  fontFamily: {
-    className:
-      "left-[14%] top-[70%] h-[22%] w-[72%] border-cyan-700/90 bg-cyan-100/25",
   },
 };
 
@@ -137,7 +99,6 @@ const schema = z
     country: z.string().trim().min(1, "Country is required"),
     latitude: z.string().optional(),
     longitude: z.string().optional(),
-    countryLabel: z.string().optional(),
     displayCity: z.string().optional(),
     displayCountry: z.string().optional(),
     fontFamily: z.string().optional(),
@@ -268,7 +229,6 @@ const defaultValues: FormValues = {
   country: "Belgium",
   latitude: "51.2211097",
   longitude: "4.3997081",
-  countryLabel: "",
   displayCity: "",
   displayCountry: "",
   fontFamily: "",
@@ -288,7 +248,6 @@ function toPayload(values: FormValues): PosterRequest {
     country: values.country,
     latitude: values.latitude?.trim() || undefined,
     longitude: values.longitude?.trim() || undefined,
-    countryLabel: values.countryLabel?.trim() || undefined,
     displayCity: values.displayCity?.trim() || undefined,
     displayCountry: values.displayCountry?.trim() || undefined,
     fontFamily: values.fontFamily?.trim() || undefined,
@@ -472,7 +431,6 @@ export function PosterGenerator() {
   );
   const previewDisplayCountry = (
     values.displayCountry?.trim() ||
-    values.countryLabel?.trim() ||
     values.country ||
     ""
   ).toUpperCase();
@@ -902,10 +860,6 @@ export function PosterGenerator() {
                                   <p className="mt-1 text-xs text-muted-foreground">
                                     {advancedFieldHelp.displayCity.description}
                                   </p>
-                                  <p className="mt-2 text-[11px] text-amber-700">
-                                    Highlighting:{" "}
-                                    {advancedFieldHelp.displayCity.previewLabel}
-                                  </p>
                                 </PopoverContent>
                               </Popover>
                             </div>
@@ -947,13 +901,6 @@ export function PosterGenerator() {
                                     {
                                       advancedFieldHelp.displayCountry
                                         .description
-                                    }
-                                  </p>
-                                  <p className="mt-2 text-[11px] text-amber-700">
-                                    Highlighting:{" "}
-                                    {
-                                      advancedFieldHelp.displayCountry
-                                        .previewLabel
                                     }
                                   </p>
                                 </PopoverContent>
@@ -1017,49 +964,6 @@ export function PosterGenerator() {
 
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
-                            <Label htmlFor="countryLabel">
-                              Country Label Override
-                            </Label>
-                            <Popover
-                              open={activePreviewHint === "countryLabel"}
-                            >
-                              <PopoverTrigger asChild>
-                                <button
-                                  type="button"
-                                  aria-label="Explain Country Label Override"
-                                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                  {...getHintTriggerHandlers("countryLabel")}
-                                >
-                                  <CircleHelp className="h-3.5 w-3.5" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                align="start"
-                                className="w-72"
-                                side="top"
-                              >
-                                <p className="text-xs font-semibold text-foreground">
-                                  {advancedFieldHelp.countryLabel.title}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {advancedFieldHelp.countryLabel.description}
-                                </p>
-                                <p className="mt-2 text-[11px] text-amber-700">
-                                  Highlighting:{" "}
-                                  {advancedFieldHelp.countryLabel.previewLabel}
-                                </p>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <Input
-                            id="countryLabel"
-                            placeholder="FRANCE"
-                            {...form.register("countryLabel")}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
                             <Label htmlFor="fontFamily">
                               Google Font Family
                             </Label>
@@ -1084,10 +988,6 @@ export function PosterGenerator() {
                                 </p>
                                 <p className="mt-1 text-xs text-muted-foreground">
                                   {advancedFieldHelp.fontFamily.description}
-                                </p>
-                                <p className="mt-2 text-[11px] text-amber-700">
-                                  Highlighting:{" "}
-                                  {advancedFieldHelp.fontFamily.previewLabel}
                                 </p>
                               </PopoverContent>
                             </Popover>
@@ -1285,19 +1185,6 @@ export function PosterGenerator() {
                     © OpenStreetMap contributors
                   </p>
                 </div>
-                {activePreviewHint ? (
-                  <div className="pointer-events-none absolute inset-0">
-                    <div
-                      className={[
-                        "absolute rounded-md border-2 transition-all duration-150 ease-out",
-                        previewHintBoxes[activePreviewHint].className,
-                      ].join(" ")}
-                    />
-                    <span className="absolute right-2 top-2 rounded-md bg-background/85 px-2 py-1 text-[11px] font-medium text-foreground shadow-sm">
-                      {advancedFieldHelp[activePreviewHint].previewLabel}
-                    </span>
-                  </div>
-                ) : null}
               </div>
             </CardContent>
           </Card>
