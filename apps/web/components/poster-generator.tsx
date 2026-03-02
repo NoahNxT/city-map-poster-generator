@@ -17,7 +17,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
@@ -114,6 +114,16 @@ type FormValues = z.infer<typeof schema>;
 
 const PREVIEW_VIEWBOX_WIDTH = 439.2;
 const PREVIEW_VIEWBOX_HEIGHT = 583.2;
+const DEFAULT_PREVIEW_ZOOM = 2.5;
+
+type PreviewPointer = {
+  x: number;
+  y: number;
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
 
 function isLikelyLatin(text: string): boolean {
   return /^[A-Za-z0-9\s'".,\-()]+$/.test(text);
@@ -230,6 +240,102 @@ function ThemePreviewImage({
   );
 }
 
+type PreviewTextMetrics = ReturnType<typeof getPreviewTextMetrics>;
+
+function PreviewTypographyOverlay({
+  className,
+  viewBox = `0 0 ${PREVIEW_VIEWBOX_WIDTH} ${PREVIEW_VIEWBOX_HEIGHT}`,
+  title,
+  previewTextColor,
+  previewDisplayCity,
+  previewDisplayCountry,
+  previewCoords,
+  previewTextMetrics,
+  previewTypographyFontFamily,
+}: {
+  className: string;
+  viewBox?: string;
+  title: string;
+  previewTextColor: string;
+  previewDisplayCity: string;
+  previewDisplayCountry: string;
+  previewCoords: string;
+  previewTextMetrics: PreviewTextMetrics;
+  previewTypographyFontFamily: string;
+}) {
+  const previewCityY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.14);
+  const previewDividerY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.125);
+  const previewCountryY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.1);
+  const previewCoordsY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.07);
+  const previewAttributionY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.006);
+
+  return (
+    <svg
+      className={className}
+      viewBox={viewBox}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <title>{title}</title>
+      <text
+        x={PREVIEW_VIEWBOX_WIDTH * 0.5}
+        y={previewCityY}
+        textAnchor="middle"
+        xmlSpace="preserve"
+        fontWeight={700}
+        fontSize={previewTextMetrics.cityFontSize}
+        fontFamily={previewTypographyFontFamily}
+        fill={previewTextColor}
+      >
+        {previewDisplayCity}
+      </text>
+      <line
+        x1={PREVIEW_VIEWBOX_WIDTH * 0.4}
+        x2={PREVIEW_VIEWBOX_WIDTH * 0.6}
+        y1={previewDividerY}
+        y2={previewDividerY}
+        stroke={previewTextColor}
+        strokeWidth={previewTextMetrics.dividerWidth}
+      />
+      <text
+        x={PREVIEW_VIEWBOX_WIDTH * 0.5}
+        y={previewCountryY}
+        textAnchor="middle"
+        fontWeight={300}
+        fontSize={previewTextMetrics.countryFontSize}
+        fontFamily={previewTypographyFontFamily}
+        fill={previewTextColor}
+      >
+        {previewDisplayCountry}
+      </text>
+      <text
+        x={PREVIEW_VIEWBOX_WIDTH * 0.5}
+        y={previewCoordsY}
+        textAnchor="middle"
+        fontWeight={400}
+        fontSize={previewTextMetrics.coordsFontSize}
+        fontFamily={previewTypographyFontFamily}
+        fill={previewTextColor}
+        opacity={0.7}
+      >
+        {previewCoords}
+      </text>
+      <text
+        x={PREVIEW_VIEWBOX_WIDTH * 0.995}
+        y={previewAttributionY}
+        textAnchor="end"
+        fontWeight={300}
+        fontSize={previewTextMetrics.attributionFontSize}
+        fontFamily={previewTypographyFontFamily}
+        fill={previewTextColor}
+        opacity={0.35}
+      >
+        © OpenStreetMap contributors
+      </text>
+    </svg>
+  );
+}
+
 const distancePresets = [
   { label: "6km", value: 6000 },
   { label: "12km", value: 12000 },
@@ -292,6 +398,12 @@ export function PosterGenerator() {
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [activePreviewHint, setActivePreviewHint] =
     useState<AdvancedHelpFieldKey | null>(null);
+  const [previewZoomEnabled, setPreviewZoomEnabled] = useState(false);
+  const [previewZoomLevel, setPreviewZoomLevel] =
+    useState(DEFAULT_PREVIEW_ZOOM);
+  const [previewPointer, setPreviewPointer] = useState<PreviewPointer | null>(
+    null,
+  );
   const [locationQuery, setLocationQuery] = useState(
     `${defaultValues.city}, ${defaultValues.country}`,
   );
@@ -303,6 +415,7 @@ export function PosterGenerator() {
   const [locationAutocompleteOpen, setLocationAutocompleteOpen] =
     useState(false);
   const [fontAutocompleteOpen, setFontAutocompleteOpen] = useState(false);
+  const previewFrameRef = useRef<HTMLDivElement | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -395,6 +508,12 @@ export function PosterGenerator() {
     }
   }, [form, themesQuery.data, values.theme]);
 
+  useEffect(() => {
+    if (!previewZoomEnabled) {
+      setPreviewPointer(null);
+    }
+  }, [previewZoomEnabled]);
+
   const statusTone = useMemo(() => {
     const status = jobQuery.data?.status;
     if (status === "failed") return "destructive" as const;
@@ -442,6 +561,17 @@ export function PosterGenerator() {
     };
   }
 
+  function updatePreviewPointer(clientX: number, clientY: number): void {
+    const frame = previewFrameRef.current;
+    if (!frame) return;
+    const bounds = frame.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) return;
+    setPreviewPointer({
+      x: clamp((clientX - bounds.left) / bounds.width, 0, 1),
+      y: clamp((clientY - bounds.top) / bounds.height, 0, 1),
+    });
+  }
+
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const activeTheme = themesQuery.data?.find(
     (theme) => theme.id === values.theme,
@@ -458,12 +588,26 @@ export function PosterGenerator() {
   const previewTypographyFontFamily =
     values.fontFamily?.trim() || "var(--font-heading)";
   const previewCoords = formatPreviewCoords(values.latitude, values.longitude);
-  const previewCityY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.14);
-  const previewDividerY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.125);
-  const previewCountryY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.1);
-  const previewCoordsY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.07);
-  const previewAttributionY = PREVIEW_VIEWBOX_HEIGHT * (1 - 0.006);
   const previewUrl = `/theme-previews/${values.theme}.svg`;
+  const previewZoomAnchor = previewPointer ?? { x: 0.5, y: 0.5 };
+  const zoomViewWidth = PREVIEW_VIEWBOX_WIDTH / previewZoomLevel;
+  const zoomViewHeight = PREVIEW_VIEWBOX_HEIGHT / previewZoomLevel;
+  const zoomCenterX = previewZoomAnchor.x * PREVIEW_VIEWBOX_WIDTH;
+  const zoomCenterY = previewZoomAnchor.y * PREVIEW_VIEWBOX_HEIGHT;
+  const zoomViewX = clamp(
+    zoomCenterX - zoomViewWidth / 2,
+    0,
+    PREVIEW_VIEWBOX_WIDTH - zoomViewWidth,
+  );
+  const zoomViewY = clamp(
+    zoomCenterY - zoomViewHeight / 2,
+    0,
+    PREVIEW_VIEWBOX_HEIGHT - zoomViewHeight,
+  );
+  const zoomLensLeft = (zoomViewX / PREVIEW_VIEWBOX_WIDTH) * 100;
+  const zoomLensTop = (zoomViewY / PREVIEW_VIEWBOX_HEIGHT) * 100;
+  const zoomLensWidth = (zoomViewWidth / PREVIEW_VIEWBOX_WIDTH) * 100;
+  const zoomLensHeight = (zoomViewHeight / PREVIEW_VIEWBOX_HEIGHT) * 100;
   const fallbackFontSuggestions = useMemo(() => {
     const query = (values.fontFamily ?? "").trim().toLowerCase();
     if (!query) {
@@ -1084,8 +1228,63 @@ export function PosterGenerator() {
                 API calls.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="relative aspect-[439.2/583.2] overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100">
+            <CardContent className="space-y-3">
+              <div className="rounded-lg border border-dashed px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Zoom box
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Inspect smaller text in the preview.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={previewZoomEnabled}
+                    onCheckedChange={setPreviewZoomEnabled}
+                    aria-label="Toggle live preview zoom box"
+                  />
+                </div>
+                {previewZoomEnabled ? (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Zoom level</span>
+                      <span>{previewZoomLevel.toFixed(1)}x</span>
+                    </div>
+                    <Slider
+                      min={1.5}
+                      max={6}
+                      step={0.5}
+                      value={[previewZoomLevel]}
+                      onValueChange={(nextValue) =>
+                        setPreviewZoomLevel(
+                          nextValue[0] ?? DEFAULT_PREVIEW_ZOOM,
+                        )
+                      }
+                    />
+                  </div>
+                ) : null}
+              </div>
+              <div
+                ref={previewFrameRef}
+                className="group relative aspect-[439.2/583.2] touch-none select-none overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100"
+                onPointerMove={(event) => {
+                  if (!previewZoomEnabled) return;
+                  updatePreviewPointer(event.clientX, event.clientY);
+                }}
+                onPointerEnter={(event) => {
+                  if (!previewZoomEnabled) return;
+                  updatePreviewPointer(event.clientX, event.clientY);
+                }}
+                onPointerDown={(event) => {
+                  if (!previewZoomEnabled) return;
+                  updatePreviewPointer(event.clientX, event.clientY);
+                }}
+                onPointerLeave={() => {
+                  if (!previewZoomEnabled) return;
+                  setPreviewPointer(null);
+                }}
+              >
                 <Image
                   src={previewUrl}
                   alt="Poster preview"
@@ -1093,69 +1292,65 @@ export function PosterGenerator() {
                   className="h-full w-full object-cover"
                   unoptimized
                 />
-                <svg
+                <PreviewTypographyOverlay
                   className="pointer-events-none absolute inset-0 h-full w-full"
-                  viewBox={`0 0 ${PREVIEW_VIEWBOX_WIDTH} ${PREVIEW_VIEWBOX_HEIGHT}`}
-                  preserveAspectRatio="none"
-                  aria-hidden="true"
-                >
-                  <title>Poster text preview overlay</title>
-                  <text
-                    x={PREVIEW_VIEWBOX_WIDTH * 0.5}
-                    y={previewCityY}
-                    textAnchor="middle"
-                    xmlSpace="preserve"
-                    fontWeight={700}
-                    fontSize={previewTextMetrics.cityFontSize}
-                    fontFamily={previewTypographyFontFamily}
-                    fill={previewTextColor}
-                  >
-                    {previewDisplayCity}
-                  </text>
-                  <line
-                    x1={PREVIEW_VIEWBOX_WIDTH * 0.4}
-                    x2={PREVIEW_VIEWBOX_WIDTH * 0.6}
-                    y1={previewDividerY}
-                    y2={previewDividerY}
-                    stroke={previewTextColor}
-                    strokeWidth={previewTextMetrics.dividerWidth}
-                  />
-                  <text
-                    x={PREVIEW_VIEWBOX_WIDTH * 0.5}
-                    y={previewCountryY}
-                    textAnchor="middle"
-                    fontWeight={300}
-                    fontSize={previewTextMetrics.countryFontSize}
-                    fontFamily={previewTypographyFontFamily}
-                    fill={previewTextColor}
-                  >
-                    {previewDisplayCountry}
-                  </text>
-                  <text
-                    x={PREVIEW_VIEWBOX_WIDTH * 0.5}
-                    y={previewCoordsY}
-                    textAnchor="middle"
-                    fontWeight={400}
-                    fontSize={previewTextMetrics.coordsFontSize}
-                    fontFamily={previewTypographyFontFamily}
-                    fill={previewTextColor}
-                    opacity={0.7}
-                  >
-                    {previewCoords}
-                  </text>
-                  <text
-                    x={PREVIEW_VIEWBOX_WIDTH * 0.995}
-                    y={previewAttributionY}
-                    textAnchor="end"
-                    fontWeight={300}
-                    fontSize={previewTextMetrics.attributionFontSize}
-                    fontFamily={previewTypographyFontFamily}
-                    fill={previewTextColor}
-                    opacity={0.35}
-                  >
-                    © OpenStreetMap contributors
-                  </text>
-                </svg>
+                  title="Poster text preview overlay"
+                  previewTextColor={previewTextColor}
+                  previewDisplayCity={previewDisplayCity}
+                  previewDisplayCountry={previewDisplayCountry}
+                  previewCoords={previewCoords}
+                  previewTextMetrics={previewTextMetrics}
+                  previewTypographyFontFamily={previewTypographyFontFamily}
+                />
+                {previewZoomEnabled ? (
+                  <>
+                    <div
+                      className="pointer-events-none absolute z-20 rounded-sm border border-amber-700/80 bg-amber-200/10 shadow-[0_0_0_1px_rgba(255,255,255,0.35)]"
+                      style={{
+                        left: `${zoomLensLeft}%`,
+                        top: `${zoomLensTop}%`,
+                        width: `${zoomLensWidth}%`,
+                        height: `${zoomLensHeight}%`,
+                      }}
+                    />
+                    <div className="pointer-events-none absolute right-2 top-2 z-30 w-32 overflow-hidden rounded-md border border-border bg-card/95 shadow-lg sm:w-36">
+                      <div className="absolute left-2 top-2 z-20 rounded bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                        Zoom {previewZoomLevel.toFixed(1)}x
+                      </div>
+                      <div className="relative aspect-[439.2/583.2]">
+                        <svg
+                          className="absolute inset-0 h-full w-full"
+                          viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <title>Magnified poster preview</title>
+                          <image
+                            href={previewUrl}
+                            x={0}
+                            y={0}
+                            width={PREVIEW_VIEWBOX_WIDTH}
+                            height={PREVIEW_VIEWBOX_HEIGHT}
+                            preserveAspectRatio="none"
+                          />
+                        </svg>
+                        <PreviewTypographyOverlay
+                          className="absolute inset-0 h-full w-full"
+                          viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
+                          title="Magnified poster typography overlay"
+                          previewTextColor={previewTextColor}
+                          previewDisplayCity={previewDisplayCity}
+                          previewDisplayCountry={previewDisplayCountry}
+                          previewCoords={previewCoords}
+                          previewTextMetrics={previewTextMetrics}
+                          previewTypographyFontFamily={
+                            previewTypographyFontFamily
+                          }
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
             </CardContent>
           </Card>
