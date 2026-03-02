@@ -111,6 +111,19 @@ func (r *Renderer) ThemeIDs() []string {
 	return out
 }
 
+func (r *Renderer) FetchFeaturesForSnapshot(
+	ctx context.Context,
+	req types.RenderSnapshotRequest,
+	lat float64,
+	lon float64,
+) (*osm.FeatureSet, error) {
+	targetAspect := req.Width / req.Height
+	if targetAspect <= 0 {
+		targetAspect = 1
+	}
+	return r.osmClient.Fetch(ctx, lat, lon, req.Distance, targetAspect, req.IncludeWater, req.IncludeParks, "all")
+}
+
 func (r *Renderer) Render(ctx context.Context, req types.GenerateRequest, lat, lon float64, profile RenderProfile) (RenderResult, error) {
 	theme, ok := r.themes[req.Theme]
 	if !ok {
