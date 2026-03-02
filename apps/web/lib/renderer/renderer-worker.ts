@@ -484,7 +484,7 @@ function computeLabelSpec(
     const scaleX = blurAxisScale(blurSizeX);
     const scaleY = blurAxisScale(blurSizeY);
     // X gets a slightly wider baseline footprint than Y for better optical balance.
-    const panelW = clamp(textBlockWidth * 1.35 * scaleX, 0.12, 0.94);
+    const panelW = clamp(textBlockWidth * 1.5 * scaleX, 0.16, 0.94);
     const panelH = clamp(textBlockHeight * 1.3 * scaleY, 0.04, 0.42);
     const centerY = (textBlockTop + textBlockBottom) / 2;
     blur = {

@@ -686,7 +686,7 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 		scaleX := blurAxisScale(blurSizeX)
 		scaleY := blurAxisScale(blurSizeY)
 		// X gets a slightly wider baseline footprint than Y for better optical balance.
-		panelW := clamp(textBlockWidth*1.35*scaleX, 0.12, 0.94)
+		panelW := clamp(textBlockWidth*1.5*scaleX, 0.16, 0.94)
 		panelH := clamp(textBlockHeight*1.3*scaleY, 0.04, 0.42)
 		centerY := (textBlockTop + textBlockBottom) / 2.0
 		panelX := 0.5 - panelW/2
