@@ -162,6 +162,8 @@ type WorkerRenderRequest = {
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const PREVIEW_RENDER_DPI = 120;
+const SNAPSHOT_FETCH_TIMEOUT_MS = 60_000;
+const WORKER_RENDER_TIMEOUT_MS = 8_000;
 
 function supportsLocalRenderer(): boolean {
   return (
@@ -169,6 +171,28 @@ function supportsLocalRenderer(): boolean {
     typeof Worker !== "undefined" &&
     typeof OffscreenCanvas !== "undefined"
   );
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(message));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -402,6 +426,9 @@ export function PosterGenerator({
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const latestWorkerRenderIdRef = useRef<string>("");
+  const workerRenderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const pathname = usePathname();
   const router = useRouter();
 
@@ -457,17 +484,28 @@ export function PosterGenerator({
   );
   const d = dictionary;
 
-  const fallbackToServer = useCallback((reason: string) => {
-    const worker = workerRef.current;
-    if (worker) {
-      worker.terminate();
-      workerRef.current = null;
+  const clearWorkerRenderTimeout = useCallback(() => {
+    if (workerRenderTimeoutRef.current !== null) {
+      clearTimeout(workerRenderTimeoutRef.current);
+      workerRenderTimeoutRef.current = null;
     }
-    setRendererMode("server-fallback");
-    setRendererReason(reason);
-    setLocalRenderPending(false);
-    setLocalPreviewUrl(null);
   }, []);
+
+  const fallbackToServer = useCallback(
+    (reason: string) => {
+      clearWorkerRenderTimeout();
+      const worker = workerRef.current;
+      if (worker) {
+        worker.terminate();
+        workerRef.current = null;
+      }
+      setRendererMode("server-fallback");
+      setRendererReason(reason);
+      setLocalRenderPending(false);
+      setLocalPreviewUrl(null);
+    },
+    [clearWorkerRenderTimeout],
+  );
 
   const themesQuery = useQuery({
     queryKey: ["themes"],
@@ -496,9 +534,13 @@ export function PosterGenerator({
   const snapshotQuery = useQuery({
     queryKey: ["render-snapshot", debouncedSnapshotRequest, disableRateLimit],
     queryFn: () =>
-      fetchRenderSnapshot(debouncedSnapshotRequest, {
-        disableRateLimit,
-      }),
+      withTimeout(
+        fetchRenderSnapshot(debouncedSnapshotRequest, {
+          disableRateLimit,
+        }),
+        SNAPSHOT_FETCH_TIMEOUT_MS,
+        "snapshot-timeout",
+      ),
     enabled:
       rendererMode === "local-wasm" &&
       debouncedSnapshotRequest.city.trim().length > 0 &&
@@ -582,6 +624,7 @@ export function PosterGenerator({
         if (!message || message.id !== latestWorkerRenderIdRef.current) {
           return;
         }
+        clearWorkerRenderTimeout();
         if (message.type === "rendered") {
           setLocalPreviewUrl(message.dataUrl || null);
           setLocalRenderPending(false);
@@ -593,6 +636,7 @@ export function PosterGenerator({
         if (disposed) {
           return;
         }
+        clearWorkerRenderTimeout();
         fallbackToServer("worker-runtime-error");
       };
     } catch {
@@ -603,12 +647,13 @@ export function PosterGenerator({
 
     return () => {
       disposed = true;
+      clearWorkerRenderTimeout();
       if (workerRef.current) {
         workerRef.current.terminate();
         workerRef.current = null;
       }
     };
-  }, [fallbackToServer]);
+  }, [clearWorkerRenderTimeout, fallbackToServer]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -648,9 +693,24 @@ export function PosterGenerator({
 
   useEffect(() => {
     if (rendererMode === "local-wasm" && snapshotQuery.isError) {
-      fallbackToServer("snapshot-fetch-failed");
+      const detail =
+        snapshotQuery.error instanceof Error
+          ? snapshotQuery.error.message
+          : "unknown";
+      fallbackToServer(`snapshot-fetch-failed:${detail}`);
     }
-  }, [rendererMode, snapshotQuery.isError, fallbackToServer]);
+  }, [
+    rendererMode,
+    snapshotQuery.error,
+    snapshotQuery.isError,
+    fallbackToServer,
+  ]);
+
+  useEffect(() => {
+    if (rendererMode === "local-wasm" && themesQuery.isError) {
+      fallbackToServer("themes-fetch-failed");
+    }
+  }, [rendererMode, themesQuery.isError, fallbackToServer]);
 
   useEffect(() => {
     if (!fontComboboxOpen) {
@@ -902,9 +962,15 @@ export function PosterGenerator({
       return;
     }
 
+    clearWorkerRenderTimeout();
     const renderId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     latestWorkerRenderIdRef.current = renderId;
     setLocalRenderPending(true);
+    workerRenderTimeoutRef.current = setTimeout(() => {
+      if (latestWorkerRenderIdRef.current === renderId) {
+        fallbackToServer("worker-render-timeout");
+      }
+    }, WORKER_RENDER_TIMEOUT_MS);
     const message: WorkerRenderRequest = {
       type: "render",
       id: renderId,
@@ -922,6 +988,8 @@ export function PosterGenerator({
     previewPayload,
     previewPixelWidth,
     previewPixelHeight,
+    clearWorkerRenderTimeout,
+    fallbackToServer,
   ]);
 
   const fallbackFontSuggestions = useMemo(() => {

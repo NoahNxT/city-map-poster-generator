@@ -172,15 +172,38 @@ export async function fetchRenderSnapshot(
     disableRateLimit?: boolean;
   },
 ): Promise<RenderSnapshotPayload> {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options?.disableRateLimit ? { "x-dev-no-rate-limit": "1" } : {}),
+  };
+
   const response = await fetch(`${API_BASE}/v2/render/snapshot`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.disableRateLimit ? { "x-dev-no-rate-limit": "1" } : {}),
-    },
+    headers,
     body: JSON.stringify(payload),
   });
-  return parseGzipJSON<RenderSnapshotPayload>(response);
+  if (!response.ok) {
+    return parseResponse<RenderSnapshotPayload>(response);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return parseResponse<RenderSnapshotPayload>(response);
+  }
+
+  try {
+    return await parseGzipJSON<RenderSnapshotPayload>(response);
+  } catch {
+    const jsonResponse = await fetch(
+      `${API_BASE}/v2/render/snapshot?encoding=json`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      },
+    );
+    return parseResponse<RenderSnapshotPayload>(jsonResponse);
+  }
 }
 
 export async function fetchFontBundle(
