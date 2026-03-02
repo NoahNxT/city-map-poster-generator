@@ -103,6 +103,8 @@ const CM_PER_INCH = 2.54;
 const MIN_POSTER_INCHES = 1;
 const MAX_POSTER_INCHES = 80;
 const MAX_POSTER_CENTIMETERS = 200;
+const MIN_DISTANCE_METERS = 1000;
+const MAX_DISTANCE_METERS = 18000;
 const MAX_LOCAL_PREVIEW_LONG_EDGE_PX = 2048;
 const PREVIEW_FRAME_MAX_WIDTH_PX = 420;
 const PREVIEW_FRAME_MAX_HEIGHT_PX = 560;
@@ -130,7 +132,7 @@ const schema = z
     textBlurEnabled: z.boolean(),
     textBlurSize: z.number().min(0.6).max(2.5),
     textBlurStrength: z.number().min(0).max(30),
-    distance: z.number().min(1000).max(50000),
+    distance: z.number().min(MIN_DISTANCE_METERS).max(MAX_DISTANCE_METERS),
     width: z.number().min(MIN_POSTER_INCHES).max(MAX_POSTER_INCHES),
     height: z.number().min(MIN_POSTER_INCHES).max(MAX_POSTER_INCHES),
     format: z.enum(["png", "svg", "pdf"]),
@@ -1708,11 +1710,11 @@ export function PosterGenerator({
                       <Slider
                         id={distanceSliderId}
                         aria-label={d.controls.distance}
-                        min={1000}
-                        max={50000}
+                        min={MIN_DISTANCE_METERS}
+                        max={MAX_DISTANCE_METERS}
                         step={500}
                         value={[values.distance]}
-                        onValueChange={(next) =>
+                        onValueCommit={(next) =>
                           form.setValue(
                             "distance",
                             next[0] ?? values.distance,
@@ -2204,7 +2206,7 @@ export function PosterGenerator({
                                 max={3}
                                 step={0.05}
                                 value={[values.labelPaddingScale]}
-                                onValueChange={(nextValue) =>
+                                onValueCommit={(nextValue) =>
                                   form.setValue(
                                     "labelPaddingScale",
                                     nextValue[0] ?? 1,
@@ -2254,7 +2256,7 @@ export function PosterGenerator({
                                       max={2.5}
                                       step={0.05}
                                       value={[values.textBlurSize]}
-                                      onValueChange={(nextValue) =>
+                                      onValueCommit={(nextValue) =>
                                         form.setValue(
                                           "textBlurSize",
                                           nextValue[0] ?? 1,
@@ -2276,7 +2278,7 @@ export function PosterGenerator({
                                       max={30}
                                       step={0.5}
                                       value={[values.textBlurStrength]}
-                                      onValueChange={(nextValue) =>
+                                      onValueCommit={(nextValue) =>
                                         form.setValue(
                                           "textBlurStrength",
                                           nextValue[0] ?? 8,
@@ -2727,7 +2729,7 @@ export function PosterGenerator({
                         max={6}
                         step={0.5}
                         value={[previewZoomLevel]}
-                        onValueChange={(nextValue) =>
+                        onValueCommit={(nextValue) =>
                           setPreviewZoomLevel(
                             nextValue[0] ?? DEFAULT_PREVIEW_ZOOM,
                           )

@@ -14,6 +14,8 @@ var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 const (
 	minPosterSizeInches = 1.0
 	maxPosterSizeInches = 80.0
+	minDistanceMeters   = 1000
+	maxDistanceMeters   = 18000
 )
 
 func ValidateGenerateRequest(req *types.GenerateRequest) error {
@@ -82,8 +84,8 @@ func ValidateGenerateRequest(req *types.GenerateRequest) error {
 	if req.TextBlurStrength < 0 || req.TextBlurStrength > 30 {
 		return fmt.Errorf("textBlurStrength must be between 0 and 30")
 	}
-	if req.Distance < 1000 || req.Distance > 50000 {
-		return fmt.Errorf("distance must be between 1000 and 50000")
+	if req.Distance < minDistanceMeters || req.Distance > maxDistanceMeters {
+		return fmt.Errorf("distance must be between %d and %d", minDistanceMeters, maxDistanceMeters)
 	}
 	if req.Width < minPosterSizeInches || req.Width > maxPosterSizeInches {
 		return fmt.Errorf("width must be between %.0f and %.0f", minPosterSizeInches, maxPosterSizeInches)
@@ -123,8 +125,8 @@ func ValidateRenderSnapshotRequest(req *types.RenderSnapshotRequest) error {
 		}
 	}
 
-	if req.Distance < 1000 || req.Distance > 50000 {
-		return fmt.Errorf("distance must be between 1000 and 50000")
+	if req.Distance < minDistanceMeters || req.Distance > maxDistanceMeters {
+		return fmt.Errorf("distance must be between %d and %d", minDistanceMeters, maxDistanceMeters)
 	}
 	if req.Width < minPosterSizeInches || req.Width > maxPosterSizeInches {
 		return fmt.Errorf("width must be between %.0f and %.0f", minPosterSizeInches, maxPosterSizeInches)
