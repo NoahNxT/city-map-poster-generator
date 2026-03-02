@@ -247,6 +247,19 @@ const distancePresets = [
   { label: "18km", value: 18000 },
 ];
 
+const fallbackFontFamilies = [
+  { family: "Roboto", category: "sans-serif" },
+  { family: "Open Sans", category: "sans-serif" },
+  { family: "Inter", category: "sans-serif" },
+  { family: "Montserrat", category: "sans-serif" },
+  { family: "Lato", category: "sans-serif" },
+  { family: "Poppins", category: "sans-serif" },
+  { family: "Noto Sans", category: "sans-serif" },
+  { family: "Noto Serif", category: "serif" },
+  { family: "Merriweather", category: "serif" },
+  { family: "Playfair Display", category: "serif" },
+];
+
 const defaultValues: FormValues = {
   city: "Antwerp",
   country: "Belgium",
@@ -463,6 +476,15 @@ export function PosterGenerator() {
   const previewCoords = formatPreviewCoords(values.latitude, values.longitude);
   const previewCityStyle = getPreviewCityStyle(previewDisplayCity);
   const previewUrl = `/theme-previews/${values.theme}.svg`;
+  const fallbackFontSuggestions = useMemo(() => {
+    const query = (values.fontFamily ?? "").trim().toLowerCase();
+    if (!query) {
+      return fallbackFontFamilies.slice(0, 10);
+    }
+    return fallbackFontFamilies.filter((font) =>
+      font.family.toLowerCase().includes(query),
+    );
+  }, [values.fontFamily]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6 lg:px-8">
@@ -1095,6 +1117,37 @@ export function PosterGenerator() {
                                   <p className="px-3 py-2 text-xs text-muted-foreground">
                                     Searching fonts...
                                   </p>
+                                ) : fontSuggestionsQuery.isError ? (
+                                  <>
+                                    <p className="px-3 py-2 text-xs text-red-700">
+                                      Font search unavailable. Showing fallback
+                                      suggestions.
+                                    </p>
+                                    {fallbackFontSuggestions.length ? (
+                                      fallbackFontSuggestions.map((font) => (
+                                        <button
+                                          key={font.family}
+                                          type="button"
+                                          className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
+                                          onMouseDown={(event) => {
+                                            event.preventDefault();
+                                            handleFontSelect(font.family);
+                                          }}
+                                        >
+                                          <p className="truncate font-medium">
+                                            {font.family}
+                                          </p>
+                                          <p className="truncate text-xs text-muted-foreground">
+                                            {font.category}
+                                          </p>
+                                        </button>
+                                      ))
+                                    ) : (
+                                      <p className="px-3 py-2 text-xs text-muted-foreground">
+                                        No fallback fonts match this query.
+                                      </p>
+                                    )}
+                                  </>
                                 ) : fontSuggestionsQuery.data?.length ? (
                                   fontSuggestionsQuery.data.map((font) => (
                                     <button

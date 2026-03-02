@@ -74,6 +74,67 @@ def _parse_metadata_payload(raw_text: str) -> list[FontSuggestion]:
     return suggestions
 
 
+def _parse_developer_api_payload(payload: dict) -> list[FontSuggestion]:
+    items = payload.get("items")
+    if not isinstance(items, list):
+        return []
+
+    suggestions: list[FontSuggestion] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+
+        family = item.get("family")
+        if not isinstance(family, str) or not family.strip():
+            continue
+
+        category = item.get("category")
+        normalized_category = category if isinstance(category, str) else None
+
+        suggestions.append(
+            FontSuggestion(
+                family=family.strip(),
+                category=normalized_category,
+                popularity=index + 1,
+            )
+        )
+
+    return suggestions
+
+
+async def _load_font_catalog_from_developer_api() -> list[FontSuggestion]:
+    api_key = settings.google_fonts_api_key.strip()
+    if not api_key:
+        return []
+
+    params = {
+        "key": api_key,
+        "sort": "popularity",
+    }
+    headers = {"User-Agent": settings.nominatim_user_agent}
+    async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
+        response = await client.get(
+            settings.google_fonts_api_url,
+            params=params,
+            headers=headers,
+        )
+        response.raise_for_status()
+
+    if not isinstance(response.json(), dict):
+        return []
+
+    return _parse_developer_api_payload(response.json())
+
+
+async def _load_font_catalog_from_metadata() -> list[FontSuggestion]:
+    headers = {"User-Agent": settings.nominatim_user_agent}
+    async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
+        response = await client.get(settings.google_fonts_metadata_url, headers=headers)
+        response.raise_for_status()
+
+    return _parse_metadata_payload(response.text)
+
+
 async def _load_font_catalog() -> list[FontSuggestion]:
     global _FONT_CACHE, _FONT_CACHE_EXPIRES_AT
 
@@ -81,18 +142,21 @@ async def _load_font_catalog() -> list[FontSuggestion]:
     if _FONT_CACHE and now < _FONT_CACHE_EXPIRES_AT:
         return _FONT_CACHE
 
-    headers = {"User-Agent": settings.nominatim_user_agent}
-    async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
-        response = await client.get(settings.google_fonts_metadata_url, headers=headers)
-        response.raise_for_status()
+    loaders = (
+        _load_font_catalog_from_developer_api,
+        _load_font_catalog_from_metadata,
+    )
+    for loader in loaders:
+        try:
+            parsed = await loader()
+            if parsed:
+                _FONT_CACHE = parsed
+                _FONT_CACHE_EXPIRES_AT = now + settings.google_fonts_cache_ttl_seconds
+                return _FONT_CACHE
+        except Exception:  # noqa: BLE001
+            continue
 
-    parsed = _parse_metadata_payload(response.text)
-    if not parsed:
-        return _FALLBACK_FONTS
-
-    _FONT_CACHE = parsed
-    _FONT_CACHE_EXPIRES_AT = now + settings.google_fonts_cache_ttl_seconds
-    return _FONT_CACHE
+    return _FALLBACK_FONTS
 
 
 def _match_fonts(

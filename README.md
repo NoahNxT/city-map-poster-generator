@@ -161,6 +161,13 @@ Generator source:
 
 Configure values in `.env`.
 
+## Google Fonts Search
+
+- Font search endpoint: `GET /v1/fonts`
+- Primary source: Google Fonts Developer API (`GOOGLE_FONTS_API_KEY`)
+- Fallback source: `https://fonts.google.com/metadata/fonts`
+- If both sources fail, API serves a small fallback font list so the picker remains usable.
+
 ## Notes
 
 - Current geocoder is public Nominatim (as requested). For higher production load, use a paid provider or self-hosted geocoder.

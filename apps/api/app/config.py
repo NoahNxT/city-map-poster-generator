@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     request_timeout_seconds: int = 60
     nominatim_search_url: str = "https://nominatim.openstreetmap.org/search"
     nominatim_user_agent: str = "city-map-poster-generator/1.0"
+    google_fonts_api_url: str = "https://www.googleapis.com/webfonts/v1/webfonts"
+    google_fonts_api_key: str = ""
     google_fonts_metadata_url: str = "https://fonts.google.com/metadata/fonts"
     google_fonts_cache_ttl_seconds: int = 60 * 60 * 24
     rate_limit_fonts_count: int = 120
