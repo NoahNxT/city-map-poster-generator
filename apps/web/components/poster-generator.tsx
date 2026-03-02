@@ -19,6 +19,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
@@ -31,6 +32,13 @@ import {
   fetchLocations,
   fetchThemes,
 } from "@/lib/api";
+import {
+  LOCALE_COOKIE_NAME,
+  type Locale,
+  localeLabels,
+  locales,
+} from "@/lib/i18n/config";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 import type { LocationSuggestion, PosterRequest, Theme } from "@/lib/types";
 import {
   Accordion,
@@ -79,20 +87,6 @@ import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 
 type AdvancedHelpFieldKey = "fontFamily";
-
-const advancedFieldHelp: Record<
-  AdvancedHelpFieldKey,
-  {
-    title: string;
-    description: string;
-  }
-> = {
-  fontFamily: {
-    title: "Typography family",
-    description:
-      "Downloads and applies a Google Font family to city, country, and coordinate labels in the final render.",
-  },
-};
 
 const schema = z
   .object({
@@ -301,6 +295,7 @@ function getPreviewLabelLayout(
 function formatPreviewCoords(
   latitude: string | undefined,
   longitude: string | undefined,
+  unavailableText: string,
 ): string {
   const lat = Number.parseFloat(latitude?.trim() ?? "");
   const lon = Number.parseFloat(longitude?.trim() ?? "");
@@ -311,7 +306,7 @@ function formatPreviewCoords(
     !Number.isFinite(lat) ||
     !Number.isFinite(lon)
   ) {
-    return "Select a location to show coordinates";
+    return unavailableText;
   }
 
   const latHemisphere = lat >= 0 ? "N" : "S";
@@ -322,10 +317,14 @@ function formatPreviewCoords(
 function ThemePreviewImage({
   themeId,
   themeName,
+  loadingLabel,
+  unavailableLabel,
   priority = false,
 }: {
   themeId: string;
   themeName: string;
+  loadingLabel: string;
+  unavailableLabel: string;
   priority?: boolean;
 }) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(
@@ -337,7 +336,7 @@ function ThemePreviewImage({
       {status !== "loaded" ? (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-card/80">
           <LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
-          <p className="text-[11px] text-muted-foreground">Loading preview</p>
+          <p className="text-[11px] text-muted-foreground">{loadingLabel}</p>
         </div>
       ) : null}
       <Image
@@ -357,7 +356,7 @@ function ThemePreviewImage({
       />
       {status === "error" ? (
         <div className="absolute inset-x-3 bottom-3 z-20 rounded-sm bg-background/85 px-2 py-1 text-center text-[11px] text-muted-foreground">
-          Preview unavailable
+          {unavailableLabel}
         </div>
       ) : null}
     </div>
@@ -528,7 +527,13 @@ function toPayload(values: FormValues): PosterRequest {
   };
 }
 
-export function PosterGenerator() {
+export function PosterGenerator({
+  locale,
+  dictionary,
+}: {
+  locale: Locale;
+  dictionary: Dictionary;
+}) {
   const showDevRateLimitToggle = process.env.NODE_ENV !== "production";
   const locationInputId = "location-search";
   const locationHintId = "location-search-help";
@@ -567,6 +572,8 @@ export function PosterGenerator() {
   );
   const [activeLocationIndex, setActiveLocationIndex] = useState<number>(-1);
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
+  const pathname = usePathname();
+  const router = useRouter();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -582,6 +589,7 @@ export function PosterGenerator() {
     }),
     [watchedValues],
   );
+  const d = dictionary;
 
   const themesQuery = useQuery({
     queryKey: ["themes"],
@@ -765,6 +773,27 @@ export function PosterGenerator() {
     setFontComboboxOpen(false);
   }
 
+  function handleLocaleChange(nextLocale: string): void {
+    if (!locales.includes(nextLocale as Locale) || nextLocale === locale) {
+      return;
+    }
+
+    const pathSegments = pathname.split("/").filter(Boolean);
+    const nextPathSegments = [...pathSegments];
+    if (nextPathSegments.length === 0) {
+      nextPathSegments.push(nextLocale);
+    } else if (locales.includes(nextPathSegments[0] as Locale)) {
+      nextPathSegments[0] = nextLocale;
+    } else {
+      nextPathSegments.unshift(nextLocale);
+    }
+
+    const maxAge = 60 * 60 * 24 * 365;
+    // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not consistently available across all target browsers.
+    document.cookie = `${LOCALE_COOKIE_NAME}=${encodeURIComponent(nextLocale)}; path=/; max-age=${maxAge}; samesite=lax`;
+    router.push(`/${nextPathSegments.join("/")}`);
+  }
+
   function getHintTriggerHandlers(field: AdvancedHelpFieldKey): {
     onMouseEnter: () => void;
     onMouseLeave: () => void;
@@ -813,7 +842,11 @@ export function PosterGenerator() {
   const previewDisplayCountry = (values.country || "").toUpperCase();
   const previewTypographyFontFamily = buildPreviewFontStack(values.fontFamily);
   const selectedFontFamily = values.fontFamily?.trim() ?? "";
-  const previewCoords = formatPreviewCoords(values.latitude, values.longitude);
+  const previewCoords = formatPreviewCoords(
+    values.latitude,
+    values.longitude,
+    d.controls.coordsUnavailable,
+  );
   const previewUrl = `/theme-previews/${values.theme}.svg`;
   const previewThemeBackground =
     normalizeHexColor(activeTheme?.colors.bg) ?? "#f5efe6";
@@ -926,11 +959,14 @@ export function PosterGenerator() {
   }
 
   const locationStatusMessage = locationSuggestionsQuery.isLoading
-    ? "Searching location suggestions."
+    ? d.controls.searchingLocations
     : locationAutocompleteOpen && debouncedLocationQuery.length >= 3
       ? locationSuggestions.length
-        ? `${locationSuggestions.length} location suggestions available.`
-        : "No location suggestions found."
+        ? d.controls.locationSuggestionsCountLabel.replace(
+            "{count}",
+            String(locationSuggestions.length),
+          )
+        : d.controls.noLocationResults
       : "";
 
   return (
@@ -941,15 +977,36 @@ export function PosterGenerator() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
       >
-        <Badge className="mb-3 bg-amber-700/90 text-amber-50">
-          Public Poster Generator
-        </Badge>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <Badge className="bg-amber-700/90 text-amber-50">
+            {d.header.badge}
+          </Badge>
+          <div className="flex min-w-[180px] items-center gap-2">
+            <Label
+              htmlFor="language-select"
+              className="text-xs text-muted-foreground"
+            >
+              {d.languageLabel}
+            </Label>
+            <Select value={locale} onValueChange={handleLocaleChange}>
+              <SelectTrigger id="language-select" className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {locales.map((entry) => (
+                  <SelectItem key={entry} value={entry}>
+                    {localeLabels[entry]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <h1 className="font-heading text-4xl tracking-tight text-foreground sm:text-5xl">
-          Generate city map posters instantly
+          {d.header.title}
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
-          Create high-resolution posters with all built-in maptoposter themes,
-          multilingual labels, and export options without signing in.
+          {d.header.subtitle}
         </p>
       </motion.header>
 
@@ -963,12 +1020,9 @@ export function PosterGenerator() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <MapIcon className="h-5 w-5 text-amber-700" />
-                Map Controls
+                {d.controls.title}
               </CardTitle>
-              <CardDescription>
-                All maptoposter options are available here, including advanced
-                fields.
-              </CardDescription>
+              <CardDescription>{d.controls.description}</CardDescription>
             </CardHeader>
             <CardContent>
               <form
@@ -976,12 +1030,12 @@ export function PosterGenerator() {
                 onSubmit={form.handleSubmit(handleGenerate)}
               >
                 <div className="space-y-2">
-                  <Label htmlFor={locationInputId}>Location</Label>
+                  <Label htmlFor={locationInputId}>{d.controls.location}</Label>
                   <div className="relative">
                     <Input
                       id={locationInputId}
                       value={locationQuery}
-                      placeholder="Search city, district, landmark..."
+                      placeholder={d.controls.locationPlaceholder}
                       role="combobox"
                       aria-autocomplete="list"
                       aria-expanded={
@@ -1021,12 +1075,12 @@ export function PosterGenerator() {
                       <div
                         id={locationListboxId}
                         role="listbox"
-                        aria-label="Location suggestions"
+                        aria-label={d.controls.location}
                         className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg"
                       >
                         {locationSuggestionsQuery.isLoading ? (
                           <p className="px-3 py-2 text-xs text-muted-foreground">
-                            Searching locations...
+                            {d.controls.searchingLocations}
                           </p>
                         ) : locationSuggestions.length ? (
                           locationSuggestions.map((suggestion, index) => (
@@ -1058,7 +1112,7 @@ export function PosterGenerator() {
                           ))
                         ) : (
                           <p className="px-3 py-2 text-xs text-muted-foreground">
-                            No results found for this query.
+                            {d.controls.noLocationResults}
                           </p>
                         )}
                       </div>
@@ -1068,8 +1122,7 @@ export function PosterGenerator() {
                     id={locationHintId}
                     className="text-xs text-muted-foreground"
                   >
-                    Select a suggestion to auto-fill city/country and precise
-                    coordinates.
+                    {d.controls.locationHelp}
                   </p>
                   <p
                     id={locationStatusId}
@@ -1082,10 +1135,10 @@ export function PosterGenerator() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
+                    <Label htmlFor="city">{d.controls.city}</Label>
                     <Input
                       id="city"
-                      placeholder="Paris"
+                      placeholder={d.controls.cityPlaceholder}
                       aria-invalid={Boolean(form.formState.errors.city)}
                       aria-describedby={
                         form.formState.errors.city ? "city-error" : undefined
@@ -1094,15 +1147,15 @@ export function PosterGenerator() {
                     />
                     {form.formState.errors.city ? (
                       <p id="city-error" className="text-xs text-destructive">
-                        {form.formState.errors.city.message}
+                        {d.controls.cityRequired}
                       </p>
                     ) : null}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="country">Country</Label>
+                    <Label htmlFor="country">{d.controls.country}</Label>
                     <Input
                       id="country"
-                      placeholder="France"
+                      placeholder={d.controls.countryPlaceholder}
                       aria-invalid={Boolean(form.formState.errors.country)}
                       aria-describedby={
                         form.formState.errors.country
@@ -1116,7 +1169,7 @@ export function PosterGenerator() {
                         id="country-error"
                         className="text-xs text-destructive"
                       >
-                        {form.formState.errors.country.message}
+                        {d.controls.countryRequired}
                       </p>
                     ) : null}
                   </div>
@@ -1145,7 +1198,9 @@ export function PosterGenerator() {
                     ))}
                   </div>
                   <div className="space-y-2">
-                    <Label>Distance: {values.distance.toLocaleString()}m</Label>
+                    <Label>
+                      {d.controls.distance}: {values.distance.toLocaleString()}m
+                    </Label>
                     <Slider
                       min={1000}
                       max={50000}
@@ -1163,7 +1218,7 @@ export function PosterGenerator() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <div className="flex min-h-8 items-center justify-between gap-3">
-                      <Label>Theme</Label>
+                      <Label>{d.controls.theme}</Label>
                       <Dialog
                         open={themeDialogOpen}
                         onOpenChange={setThemeDialogOpen}
@@ -1176,18 +1231,17 @@ export function PosterGenerator() {
                             className="h-8 px-2 text-xs"
                           >
                             <Eye className="h-3.5 w-3.5" />
-                            Browse themes
+                            {d.controls.browseThemes}
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
                               <Palette className="h-4 w-4 text-amber-700" />
-                              Theme Explorer
+                              {d.themeExplorer.title}
                             </DialogTitle>
                             <DialogDescription>
-                              Compare all built-in styles and pick the look that
-                              fits your poster outcome.
+                              {d.themeExplorer.description}
                             </DialogDescription>
                           </DialogHeader>
                           <div className="max-h-[68vh] overflow-y-auto px-5 pb-5">
@@ -1209,6 +1263,12 @@ export function PosterGenerator() {
                                     <ThemePreviewImage
                                       themeId={theme.id}
                                       themeName={theme.name}
+                                      loadingLabel={
+                                        d.themeExplorer.loadingPreview
+                                      }
+                                      unavailableLabel={
+                                        d.themeExplorer.previewUnavailable
+                                      }
                                       priority={index < 6}
                                     />
                                     <div className="space-y-2 px-3 py-3">
@@ -1218,7 +1278,7 @@ export function PosterGenerator() {
                                         </p>
                                         {selected ? (
                                           <Badge className="bg-amber-700/90 text-amber-50">
-                                            Selected
+                                            {d.themeExplorer.selected}
                                           </Badge>
                                         ) : null}
                                       </div>
@@ -1255,7 +1315,7 @@ export function PosterGenerator() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a theme" />
+                        <SelectValue placeholder={d.controls.theme} />
                       </SelectTrigger>
                       <SelectContent>
                         {themesQuery.data?.map((theme) => (
@@ -1268,7 +1328,7 @@ export function PosterGenerator() {
                   </div>
                   <div className="space-y-2">
                     <div className="flex min-h-8 items-center">
-                      <Label>Format</Label>
+                      <Label>{d.controls.format}</Label>
                     </div>
                     <Select
                       value={values.format}
@@ -1293,10 +1353,10 @@ export function PosterGenerator() {
                 <div className="flex items-center justify-between rounded-lg border border-dashed px-3 py-3">
                   <div>
                     <Label htmlFor="allThemes" className="block">
-                      Generate all themes
+                      {d.controls.generateAllThemesTitle}
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      Creates all 17 themes and bundles ZIP download.
+                      {d.controls.generateAllThemesDescription}
                     </p>
                   </div>
                   <Switch
@@ -1317,12 +1377,16 @@ export function PosterGenerator() {
                   className="w-full"
                 >
                   <AccordionItem value="advanced">
-                    <AccordionTrigger>Advanced Options</AccordionTrigger>
+                    <AccordionTrigger>
+                      {d.controls.advancedOptions}
+                    </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4">
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="space-y-2">
-                            <Label htmlFor="latitude">Latitude</Label>
+                            <Label htmlFor="latitude">
+                              {d.controls.latitude}
+                            </Label>
                             <Input
                               id="latitude"
                               placeholder="48.8566"
@@ -1330,7 +1394,9 @@ export function PosterGenerator() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="longitude">Longitude</Label>
+                            <Label htmlFor="longitude">
+                              {d.controls.longitude}
+                            </Label>
                             <Input
                               id="longitude"
                               placeholder="2.3522"
@@ -1341,9 +1407,7 @@ export function PosterGenerator() {
 
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="space-y-2">
-                            <Label htmlFor="width">
-                              Width (inches, max 20)
-                            </Label>
+                            <Label htmlFor="width">{d.controls.width}</Label>
                             <Input
                               id="width"
                               type="number"
@@ -1361,9 +1425,7 @@ export function PosterGenerator() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="height">
-                              Height (inches, max 20)
-                            </Label>
+                            <Label htmlFor="height">{d.controls.height}</Label>
                             <Input
                               id="height"
                               type="number"
@@ -1384,20 +1446,19 @@ export function PosterGenerator() {
 
                         <div className="rounded-lg border border-dashed px-3 py-3">
                           <p className="text-sm font-medium text-foreground">
-                            Map Layers (Export)
+                            {d.controls.mapLayersTitle}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Applies to final generation only. Preview remains on
-                            fast server defaults.
+                            {d.controls.mapLayersDescription}
                           </p>
                           <div className="mt-3 grid gap-3 sm:grid-cols-2">
                             <div className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2">
                               <div>
                                 <p className="text-sm font-medium text-foreground">
-                                  Include water
+                                  {d.controls.includeWater}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Rivers, lakes, canals.
+                                  {d.controls.includeWaterDescription}
                                 </p>
                               </div>
                               <Switch
@@ -1412,10 +1473,10 @@ export function PosterGenerator() {
                             <div className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2">
                               <div>
                                 <p className="text-sm font-medium text-foreground">
-                                  Include parks/greens
+                                  {d.controls.includeParks}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Parks and grass areas.
+                                  {d.controls.includeParksDescription}
                                 </p>
                               </div>
                               <Switch
@@ -1432,16 +1493,15 @@ export function PosterGenerator() {
 
                         <div className="rounded-lg border border-dashed px-3 py-3">
                           <p className="text-sm font-medium text-foreground">
-                            Typography Overrides
+                            {d.controls.typographyTitle}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Optional custom city/country sizes and text color
-                            for preview and exports.
+                            {d.controls.typographyDescription}
                           </p>
                           <div className="mt-3 grid gap-3 sm:grid-cols-2">
                             <div className="space-y-2">
                               <Label htmlFor="cityFontSize">
-                                City font size (pt)
+                                {d.controls.cityFontSize}
                               </Label>
                               <Input
                                 id="cityFontSize"
@@ -1449,7 +1509,7 @@ export function PosterGenerator() {
                                 min={8}
                                 max={120}
                                 step={1}
-                                placeholder="Auto (theme default)"
+                                placeholder={d.controls.autoThemeDefault}
                                 value={
                                   typeof values.cityFontSize === "number"
                                     ? values.cityFontSize
@@ -1467,7 +1527,7 @@ export function PosterGenerator() {
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="countryFontSize">
-                                Country font size (pt)
+                                {d.controls.countryFontSize}
                               </Label>
                               <Input
                                 id="countryFontSize"
@@ -1475,7 +1535,7 @@ export function PosterGenerator() {
                                 min={6}
                                 max={80}
                                 step={1}
-                                placeholder="Auto (theme default)"
+                                placeholder={d.controls.autoThemeDefault}
                                 value={
                                   typeof values.countryFontSize === "number"
                                     ? values.countryFontSize
@@ -1495,7 +1555,7 @@ export function PosterGenerator() {
                           <div className="mt-3 space-y-2">
                             <div className="flex items-center justify-between text-sm">
                               <Label htmlFor="labelPaddingScale">
-                                Label padding scale
+                                {d.controls.labelPaddingScale}
                               </Label>
                               <span className="text-xs text-muted-foreground">
                                 {values.labelPaddingScale.toFixed(2)}x
@@ -1516,19 +1576,17 @@ export function PosterGenerator() {
                               }
                             />
                             <p className="text-xs text-muted-foreground">
-                              Increases spacing between city, divider, country,
-                              and coordinates when typography is larger.
+                              {d.controls.labelPaddingHelp}
                             </p>
                           </div>
                           <div className="mt-3 rounded-md border border-border bg-card px-3 py-3">
                             <div className="flex items-center justify-between gap-3">
                               <div>
                                 <p className="text-sm font-medium text-foreground">
-                                  Text backdrop blur
+                                  {d.controls.blurTitle}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Adds a soft blurred panel behind the text
-                                  block.
+                                  {d.controls.blurDescription}
                                 </p>
                               </div>
                               <Switch
@@ -1544,7 +1602,7 @@ export function PosterGenerator() {
                               <div className="mt-3 space-y-3">
                                 <div className="space-y-2">
                                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>Blur size</span>
+                                    <span>{d.controls.blurSize}</span>
                                     <span>
                                       {values.textBlurSize.toFixed(2)}x
                                     </span>
@@ -1565,7 +1623,7 @@ export function PosterGenerator() {
                                 </div>
                                 <div className="space-y-2">
                                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>Blur strength</span>
+                                    <span>{d.controls.blurStrength}</span>
                                     <span>
                                       {values.textBlurStrength.toFixed(1)}px
                                     </span>
@@ -1589,13 +1647,13 @@ export function PosterGenerator() {
                           </div>
                           <div className="mt-3 space-y-2">
                             <Label htmlFor="textColor">
-                              Text color override
+                              {d.controls.textColor}
                             </Label>
                             <div className="flex items-center gap-2">
                               <Input
                                 id="textColor"
                                 className="flex-1"
-                                placeholder="Auto (theme text color)"
+                                placeholder={d.controls.autoThemeTextColor}
                                 value={values.textColor ?? ""}
                                 onChange={(event) => {
                                   const nextRaw =
@@ -1610,7 +1668,7 @@ export function PosterGenerator() {
                               <Input
                                 type="color"
                                 className="h-11 w-14 p-1"
-                                aria-label="Pick custom text color"
+                                aria-label={d.controls.pickCustomTextColor}
                                 value={
                                   normalizeHexColor(values.textColor) ??
                                   normalizeHexColor(themeTextColor) ??
@@ -1633,13 +1691,11 @@ export function PosterGenerator() {
                                   })
                                 }
                               >
-                                Reset
+                                {d.controls.reset}
                               </Button>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              Supports hex colors like <code>#8C4A18</code> or{" "}
-                              <code>#abc</code>. Leave empty to use theme text
-                              color.
+                              {d.controls.textColorHelp}
                             </p>
                           </div>
                         </div>
@@ -1647,13 +1703,15 @@ export function PosterGenerator() {
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <Label htmlFor="fontFamily">
-                              Google Font Family
+                              {d.controls.googleFontFamily}
                             </Label>
                             <Popover open={activePreviewHint === "fontFamily"}>
                               <PopoverTrigger asChild>
                                 <button
                                   type="button"
-                                  aria-label="Explain Google Font Family"
+                                  aria-label={
+                                    d.controls.explainGoogleFontFamily
+                                  }
                                   className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                   {...getHintTriggerHandlers("fontFamily")}
                                 >
@@ -1666,10 +1724,10 @@ export function PosterGenerator() {
                                 side="top"
                               >
                                 <p className="text-xs font-semibold text-foreground">
-                                  {advancedFieldHelp.fontFamily.title}
+                                  {d.controls.googleFontHelpTitle}
                                 </p>
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                  {advancedFieldHelp.fontFamily.description}
+                                  {d.controls.googleFontHelpDescription}
                                 </p>
                               </PopoverContent>
                             </Popover>
@@ -1701,7 +1759,7 @@ export function PosterGenerator() {
                                   }
                                 >
                                   {selectedFontFamily ||
-                                    "Select Google Font..."}
+                                    d.controls.selectGoogleFont}
                                 </span>
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
@@ -1713,18 +1771,20 @@ export function PosterGenerator() {
                               <Command shouldFilter={false}>
                                 <CommandInput
                                   value={fontSearchQuery}
-                                  placeholder="Search Google Fonts..."
-                                  aria-label="Search Google Font family"
+                                  placeholder={d.controls.searchGoogleFonts}
+                                  aria-label={d.controls.searchGoogleFontsAria}
                                   onValueChange={setFontSearchQuery}
                                 />
                                 <CommandList>
                                   {fontSuggestionsQuery.isLoading ? (
                                     <p className="px-3 py-3 text-xs text-muted-foreground">
-                                      Searching fonts...
+                                      {d.controls.searchingFonts}
                                     </p>
                                   ) : (
                                     <>
-                                      <CommandGroup heading="Selection">
+                                      <CommandGroup
+                                        heading={d.controls.selection}
+                                      >
                                         <CommandItem
                                           className={fontCommandItemClassName}
                                           value="theme-default-font"
@@ -1737,17 +1797,18 @@ export function PosterGenerator() {
                                                 : "opacity-100"
                                             }`}
                                           />
-                                          Theme default font
+                                          {d.controls.themeDefaultFont}
                                         </CommandItem>
                                       </CommandGroup>
                                       <CommandSeparator />
                                       {fontSuggestionsQuery.isError ? (
                                         <>
                                           <p className="px-3 py-2 text-xs text-red-700">
-                                            Font search unavailable. Showing
-                                            fallback suggestions.
+                                            {d.controls.fontSearchUnavailable}
                                           </p>
-                                          <CommandGroup heading="Fallback Fonts">
+                                          <CommandGroup
+                                            heading={d.controls.fallbackFonts}
+                                          >
                                             {fallbackFontSuggestions.length ? (
                                               fallbackFontSuggestions.map(
                                                 (font) => {
@@ -1788,14 +1849,15 @@ export function PosterGenerator() {
                                               )
                                             ) : (
                                               <CommandEmpty>
-                                                No fallback fonts match this
-                                                query.
+                                                {d.controls.noFallbackFonts}
                                               </CommandEmpty>
                                             )}
                                           </CommandGroup>
                                         </>
                                       ) : fontSuggestionsQuery.data?.length ? (
-                                        <CommandGroup heading="Google Fonts">
+                                        <CommandGroup
+                                          heading={d.controls.googleFonts}
+                                        >
                                           {fontSuggestionsQuery.data.map(
                                             (font) => {
                                               const isSelected =
@@ -1827,7 +1889,7 @@ export function PosterGenerator() {
                                                     </p>
                                                     <p className="truncate text-xs text-muted-foreground">
                                                       {font.category ??
-                                                        "Google Font"}
+                                                        d.controls.googleFonts}
                                                     </p>
                                                   </div>
                                                 </CommandItem>
@@ -1837,7 +1899,7 @@ export function PosterGenerator() {
                                         </CommandGroup>
                                       ) : (
                                         <CommandEmpty>
-                                          No matching fonts found.
+                                          {d.controls.noFontsFound}
                                         </CommandEmpty>
                                       )}
                                     </>
@@ -1850,7 +1912,7 @@ export function PosterGenerator() {
                             id={fontDescriptionId}
                             className="text-xs text-muted-foreground"
                           >
-                            Search and select from Google Fonts results only.
+                            {d.controls.searchGoogleFontsHelp}
                           </p>
                         </div>
                       </div>
@@ -1867,8 +1929,7 @@ export function PosterGenerator() {
                   />
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    CAPTCHA site key is not configured. Set{" "}
-                    <code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</code>.
+                    {d.controls.captchaMissing}
                   </p>
                 )}
 
@@ -1883,12 +1944,12 @@ export function PosterGenerator() {
                     {createJobMutation.isPending ? (
                       <>
                         <LoaderCircle className="h-4 w-4 animate-spin" />
-                        Queueing job...
+                        {d.controls.queueingButton}
                       </>
                     ) : (
                       <>
                         <WandSparkles className="h-4 w-4" />
-                        Generate Poster
+                        {d.controls.generatedButton}
                       </>
                     )}
                   </Button>
@@ -1916,12 +1977,9 @@ export function PosterGenerator() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Sparkles className="h-4 w-4 text-amber-700" />
-                Live Preview
+                {d.preview.title}
               </CardTitle>
-              <CardDescription>
-                Preview is an approximation and may vary slightly from the final
-                exported poster.
-              </CardDescription>
+              <CardDescription>{d.preview.description}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {showDevRateLimitToggle ? (
@@ -1929,16 +1987,16 @@ export function PosterGenerator() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        Disable all API rate limits
+                        {d.preview.disableRateLimitTitle}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Development only. Disables all API throttling.
+                        {d.preview.disableRateLimitDescription}
                       </p>
                     </div>
                     <Switch
                       checked={disableRateLimit}
                       onCheckedChange={setDisableRateLimit}
-                      aria-label="Disable all API rate limits in development"
+                      aria-label={d.preview.disableRateLimitTitle}
                     />
                   </div>
                 </div>
@@ -1947,23 +2005,28 @@ export function PosterGenerator() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-foreground">
-                      Zoom box
+                      {d.preview.zoomTitle}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Inspect smaller text in the preview.
+                      {d.preview.zoomDescription}
                     </p>
                   </div>
                   <Switch
                     checked={previewZoomEnabled}
                     onCheckedChange={setPreviewZoomEnabled}
-                    aria-label="Toggle live preview zoom box"
+                    aria-label={d.preview.zoomTitle}
                   />
                 </div>
                 {previewZoomEnabled ? (
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Zoom level</span>
-                      <span>{previewZoomLevel.toFixed(1)}x</span>
+                      <span>{d.preview.zoomLevel}</span>
+                      <span>
+                        {d.preview.zoomLevelValue.replace(
+                          "{value}",
+                          previewZoomLevel.toFixed(1),
+                        )}
+                      </span>
                     </div>
                     <Slider
                       min={1.5}
@@ -2001,7 +2064,7 @@ export function PosterGenerator() {
               >
                 <Image
                   src={previewUrl}
-                  alt="Poster preview"
+                  alt={d.preview.posterAlt}
                   fill
                   className="h-full w-full object-cover"
                   unoptimized
@@ -2024,7 +2087,7 @@ export function PosterGenerator() {
                 ) : null}
                 <PreviewTypographyOverlay
                   className="pointer-events-none absolute inset-0 z-20 h-full w-full"
-                  title="Poster text preview overlay"
+                  title={d.preview.textOverlayTitle}
                   previewTextColor={previewTextColor}
                   previewDisplayCity={previewDisplayCity}
                   previewDisplayCountry={previewDisplayCountry}
@@ -2046,7 +2109,10 @@ export function PosterGenerator() {
                     />
                     <div className="pointer-events-none absolute right-2 top-2 z-30 w-32 overflow-hidden rounded-md border border-border bg-card/95 shadow-lg sm:w-36">
                       <div className="absolute left-2 top-2 z-20 rounded bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-                        Zoom {previewZoomLevel.toFixed(1)}x
+                        {d.preview.zoomValue.replace(
+                          "{value}",
+                          previewZoomLevel.toFixed(1),
+                        )}
                       </div>
                       <div className="relative aspect-[439.2/583.2]">
                         <svg
@@ -2055,7 +2121,7 @@ export function PosterGenerator() {
                           preserveAspectRatio="none"
                           aria-hidden="true"
                         >
-                          <title>Magnified poster preview</title>
+                          <title>{d.preview.magnifiedTitle}</title>
                           <image
                             href={previewUrl}
                             x={0}
@@ -2068,7 +2134,7 @@ export function PosterGenerator() {
                         <PreviewTypographyOverlay
                           className="absolute inset-0 z-20 h-full w-full"
                           viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
-                          title="Magnified poster typography overlay"
+                          title={d.preview.magnifiedOverlayTitle}
                           previewTextColor={previewTextColor}
                           previewDisplayCity={previewDisplayCity}
                           previewDisplayCountry={previewDisplayCountry}
@@ -2093,25 +2159,25 @@ export function PosterGenerator() {
               >
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-foreground">
-                    Generation Status
+                    {d.status.title}
                   </p>
                   {jobId ? (
                     <Badge variant={statusTone}>
-                      {jobQuery.data?.status ?? "queued"}
+                      {jobQuery.data?.status ?? d.status.queuedBadge}
                     </Badge>
                   ) : (
-                    <Badge variant="secondary">idle</Badge>
+                    <Badge variant="secondary">{d.status.idleBadge}</Badge>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Queued jobs update automatically every two seconds.
+                  {d.status.description}
                 </p>
                 <div className="mt-3 space-y-3">
                   {jobId ? (
                     <>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">
-                          Job: {jobId.slice(0, 8)}
+                          {d.status.jobLabel}: {jobId.slice(0, 8)}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {jobQuery.data?.progress ?? 0}%
@@ -2126,14 +2192,14 @@ export function PosterGenerator() {
                       {jobQuery.data?.status === "failed" ? (
                         <p className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                           <AlertCircle className="h-4 w-4" />
-                          {jobQuery.data.error ?? "Generation failed"}
+                          {jobQuery.data.error ?? d.status.generationFailed}
                         </p>
                       ) : null}
                       {jobQuery.data?.status === "complete" ? (
                         <div className="space-y-2">
                           <p className="flex items-center gap-2 text-xs text-emerald-700">
                             <CheckCircle2 className="h-4 w-4" />
-                            Generation complete
+                            {d.status.generationComplete}
                           </p>
                           <div className="space-y-1 text-xs text-muted-foreground">
                             {jobQuery.data.artifacts.map((artifact) => (
@@ -2148,8 +2214,8 @@ export function PosterGenerator() {
                           >
                             <Download className="h-4 w-4" />
                             {downloadMutation.isPending
-                              ? "Preparing download..."
-                              : "Download"}
+                              ? d.status.preparingDownload
+                              : d.status.download}
                           </Button>
                           {downloadUrl ? (
                             <p className="break-all text-xs text-muted-foreground">
@@ -2161,7 +2227,7 @@ export function PosterGenerator() {
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      No active generation job.
+                      {d.status.idle}
                     </p>
                   )}
                 </div>
@@ -2180,12 +2246,12 @@ export function PosterGenerator() {
           {createJobMutation.isPending ? (
             <>
               <LoaderCircle className="h-4 w-4 animate-spin" />
-              Queueing job...
+              {d.controls.queueingButton}
             </>
           ) : (
             <>
               <WandSparkles className="h-4 w-4" />
-              Generate Poster
+              {d.controls.generatedButton}
             </>
           )}
         </Button>
