@@ -64,6 +64,12 @@ class LocationSuggestion(BaseModel):
     countryCode: str | None = None
 
 
+class FontSuggestion(BaseModel):
+    family: str
+    category: str | None = None
+    popularity: int | None = None
+
+
 class Artifact(BaseModel):
     theme: str
     format: OutputFormat

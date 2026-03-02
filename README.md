@@ -123,6 +123,7 @@ bun run format        # biome format
 - `POST /v1/jobs`
 - `GET /v1/jobs/{jobId}`
 - `GET /v1/jobs/{jobId}/download`
+- `GET /v1/fonts`
 
 ## Feature Coverage (maptoposter parity)
 
@@ -132,6 +133,7 @@ bun run format        # biome format
 - Export formats: `png`, `svg`, `pdf`
 - `allThemes`: generate every theme + ZIP output
 - Preview caching + artifact storage with presigned downloads
+- Searchable Google Fonts picker for `fontFamily` in advanced options
 
 ## Theme Gallery Previews
 

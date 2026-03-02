@@ -1,4 +1,5 @@
 import type {
+  FontSuggestion,
   JobState,
   LocationSuggestion,
   PosterRequest,
@@ -36,6 +37,20 @@ export async function fetchLocations(
     },
   );
   const payload = await parseResponse<{ suggestions: LocationSuggestion[] }>(
+    response,
+  );
+  return payload.suggestions;
+}
+
+export async function fetchFonts(query: string): Promise<FontSuggestion[]> {
+  const params = new URLSearchParams({
+    q: query,
+    limit: "12",
+  });
+  const response = await fetch(`${API_BASE}/v1/fonts?${params.toString()}`, {
+    cache: "no-store",
+  });
+  const payload = await parseResponse<{ suggestions: FontSuggestion[] }>(
     response,
   );
   return payload.suggestions;

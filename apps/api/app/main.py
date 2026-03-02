@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from app.captcha import verify_turnstile
 from app.config import settings
+from app.font_search import search_fonts
 from app.location_search import search_locations
 from app.models import JobStatus, OutputFormat, PosterRequest
 from app.queueing import get_queue
@@ -104,6 +105,21 @@ async def get_locations(request: Request, q: str, limit: int = 8) -> dict:
     )
 
     suggestions = await search_locations(query, limit=limit)
+    return {"suggestions": [suggestion.model_dump() for suggestion in suggestions]}
+
+
+@app.get("/v1/fonts")
+async def get_fonts(request: Request, q: str = "", limit: int = 12) -> dict:
+    redis = get_redis()
+    ip = request.client.host if request.client else "unknown"
+    check_window_limit(
+        redis,
+        key=f"ratelimit:fonts:{ip}",
+        limit=settings.rate_limit_fonts_count,
+        window_seconds=settings.rate_limit_fonts_window_seconds,
+    )
+
+    suggestions = await search_fonts(q, limit=limit)
     return {"suggestions": [suggestion.model_dump() for suggestion in suggestions]}
 
 

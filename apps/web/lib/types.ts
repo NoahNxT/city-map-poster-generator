@@ -36,6 +36,12 @@ export type LocationSuggestion = {
   countryCode?: string | null;
 };
 
+export type FontSuggestion = {
+  family: string;
+  category?: string | null;
+  popularity?: number | null;
+};
+
 export type JobArtifact = {
   theme: string;
   format: OutputFormat;

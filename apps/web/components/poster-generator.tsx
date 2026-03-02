@@ -24,6 +24,7 @@ import { z } from "zod";
 import {
   createJob,
   fetchDownload,
+  fetchFonts,
   fetchJob,
   fetchLocations,
   fetchThemes,
@@ -256,8 +257,12 @@ export function PosterGenerator() {
   );
   const [debouncedLocationQuery, setDebouncedLocationQuery] =
     useState(locationQuery);
+  const [debouncedFontQuery, setDebouncedFontQuery] = useState<string>(
+    defaultValues.fontFamily ?? "",
+  );
   const [locationAutocompleteOpen, setLocationAutocompleteOpen] =
     useState(false);
+  const [fontAutocompleteOpen, setFontAutocompleteOpen] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -283,6 +288,13 @@ export function PosterGenerator() {
     queryFn: () => fetchLocations(debouncedLocationQuery),
     enabled: locationAutocompleteOpen && debouncedLocationQuery.length >= 3,
     staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const fontSuggestionsQuery = useQuery({
+    queryKey: ["fonts", debouncedFontQuery],
+    queryFn: () => fetchFonts(debouncedFontQuery),
+    enabled: fontAutocompleteOpen,
+    staleTime: 60 * 60_000,
     refetchOnWindowFocus: false,
   });
 
@@ -327,6 +339,13 @@ export function PosterGenerator() {
   }, [locationQuery]);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFontQuery(values.fontFamily?.trim() ?? "");
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [values.fontFamily]);
+
+  useEffect(() => {
     const firstTheme = themesQuery.data?.[0];
     if (
       firstTheme &&
@@ -362,6 +381,11 @@ export function PosterGenerator() {
   function handleThemeSelect(theme: Theme) {
     form.setValue("theme", theme.id, { shouldValidate: true });
     setThemeDialogOpen(false);
+  }
+
+  function handleFontSelect(family: string) {
+    form.setValue("fontFamily", family, { shouldValidate: true });
+    setFontAutocompleteOpen(false);
   }
 
   function getHintTriggerHandlers(field: AdvancedHelpFieldKey): {
@@ -998,11 +1022,65 @@ export function PosterGenerator() {
                               </PopoverContent>
                             </Popover>
                           </div>
-                          <Input
-                            id="fontFamily"
-                            placeholder="Noto Sans JP"
-                            {...form.register("fontFamily")}
-                          />
+                          <div className="relative">
+                            <Input
+                              id="fontFamily"
+                              value={values.fontFamily ?? ""}
+                              placeholder="Search Google Fonts..."
+                              onFocus={() => setFontAutocompleteOpen(true)}
+                              onBlur={() =>
+                                setTimeout(
+                                  () => setFontAutocompleteOpen(false),
+                                  120,
+                                )
+                              }
+                              onChange={(event) =>
+                                form.setValue(
+                                  "fontFamily",
+                                  event.currentTarget.value,
+                                  {
+                                    shouldValidate: true,
+                                  },
+                                )
+                              }
+                            />
+                            {fontAutocompleteOpen ? (
+                              <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
+                                {fontSuggestionsQuery.isLoading ? (
+                                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                                    Searching fonts...
+                                  </p>
+                                ) : fontSuggestionsQuery.data?.length ? (
+                                  fontSuggestionsQuery.data.map((font) => (
+                                    <button
+                                      key={font.family}
+                                      type="button"
+                                      className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-accent"
+                                      onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        handleFontSelect(font.family);
+                                      }}
+                                    >
+                                      <p className="truncate font-medium">
+                                        {font.family}
+                                      </p>
+                                      <p className="truncate text-xs text-muted-foreground">
+                                        {font.category ?? "Google Font"}
+                                      </p>
+                                    </button>
+                                  ))
+                                ) : (
+                                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                                    No matching fonts found.
+                                  </p>
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Search and pick from Google Fonts, or type a custom
+                            family name.
+                          </p>
                         </div>
                       </div>
                     </AccordionContent>
