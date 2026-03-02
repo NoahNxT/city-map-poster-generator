@@ -78,8 +78,11 @@ func ValidateGenerateRequest(req *types.GenerateRequest) error {
 	if req.LabelPadding < 0.5 || req.LabelPadding > 3 {
 		return fmt.Errorf("labelPaddingScale must be between 0.5 and 3")
 	}
-	if req.TextBlurSize < 0.6 || req.TextBlurSize > 2.5 {
-		return fmt.Errorf("textBlurSize must be between 0.6 and 2.5")
+	if req.TextBlurSizeX < 0.6 || req.TextBlurSizeX > 2.5 {
+		return fmt.Errorf("textBlurSizeX must be between 0.6 and 2.5")
+	}
+	if req.TextBlurSizeY < 0.6 || req.TextBlurSizeY > 2.5 {
+		return fmt.Errorf("textBlurSizeY must be between 0.6 and 2.5")
 	}
 	if req.TextBlurStrength < 0 || req.TextBlurStrength > 30 {
 		return fmt.Errorf("textBlurStrength must be between 0 and 30")

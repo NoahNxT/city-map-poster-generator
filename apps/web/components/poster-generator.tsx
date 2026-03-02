@@ -113,7 +113,8 @@ const MIN_TEXT_BLUR_STRENGTH = 0;
 const MAX_TEXT_BLUR_STRENGTH = 30;
 const MIN_PERCENT = 1;
 const MAX_PERCENT = 100;
-const DEFAULT_TEXT_BLUR_SIZE_PERCENT = 50;
+const DEFAULT_TEXT_BLUR_SIZE_X_PERCENT = 50;
+const DEFAULT_TEXT_BLUR_SIZE_Y_PERCENT = 50;
 const DEFAULT_TEXT_BLUR_STRENGTH_PERCENT = 100;
 const MAX_LOCAL_PREVIEW_LONG_EDGE_PX = 2048;
 const PREVIEW_FRAME_MAX_WIDTH_PX = 420;
@@ -140,7 +141,8 @@ const schema = z
       .optional(),
     labelPaddingScale: z.number().min(0.5).max(3),
     textBlurEnabled: z.boolean(),
-    textBlurSize: z.number().min(MIN_TEXT_BLUR_SIZE).max(MAX_TEXT_BLUR_SIZE),
+    textBlurSizeX: z.number().min(MIN_TEXT_BLUR_SIZE).max(MAX_TEXT_BLUR_SIZE),
+    textBlurSizeY: z.number().min(MIN_TEXT_BLUR_SIZE).max(MAX_TEXT_BLUR_SIZE),
     textBlurStrength: z
       .number()
       .min(MIN_TEXT_BLUR_STRENGTH)
@@ -435,7 +437,8 @@ const defaultValues: FormValues = {
   textColor: undefined,
   labelPaddingScale: 1.2,
   textBlurEnabled: false,
-  textBlurSize: blurSizeFromPercent(DEFAULT_TEXT_BLUR_SIZE_PERCENT),
+  textBlurSizeX: blurSizeFromPercent(DEFAULT_TEXT_BLUR_SIZE_X_PERCENT),
+  textBlurSizeY: blurSizeFromPercent(DEFAULT_TEXT_BLUR_SIZE_Y_PERCENT),
   textBlurStrength: blurStrengthFromPercent(DEFAULT_TEXT_BLUR_STRENGTH_PERCENT),
   distance: 12000,
   width: centimetersToInches(30),
@@ -459,7 +462,8 @@ function toPayload(values: FormValues): PosterRequest {
     textColor: values.textColor?.trim() || undefined,
     labelPaddingScale: values.labelPaddingScale,
     textBlurEnabled: values.textBlurEnabled,
-    textBlurSize: values.textBlurSize,
+    textBlurSizeX: values.textBlurSizeX,
+    textBlurSizeY: values.textBlurSizeY,
     textBlurStrength: values.textBlurStrength,
     distance: values.distance,
     width: values.width,
@@ -547,8 +551,11 @@ export function PosterGenerator({
   const [labelPaddingSliderValue, setLabelPaddingSliderValue] = useState(
     defaultValues.labelPaddingScale,
   );
-  const [blurSizeSliderValue, setBlurSizeSliderValue] = useState(() =>
-    blurSizeToPercent(defaultValues.textBlurSize),
+  const [blurSizeXSliderValue, setBlurSizeXSliderValue] = useState(() =>
+    blurSizeToPercent(defaultValues.textBlurSizeX),
+  );
+  const [blurSizeYSliderValue, setBlurSizeYSliderValue] = useState(() =>
+    blurSizeToPercent(defaultValues.textBlurSizeY),
   );
   const [blurStrengthSliderValue, setBlurStrengthSliderValue] = useState(() =>
     blurStrengthToPercent(defaultValues.textBlurStrength),
@@ -965,8 +972,12 @@ export function PosterGenerator({
   }, [values.labelPaddingScale]);
 
   useEffect(() => {
-    setBlurSizeSliderValue(blurSizeToPercent(values.textBlurSize));
-  }, [values.textBlurSize]);
+    setBlurSizeXSliderValue(blurSizeToPercent(values.textBlurSizeX));
+  }, [values.textBlurSizeX]);
+
+  useEffect(() => {
+    setBlurSizeYSliderValue(blurSizeToPercent(values.textBlurSizeY));
+  }, [values.textBlurSizeY]);
 
   useEffect(() => {
     setBlurStrengthSliderValue(blurStrengthToPercent(values.textBlurStrength));
@@ -2333,9 +2344,16 @@ export function PosterGenerator({
                                     });
                                     if (checked) {
                                       form.setValue(
-                                        "textBlurSize",
+                                        "textBlurSizeX",
                                         blurSizeFromPercent(
-                                          DEFAULT_TEXT_BLUR_SIZE_PERCENT,
+                                          DEFAULT_TEXT_BLUR_SIZE_X_PERCENT,
+                                        ),
+                                        { shouldValidate: true },
+                                      );
+                                      form.setValue(
+                                        "textBlurSizeY",
+                                        blurSizeFromPercent(
+                                          DEFAULT_TEXT_BLUR_SIZE_Y_PERCENT,
                                         ),
                                         { shouldValidate: true },
                                       );
@@ -2346,8 +2364,11 @@ export function PosterGenerator({
                                         ),
                                         { shouldValidate: true },
                                       );
-                                      setBlurSizeSliderValue(
-                                        DEFAULT_TEXT_BLUR_SIZE_PERCENT,
+                                      setBlurSizeXSliderValue(
+                                        DEFAULT_TEXT_BLUR_SIZE_X_PERCENT,
+                                      );
+                                      setBlurSizeYSliderValue(
+                                        DEFAULT_TEXT_BLUR_SIZE_Y_PERCENT,
                                       );
                                       setBlurStrengthSliderValue(
                                         DEFAULT_TEXT_BLUR_STRENGTH_PERCENT,
@@ -2360,27 +2381,56 @@ export function PosterGenerator({
                                 <div className="mt-3 space-y-3">
                                   <div className="space-y-2">
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                      <span>{d.controls.blurSize}</span>
+                                      <span>{d.controls.blurSizeX}</span>
                                       <span>
-                                        {Math.round(blurSizeSliderValue)}%
+                                        {Math.round(blurSizeXSliderValue)}%
                                       </span>
                                     </div>
                                     <Slider
-                                      aria-label={d.controls.blurSize}
+                                      aria-label={d.controls.blurSizeX}
                                       min={MIN_PERCENT}
                                       max={MAX_PERCENT}
                                       step={1}
-                                      value={[blurSizeSliderValue]}
+                                      value={[blurSizeXSliderValue]}
                                       onValueChange={(nextValue) =>
-                                        setBlurSizeSliderValue(
-                                          nextValue[0] ?? blurSizeSliderValue,
+                                        setBlurSizeXSliderValue(
+                                          nextValue[0] ?? blurSizeXSliderValue,
                                         )
                                       }
                                       onValueCommit={(nextValue) => {
                                         const committedPercent =
-                                          nextValue[0] ?? blurSizeSliderValue;
+                                          nextValue[0] ?? blurSizeXSliderValue;
                                         form.setValue(
-                                          "textBlurSize",
+                                          "textBlurSizeX",
+                                          blurSizeFromPercent(committedPercent),
+                                          { shouldValidate: true },
+                                        );
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                      <span>{d.controls.blurSizeY}</span>
+                                      <span>
+                                        {Math.round(blurSizeYSliderValue)}%
+                                      </span>
+                                    </div>
+                                    <Slider
+                                      aria-label={d.controls.blurSizeY}
+                                      min={MIN_PERCENT}
+                                      max={MAX_PERCENT}
+                                      step={1}
+                                      value={[blurSizeYSliderValue]}
+                                      onValueChange={(nextValue) =>
+                                        setBlurSizeYSliderValue(
+                                          nextValue[0] ?? blurSizeYSliderValue,
+                                        )
+                                      }
+                                      onValueCommit={(nextValue) => {
+                                        const committedPercent =
+                                          nextValue[0] ?? blurSizeYSliderValue;
+                                        form.setValue(
+                                          "textBlurSizeY",
                                           blurSizeFromPercent(committedPercent),
                                           { shouldValidate: true },
                                         );

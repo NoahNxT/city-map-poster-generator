@@ -15,7 +15,8 @@ export type PosterRequest = {
   textColor?: string;
   labelPaddingScale: number;
   textBlurEnabled: boolean;
-  textBlurSize: number;
+  textBlurSizeX: number;
+  textBlurSizeY: number;
   textBlurStrength: number;
   distance: number;
   width: number;

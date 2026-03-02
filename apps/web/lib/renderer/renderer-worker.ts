@@ -66,6 +66,12 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function blurAxisScale(size: number): number {
+  const normalized = clamp((size - 0.6) / (2.5 - 0.6), 0, 1);
+  // 50% maps to 1.0 (text bounds +10%), then scales smaller/larger symmetrically.
+  return clamp(1 + (normalized - 0.5) * 1.2, 0.6, 1.6);
+}
+
 function axisToCanvasY(axisY: number, canvasHeight: number): number {
   return (1 - axisY) * canvasHeight;
 }
@@ -347,7 +353,8 @@ type LabelSpec = {
     layers: number;
     edgeAlpha: number;
     coreAlpha: number;
-    blurSize: number;
+    blurSizeX: number;
+    blurSizeY: number;
   };
 };
 
@@ -428,10 +435,10 @@ function computeLabelSpec(
 
   let blur: LabelSpec["blur"] = null;
   if (payload.textBlurEnabled) {
-    const blurSize = clamp(payload.textBlurSize, 0.6, 2.5);
+    const blurSizeX = clamp(payload.textBlurSizeX, 0.6, 2.5);
+    const blurSizeY = clamp(payload.textBlurSizeY, 0.6, 2.5);
     const blurStrength = clamp(payload.textBlurStrength, 0, 30);
     const blurScale = clamp(blurStrength / 30, 0, 1);
-    const axisYToAxisX = payload.height / Math.max(payload.width, 1e-6);
     const cityRuneCount = Math.max(Array.from(cityRaw).length, 4);
     const sizeScale = clamp(
       citySize / Math.max(baseMain * scaleFactor, 1e-6),
@@ -443,29 +450,26 @@ function computeLabelSpec(
       0.42,
       0.9,
     );
-    const blurPaddingY = gap * 0.9;
-    const blurPaddingX = Math.max(blurPaddingY * axisYToAxisX * 1.65, 0.012);
-    const blurFeatherY = 0.016 * blurSize;
-    const blurFeatherX = Math.max(blurFeatherY * axisYToAxisX * 1.35, 0.006);
-    const panelW = clamp(
-      textWidthEstimate + (blurPaddingX + blurFeatherX) * 2,
-      0.44,
-      0.94,
-    );
-    const blockBottom = coordsY - coordsDesc - blurPaddingY;
-    const blockTop = cityY + cityAscent + blurPaddingY;
-    const panelH = clamp(blockTop - blockBottom + blurFeatherY * 2, 0.09, 0.42);
-    const centerY = (blockTop + blockBottom) / 2;
+    const textBlockBottom = coordsY - coordsDesc;
+    const textBlockTop = cityY + cityAscent;
+    const textBlockHeight = Math.max(textBlockTop - textBlockBottom, 0.02);
+    const scaleX = blurAxisScale(blurSizeX);
+    const scaleY = blurAxisScale(blurSizeY);
+    // 50% means text bounds +10% on that axis.
+    const panelW = clamp(textWidthEstimate * 1.1 * scaleX, 0.42, 0.94);
+    const panelH = clamp(textBlockHeight * 1.1 * scaleY, 0.08, 0.42);
+    const centerY = (textBlockTop + textBlockBottom) / 2;
     blur = {
       panelX: 0.5 - panelW / 2,
       panelY: clamp(centerY - panelH / 2, 0.01, 1 - panelH - 0.01),
       panelW,
       panelH,
-      cornerRadius: 0.026 * blurSize,
+      cornerRadius: 0.018 * ((blurSizeX + blurSizeY) / 2),
       layers: Math.max(6, Math.round(10 + blurScale * 12)),
       edgeAlpha: 0.18 + 0.32 * blurScale,
       coreAlpha: 0.42 + 0.4 * blurScale,
-      blurSize,
+      blurSizeX,
+      blurSizeY,
     };
   }
 
@@ -500,8 +504,11 @@ function drawLabelBlock(
     const fill = hexToRgba(theme.colors?.bg ?? DEFAULT_BG, 1);
     for (let layer = labels.blur.layers; layer > 0; layer -= 1) {
       const t = layer / labels.blur.layers;
-      const spreadY = (1 - t) * (0.06 * labels.blur.blurSize);
-      const spreadX = spreadY * (height / Math.max(width, 1));
+      const spreadY = (1 - t) * (0.024 * labels.blur.blurSizeY);
+      const spreadX =
+        (1 - t) *
+        (0.024 * labels.blur.blurSizeX) *
+        (height / Math.max(width, 1));
       const alpha = (labels.blur.edgeAlpha * (t * t)) / labels.blur.layers;
       const x = (labels.blur.panelX - spreadX) * width;
       const y = axisToCanvasY(

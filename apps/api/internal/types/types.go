@@ -25,49 +25,51 @@ func (f OutputFormat) IsValid() bool {
 }
 
 type GenerateRequest struct {
-	City             string      `json:"city"`
-	Country          string      `json:"country"`
-	Latitude         *string     `json:"latitude,omitempty"`
-	Longitude        *string     `json:"longitude,omitempty"`
-	FontFamily       *string     `json:"fontFamily,omitempty"`
-	Theme            string      `json:"theme"`
-	AllThemes        bool        `json:"allThemes"`
-	IncludeWater     bool        `json:"includeWater"`
-	IncludeParks     bool        `json:"includeParks"`
-	CityFontSize     *float64    `json:"cityFontSize,omitempty"`
-	CountryFontSize  *float64    `json:"countryFontSize,omitempty"`
-	TextColor        *string     `json:"textColor,omitempty"`
-	LabelPadding     float64     `json:"labelPaddingScale"`
-	TextBlurEnabled  bool        `json:"textBlurEnabled"`
-	TextBlurSize     float64     `json:"textBlurSize"`
-	TextBlurStrength float64     `json:"textBlurStrength"`
-	Distance         int         `json:"distance"`
-	Width            float64     `json:"width"`
-	Height           float64     `json:"height"`
+	City             string       `json:"city"`
+	Country          string       `json:"country"`
+	Latitude         *string      `json:"latitude,omitempty"`
+	Longitude        *string      `json:"longitude,omitempty"`
+	FontFamily       *string      `json:"fontFamily,omitempty"`
+	Theme            string       `json:"theme"`
+	AllThemes        bool         `json:"allThemes"`
+	IncludeWater     bool         `json:"includeWater"`
+	IncludeParks     bool         `json:"includeParks"`
+	CityFontSize     *float64     `json:"cityFontSize,omitempty"`
+	CountryFontSize  *float64     `json:"countryFontSize,omitempty"`
+	TextColor        *string      `json:"textColor,omitempty"`
+	LabelPadding     float64      `json:"labelPaddingScale"`
+	TextBlurEnabled  bool         `json:"textBlurEnabled"`
+	TextBlurSizeX    float64      `json:"textBlurSizeX"`
+	TextBlurSizeY    float64      `json:"textBlurSizeY"`
+	TextBlurStrength float64      `json:"textBlurStrength"`
+	Distance         int          `json:"distance"`
+	Width            float64      `json:"width"`
+	Height           float64      `json:"height"`
 	Format           OutputFormat `json:"format"`
 }
 
 func (r GenerateRequest) CanonicalJSON() ([]byte, error) {
 	type canonical struct {
-		City             string      `json:"city"`
-		Country          string      `json:"country"`
-		Latitude         *string     `json:"latitude,omitempty"`
-		Longitude        *string     `json:"longitude,omitempty"`
-		FontFamily       *string     `json:"fontFamily,omitempty"`
-		Theme            string      `json:"theme"`
-		AllThemes        bool        `json:"allThemes"`
-		IncludeWater     bool        `json:"includeWater"`
-		IncludeParks     bool        `json:"includeParks"`
-		CityFontSize     *float64    `json:"cityFontSize,omitempty"`
-		CountryFontSize  *float64    `json:"countryFontSize,omitempty"`
-		TextColor        *string     `json:"textColor,omitempty"`
-		LabelPadding     float64     `json:"labelPaddingScale"`
-		TextBlurEnabled  bool        `json:"textBlurEnabled"`
-		TextBlurSize     float64     `json:"textBlurSize"`
-		TextBlurStrength float64     `json:"textBlurStrength"`
-		Distance         int         `json:"distance"`
-		Width            float64     `json:"width"`
-		Height           float64     `json:"height"`
+		City             string       `json:"city"`
+		Country          string       `json:"country"`
+		Latitude         *string      `json:"latitude,omitempty"`
+		Longitude        *string      `json:"longitude,omitempty"`
+		FontFamily       *string      `json:"fontFamily,omitempty"`
+		Theme            string       `json:"theme"`
+		AllThemes        bool         `json:"allThemes"`
+		IncludeWater     bool         `json:"includeWater"`
+		IncludeParks     bool         `json:"includeParks"`
+		CityFontSize     *float64     `json:"cityFontSize,omitempty"`
+		CountryFontSize  *float64     `json:"countryFontSize,omitempty"`
+		TextColor        *string      `json:"textColor,omitempty"`
+		LabelPadding     float64      `json:"labelPaddingScale"`
+		TextBlurEnabled  bool         `json:"textBlurEnabled"`
+		TextBlurSizeX    float64      `json:"textBlurSizeX"`
+		TextBlurSizeY    float64      `json:"textBlurSizeY"`
+		TextBlurStrength float64      `json:"textBlurStrength"`
+		Distance         int          `json:"distance"`
+		Width            float64      `json:"width"`
+		Height           float64      `json:"height"`
 		Format           OutputFormat `json:"format"`
 	}
 	payload := canonical{
@@ -85,7 +87,8 @@ func (r GenerateRequest) CanonicalJSON() ([]byte, error) {
 		TextColor:        r.TextColor,
 		LabelPadding:     r.LabelPadding,
 		TextBlurEnabled:  r.TextBlurEnabled,
-		TextBlurSize:     r.TextBlurSize,
+		TextBlurSizeX:    r.TextBlurSizeX,
+		TextBlurSizeY:    r.TextBlurSizeY,
 		TextBlurStrength: r.TextBlurStrength,
 		Distance:         r.Distance,
 		Width:            r.Width,
@@ -133,12 +136,12 @@ type Artifact struct {
 type JobStatus string
 
 const (
-	JobQueued     JobStatus = "queued"
+	JobQueued      JobStatus = "queued"
 	JobDownloading JobStatus = "downloading"
-	JobRendering  JobStatus = "rendering"
-	JobPackaging  JobStatus = "packaging"
-	JobComplete   JobStatus = "complete"
-	JobFailed     JobStatus = "failed"
+	JobRendering   JobStatus = "rendering"
+	JobPackaging   JobStatus = "packaging"
+	JobComplete    JobStatus = "complete"
+	JobFailed      JobStatus = "failed"
 )
 
 type JobState struct {

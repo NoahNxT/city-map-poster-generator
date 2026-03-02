@@ -91,7 +91,8 @@ export type Dictionary = {
     labelPaddingHelp: string;
     blurTitle: string;
     blurDescription: string;
-    blurSize: string;
+    blurSizeX: string;
+    blurSizeY: string;
     blurStrength: string;
     textColor: string;
     autoThemeTextColor: string;
@@ -283,7 +284,8 @@ const en: Dictionary = {
       "Increases spacing between city, divider, country, and coordinates when typography is larger.",
     blurTitle: "Text backdrop blur",
     blurDescription: "Adds a soft blurred panel behind the text block.",
-    blurSize: "Blur size",
+    blurSizeX: "Blur size X",
+    blurSizeY: "Blur size Y",
     blurStrength: "Blur strength",
     textColor: "Text color override",
     autoThemeTextColor: "Auto (theme text color)",
@@ -558,7 +560,8 @@ const nl: Dictionary = {
     blurTitle: "Vervaagde tekstachtergrond",
     blurDescription:
       "Voegt een zacht vervaagd paneel achter het tekstblok toe.",
-    blurSize: "Vervaag-grootte",
+    blurSizeX: "Vervaag-grootte X",
+    blurSizeY: "Vervaag-grootte Y",
     blurStrength: "Vervaag-sterkte",
     textColor: "Tekstkleur overschrijven",
     autoThemeTextColor: "Auto (thema-tekstkleur)",
@@ -837,7 +840,8 @@ const fr: Dictionary = {
       "Augmente l'espacement entre la ville, le séparateur, le pays et les coordonnées lorsque la typographie est plus grande.",
     blurTitle: "Flou d'arrière-plan du texte",
     blurDescription: "Ajoute un panneau flou doux derrière le bloc de texte.",
-    blurSize: "Taille du flou",
+    blurSizeX: "Taille du flou X",
+    blurSizeY: "Taille du flou Y",
     blurStrength: "Intensité du flou",
     textColor: "Remplacement de la couleur du texte",
     autoThemeTextColor: "Auto (couleur de texte du thème)",
@@ -1120,7 +1124,8 @@ const de: Dictionary = {
     blurTitle: "Text-Hintergrundunschärfe",
     blurDescription:
       "Fügt hinter dem Textblock eine weiche Unschärfe-Fläche hinzu.",
-    blurSize: "Unschärfegröße",
+    blurSizeX: "Unschärfegröße X",
+    blurSizeY: "Unschärfegröße Y",
     blurStrength: "Unschärfestärke",
     textColor: "Textfarbe überschreiben",
     autoThemeTextColor: "Auto (Theme-Textfarbe)",
@@ -1402,7 +1407,8 @@ const es: Dictionary = {
     blurTitle: "Desenfoque de fondo del texto",
     blurDescription:
       "Añade un panel suavemente desenfocado detrás del bloque de texto.",
-    blurSize: "Tamaño del desenfoque",
+    blurSizeX: "Tamaño del desenfoque X",
+    blurSizeY: "Tamaño del desenfoque Y",
     blurStrength: "Intensidad del desenfoque",
     textColor: "Color de texto personalizado",
     autoThemeTextColor: "Auto (color de texto del tema)",
