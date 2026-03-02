@@ -592,7 +592,8 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 	baseCoords := 14.0
 
 	displayCity := strings.TrimSpace(req.City)
-	if isLikelyLatin(displayCity) {
+	latinDisplay := isLikelyLatin(displayCity)
+	if latinDisplay {
 		displayCity = strings.ToUpper(displayCity)
 		displayCity = strings.Join(strings.Split(displayCity, ""), "  ")
 	}
@@ -610,11 +611,18 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 	coordsSize := baseCoords * scaleFactor
 	attrSize := math.Max(4, 5*scaleFactor)
 
+	paddingScale := math.Pow(clamp(req.LabelPadding, 0.5, 3), 1.25)
 	dynamicGapScale := math.Max(math.Max(mainSize/math.Max(baseMain*scaleFactor, 1e-6), countrySize/math.Max(baseSub*scaleFactor, 1e-6)), 1.0)
-	gap := 0.0036 * req.LabelPadding * dynamicGapScale
+	gap := 0.0072 * paddingScale * dynamicGapScale
 	pointToAxis := 1.0 / (req.Height * 72.0)
 	cityAscent := mainSize * 0.74 * pointToAxis
 	cityDesc := mainSize * 0.26 * pointToAxis
+	cityDescForDivider := cityDesc
+	if latinDisplay {
+		// Uppercase latin labels have minimal visible descenders.
+		// Use a smaller optical offset to balance divider spacing.
+		cityDescForDivider = mainSize * 0.08 * pointToAxis
+	}
 	countryAscent := countrySize * 0.72 * pointToAxis
 	countryDesc := countrySize * 0.28 * pointToAxis
 	coordsAscent := coordsSize * 0.70 * pointToAxis
@@ -623,7 +631,7 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 	coordsY := 0.058
 	countryY := coordsY + coordsAscent + countryDesc + gap
 	dividerY := countryY + countryAscent + gap
-	cityY := dividerY + cityDesc + gap
+	cityY := dividerY + cityDescForDivider + gap
 
 	top := cityY + cityAscent
 	if top > 0.34 {

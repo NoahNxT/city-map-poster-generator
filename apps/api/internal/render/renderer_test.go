@@ -145,7 +145,11 @@ func TestComputeLabelSpecDividerPaddingIsSymmetric(t *testing.T) {
 	labels := computeLabelSpec(req, samplePalette(), 51.22, 4.39)
 
 	pointToAxis := 1.0 / (req.Height * 72.0)
-	cityDesc := labels.CitySizePt * 0.26 * pointToAxis
+	cityDescRatio := 0.26
+	if isLikelyLatin(req.City) {
+		cityDescRatio = 0.08
+	}
+	cityDesc := labels.CitySizePt * cityDescRatio * pointToAxis
 	countryAscent := labels.CountrySizePt * 0.72 * pointToAxis
 
 	gapAboveDivider := (labels.CityY - cityDesc) - labels.DividerY

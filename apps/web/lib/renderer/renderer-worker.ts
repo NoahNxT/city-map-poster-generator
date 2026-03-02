@@ -368,7 +368,8 @@ function computeLabelSpec(
 
   const cityRaw = payload.city.trim();
   let displayCity = cityRaw;
-  if (isLikelyLatin(displayCity)) {
+  const latinDisplay = isLikelyLatin(displayCity);
+  if (latinDisplay) {
     displayCity = Array.from(displayCity.toUpperCase()).join("  ");
   }
   const displayCountry = payload.country.trim().toUpperCase();
@@ -379,6 +380,7 @@ function computeLabelSpec(
   const countrySize = (payload.countryFontSize ?? baseSub) * scaleFactor;
   const coordsSize = baseCoords * scaleFactor;
   const attrSize = Math.max(4, 5 * scaleFactor);
+  const paddingScale = clamp(payload.labelPaddingScale, 0.5, 3) ** 1.25;
   const dynamicGapScale = Math.max(
     Math.max(
       citySize / Math.max(baseMain * scaleFactor, 1e-6),
@@ -386,11 +388,17 @@ function computeLabelSpec(
     ),
     1,
   );
-  const gap = 0.0036 * payload.labelPaddingScale * dynamicGapScale;
+  const gap = 0.0072 * paddingScale * dynamicGapScale;
 
   const pointToAxis = 1 / (payload.height * 72);
   const cityAscent = citySize * 0.74 * pointToAxis;
   const cityDesc = citySize * 0.26 * pointToAxis;
+  let cityDescForDivider = cityDesc;
+  if (latinDisplay) {
+    // Uppercase latin labels have minimal visible descenders.
+    // Use a smaller optical offset to balance divider spacing.
+    cityDescForDivider = citySize * 0.08 * pointToAxis;
+  }
   const countryAscent = countrySize * 0.72 * pointToAxis;
   const countryDesc = countrySize * 0.28 * pointToAxis;
   const coordsAscent = coordsSize * 0.7 * pointToAxis;
@@ -399,7 +407,7 @@ function computeLabelSpec(
   let coordsY = 0.058;
   let countryY = coordsY + coordsAscent + countryDesc + gap;
   let dividerY = countryY + countryAscent + gap;
-  let cityY = dividerY + cityDesc + gap;
+  let cityY = dividerY + cityDescForDivider + gap;
 
   const top = cityY + cityAscent;
   if (top > 0.34) {
