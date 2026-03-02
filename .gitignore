@@ -39,6 +39,7 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+cache/
 
 # Python / FastAPI / UV
 __pycache__/

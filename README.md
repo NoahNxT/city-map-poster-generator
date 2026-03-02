@@ -133,6 +133,22 @@ bun run format        # biome format
 - `allThemes`: generate every theme + ZIP output
 - Preview caching + artifact storage with presigned downloads
 
+## Theme Gallery Previews
+
+The web app includes a static gallery preview for all built-in themes at:
+
+- `apps/web/public/theme-previews/<theme-id>.png`
+
+Regenerate all theme previews:
+
+```bash
+bun run generate:theme-previews
+```
+
+Generator source:
+
+- `scripts/generate_theme_previews.py`
+
 ## CAPTCHA and Rate Limiting
 
 - Turnstile verification for generation endpoint (`/v1/jobs`) when `CAPTCHA_REQUIRED=true`
