@@ -1762,9 +1762,9 @@ export function PosterGenerator() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.1 }}
-          className="space-y-6"
+          className="space-y-6 lg:sticky lg:top-6 lg:max-h-[calc(100vh-1.5rem)] lg:self-start lg:overflow-y-auto lg:pr-1"
         >
-          <Card className="lg:sticky lg:top-6">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Sparkles className="h-4 w-4 text-amber-700" />
