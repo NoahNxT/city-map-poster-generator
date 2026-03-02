@@ -105,11 +105,17 @@ bun run format        # biome format
 ## Feature Coverage
 
 - Required: city, country
-- Optional: latitude/longitude overrides, distance, dimensions (`max=20`), font family
+- Optional: latitude/longitude overrides, distance, dimensions, font family
+- Units and dimensions:
+  - Default size: `30 x 40 cm`
+  - Centimeters mode: `10 cm` min, `200 cm` max
+  - Inches mode: `5 in` min, `80 in` max
+- Distance range: `1000 m` to `18000 m`
 - Themes: all bundled built-in themes
 - Export formats: `png`, `svg`, `pdf`
 - `allThemes`: generate every theme + ZIP output
 - Preview caching + artifact storage with presigned downloads
+- Live Preview renderer mode: `local-wasm` by default, automatic fallback to `server-fallback` when local rendering is unavailable or times out
 - Google Fonts searchable picker for `fontFamily`
 - Custom Google-font rendering for PNG/PDF when `GOOGLE_FONTS_API_KEY` is configured
 
@@ -122,10 +128,16 @@ Static theme gallery assets remain in:
 ## CAPTCHA and Rate Limiting
 
 - Turnstile verification for generation endpoint (`/v2/jobs`) when `CAPTCHA_REQUIRED=true`
-- IP rate limits:
-  - Preview: `20 / 10 min`
-  - Jobs: `5 / 10 min`
+- IP rate limits (defaults):
+  - Location search: `60 / 10 min`
+  - Font search: `120 / 10 min`
+  - Preview and render snapshot: `20 / 10 min`
+  - Jobs and exports: `3 / 10 min`
   - Concurrent jobs: `2`
+- Development-only bypass:
+  - In non-production (`APP_ENV != production`), the header `Dev settings` toggle can reveal a full-width development card above map controls and live preview.
+  - That card exposes toggles for disabling API rate limits and CAPTCHA checks for local testing.
+  - Production ignores dev bypass headers.
 
 ## Notes
 
