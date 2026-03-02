@@ -113,9 +113,22 @@ const MIN_TEXT_BLUR_STRENGTH = 0;
 const MAX_TEXT_BLUR_STRENGTH = 30;
 const MIN_PERCENT = 1;
 const MAX_PERCENT = 100;
-const DEFAULT_TEXT_BLUR_SIZE_X_PERCENT = 65;
-const DEFAULT_TEXT_BLUR_SIZE_Y_PERCENT = 60;
+const MID_PERCENT = 50;
+const DEFAULT_TEXT_BLUR_SIZE_X_PERCENT = 50;
+const DEFAULT_TEXT_BLUR_SIZE_Y_PERCENT = 50;
 const DEFAULT_TEXT_BLUR_STRENGTH_PERCENT = 100;
+const TUNED_TEXT_BLUR_SIZE_X_PERCENT = 65;
+const TUNED_TEXT_BLUR_SIZE_Y_PERCENT = 60;
+const TUNED_TEXT_BLUR_SIZE_X_VALUE =
+  MIN_TEXT_BLUR_SIZE +
+  ((TUNED_TEXT_BLUR_SIZE_X_PERCENT - MIN_PERCENT) /
+    Math.max(MAX_PERCENT - MIN_PERCENT, 1e-6)) *
+    (MAX_TEXT_BLUR_SIZE - MIN_TEXT_BLUR_SIZE);
+const TUNED_TEXT_BLUR_SIZE_Y_VALUE =
+  MIN_TEXT_BLUR_SIZE +
+  ((TUNED_TEXT_BLUR_SIZE_Y_PERCENT - MIN_PERCENT) /
+    Math.max(MAX_PERCENT - MIN_PERCENT, 1e-6)) *
+    (MAX_TEXT_BLUR_SIZE - MIN_TEXT_BLUR_SIZE);
 const MAX_LOCAL_PREVIEW_LONG_EDGE_PX = 2048;
 const PREVIEW_FRAME_MAX_WIDTH_PX = 420;
 const PREVIEW_FRAME_MAX_HEIGHT_PX = 560;
@@ -253,12 +266,72 @@ function percentToValue(percent: number, min: number, max: number): number {
   return min + ratio * (max - min);
 }
 
-function blurSizeToPercent(value: number): number {
-  return valueToPercent(value, MIN_TEXT_BLUR_SIZE, MAX_TEXT_BLUR_SIZE);
+function valueToPercentWithMid(
+  value: number,
+  min: number,
+  midValue: number,
+  max: number,
+): number {
+  const clamped = clamp(value, min, max);
+  if (clamped <= midValue) {
+    const ratio = (clamped - min) / Math.max(midValue - min, 1e-6);
+    return Math.round(MIN_PERCENT + ratio * (MID_PERCENT - MIN_PERCENT));
+  }
+  const ratio = (clamped - midValue) / Math.max(max - midValue, 1e-6);
+  return Math.round(MID_PERCENT + ratio * (MAX_PERCENT - MID_PERCENT));
 }
 
-function blurSizeFromPercent(percent: number): number {
-  return percentToValue(percent, MIN_TEXT_BLUR_SIZE, MAX_TEXT_BLUR_SIZE);
+function percentToValueWithMid(
+  percent: number,
+  min: number,
+  midValue: number,
+  max: number,
+): number {
+  const clamped = clamp(percent, MIN_PERCENT, MAX_PERCENT);
+  if (clamped <= MID_PERCENT) {
+    const ratio =
+      (clamped - MIN_PERCENT) / Math.max(MID_PERCENT - MIN_PERCENT, 1e-6);
+    return min + ratio * (midValue - min);
+  }
+  const ratio =
+    (clamped - MID_PERCENT) / Math.max(MAX_PERCENT - MID_PERCENT, 1e-6);
+  return midValue + ratio * (max - midValue);
+}
+
+function blurSizeXToPercent(value: number): number {
+  return valueToPercentWithMid(
+    value,
+    MIN_TEXT_BLUR_SIZE,
+    TUNED_TEXT_BLUR_SIZE_X_VALUE,
+    MAX_TEXT_BLUR_SIZE,
+  );
+}
+
+function blurSizeXFromPercent(percent: number): number {
+  return percentToValueWithMid(
+    percent,
+    MIN_TEXT_BLUR_SIZE,
+    TUNED_TEXT_BLUR_SIZE_X_VALUE,
+    MAX_TEXT_BLUR_SIZE,
+  );
+}
+
+function blurSizeYToPercent(value: number): number {
+  return valueToPercentWithMid(
+    value,
+    MIN_TEXT_BLUR_SIZE,
+    TUNED_TEXT_BLUR_SIZE_Y_VALUE,
+    MAX_TEXT_BLUR_SIZE,
+  );
+}
+
+function blurSizeYFromPercent(percent: number): number {
+  return percentToValueWithMid(
+    percent,
+    MIN_TEXT_BLUR_SIZE,
+    TUNED_TEXT_BLUR_SIZE_Y_VALUE,
+    MAX_TEXT_BLUR_SIZE,
+  );
 }
 
 function blurStrengthToPercent(value: number): number {
@@ -437,8 +510,8 @@ const defaultValues: FormValues = {
   textColor: undefined,
   labelPaddingScale: 1.2,
   textBlurEnabled: false,
-  textBlurSizeX: blurSizeFromPercent(DEFAULT_TEXT_BLUR_SIZE_X_PERCENT),
-  textBlurSizeY: blurSizeFromPercent(DEFAULT_TEXT_BLUR_SIZE_Y_PERCENT),
+  textBlurSizeX: blurSizeXFromPercent(DEFAULT_TEXT_BLUR_SIZE_X_PERCENT),
+  textBlurSizeY: blurSizeYFromPercent(DEFAULT_TEXT_BLUR_SIZE_Y_PERCENT),
   textBlurStrength: blurStrengthFromPercent(DEFAULT_TEXT_BLUR_STRENGTH_PERCENT),
   distance: 12000,
   width: centimetersToInches(30),
@@ -552,10 +625,10 @@ export function PosterGenerator({
     defaultValues.labelPaddingScale,
   );
   const [blurSizeXSliderValue, setBlurSizeXSliderValue] = useState(() =>
-    blurSizeToPercent(defaultValues.textBlurSizeX),
+    blurSizeXToPercent(defaultValues.textBlurSizeX),
   );
   const [blurSizeYSliderValue, setBlurSizeYSliderValue] = useState(() =>
-    blurSizeToPercent(defaultValues.textBlurSizeY),
+    blurSizeYToPercent(defaultValues.textBlurSizeY),
   );
   const [blurStrengthSliderValue, setBlurStrengthSliderValue] = useState(() =>
     blurStrengthToPercent(defaultValues.textBlurStrength),
@@ -972,11 +1045,11 @@ export function PosterGenerator({
   }, [values.labelPaddingScale]);
 
   useEffect(() => {
-    setBlurSizeXSliderValue(blurSizeToPercent(values.textBlurSizeX));
+    setBlurSizeXSliderValue(blurSizeXToPercent(values.textBlurSizeX));
   }, [values.textBlurSizeX]);
 
   useEffect(() => {
-    setBlurSizeYSliderValue(blurSizeToPercent(values.textBlurSizeY));
+    setBlurSizeYSliderValue(blurSizeYToPercent(values.textBlurSizeY));
   }, [values.textBlurSizeY]);
 
   useEffect(() => {
@@ -2345,14 +2418,14 @@ export function PosterGenerator({
                                     if (checked) {
                                       form.setValue(
                                         "textBlurSizeX",
-                                        blurSizeFromPercent(
+                                        blurSizeXFromPercent(
                                           DEFAULT_TEXT_BLUR_SIZE_X_PERCENT,
                                         ),
                                         { shouldValidate: true },
                                       );
                                       form.setValue(
                                         "textBlurSizeY",
-                                        blurSizeFromPercent(
+                                        blurSizeYFromPercent(
                                           DEFAULT_TEXT_BLUR_SIZE_Y_PERCENT,
                                         ),
                                         { shouldValidate: true },
@@ -2402,7 +2475,9 @@ export function PosterGenerator({
                                           nextValue[0] ?? blurSizeXSliderValue;
                                         form.setValue(
                                           "textBlurSizeX",
-                                          blurSizeFromPercent(committedPercent),
+                                          blurSizeXFromPercent(
+                                            committedPercent,
+                                          ),
                                           { shouldValidate: true },
                                         );
                                       }}
@@ -2431,7 +2506,9 @@ export function PosterGenerator({
                                           nextValue[0] ?? blurSizeYSliderValue;
                                         form.setValue(
                                           "textBlurSizeY",
-                                          blurSizeFromPercent(committedPercent),
+                                          blurSizeYFromPercent(
+                                            committedPercent,
+                                          ),
                                           { shouldValidate: true },
                                         );
                                       }}
