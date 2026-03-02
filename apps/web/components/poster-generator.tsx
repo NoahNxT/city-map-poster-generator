@@ -170,10 +170,54 @@ function isLikelyLatin(text: string): boolean {
 function formatPreviewCity(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return "";
-  if (!isLikelyLatin(trimmed)) {
-    return trimmed;
+  if (isLikelyLatin(trimmed)) {
+    return trimmed.toUpperCase();
   }
-  return trimmed.toUpperCase().split("").join(" ");
+  return trimmed;
+}
+
+function getPreviewCityStyle(city: string): {
+  fontSize: string;
+  letterSpacing: string;
+  whiteSpace: "nowrap";
+} {
+  const normalized = city.trim();
+  if (!normalized) {
+    return {
+      fontSize: "clamp(24px, 6vw, 58px)",
+      letterSpacing: "0.18em",
+      whiteSpace: "nowrap",
+    };
+  }
+
+  const latin = isLikelyLatin(normalized);
+  const length = normalized.length;
+  const scale = latin
+    ? Math.max(0.58, Math.min(1, 10 / length))
+    : Math.max(0.72, Math.min(1, 14 / length));
+
+  const minPx = Math.round(24 * scale);
+  const maxPx = Math.round(58 * scale);
+  const vw = (6 * scale).toFixed(2);
+
+  let letterSpacing = "0.02em";
+  if (latin) {
+    if (length <= 8) {
+      letterSpacing = "0.24em";
+    } else if (length <= 12) {
+      letterSpacing = "0.18em";
+    } else if (length <= 16) {
+      letterSpacing = "0.12em";
+    } else {
+      letterSpacing = "0.08em";
+    }
+  }
+
+  return {
+    fontSize: `clamp(${minPx}px, ${vw}vw, ${maxPx}px)`,
+    letterSpacing,
+    whiteSpace: "nowrap",
+  };
 }
 
 function formatPreviewCoords(
@@ -417,6 +461,7 @@ export function PosterGenerator() {
     ""
   ).toUpperCase();
   const previewCoords = formatPreviewCoords(values.latitude, values.longitude);
+  const previewCityStyle = getPreviewCityStyle(previewDisplayCity);
   const previewUrl = `/theme-previews/${values.theme}.svg`;
 
   return (
@@ -1155,10 +1200,10 @@ export function PosterGenerator() {
                 />
                 <div className="pointer-events-none absolute inset-x-0 bottom-0">
                   <div className="bg-gradient-to-t from-background/70 via-background/40 to-transparent px-4 pb-3 pt-16">
-                    <div className="relative mx-auto w-[72%] text-center">
+                    <div className="relative mx-auto w-[86%] text-center">
                       <p
-                        className="font-heading text-[clamp(24px,6vw,58px)] font-bold leading-none tracking-[0.28em]"
-                        style={{ color: previewTextColor }}
+                        className="font-heading overflow-hidden font-bold leading-none"
+                        style={{ color: previewTextColor, ...previewCityStyle }}
                       >
                         {previewDisplayCity}
                       </p>
