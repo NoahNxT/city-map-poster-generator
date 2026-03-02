@@ -159,6 +159,8 @@ async def preview(request: Request, payload: PosterRequest) -> dict:
             network_type=settings.preview_network_type,
             include_water=settings.preview_include_water,
             include_parks=settings.preview_include_parks,
+            include_labels=False,
+            include_attribution=False,
         )
         await run_in_threadpool(
             upload_file,

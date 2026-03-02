@@ -17,7 +17,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
@@ -162,6 +162,45 @@ const schema = z
   });
 
 type FormValues = z.infer<typeof schema>;
+type PreviewResult = {
+  previewUrl: string;
+  cacheHit: boolean;
+  expiresAt: string;
+};
+
+function isLikelyLatin(text: string): boolean {
+  return /^[A-Za-z0-9\s'".,\-()]+$/.test(text);
+}
+
+function formatPreviewCity(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (!isLikelyLatin(trimmed)) {
+    return trimmed;
+  }
+  return trimmed.toUpperCase().split("").join(" ");
+}
+
+function formatPreviewCoords(
+  latitude: string | undefined,
+  longitude: string | undefined,
+): string {
+  const lat = Number.parseFloat(latitude?.trim() ?? "");
+  const lon = Number.parseFloat(longitude?.trim() ?? "");
+
+  if (
+    Number.isNaN(lat) ||
+    Number.isNaN(lon) ||
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon)
+  ) {
+    return "Select a location to show coordinates";
+  }
+
+  const latHemisphere = lat >= 0 ? "N" : "S";
+  const lonHemisphere = lon >= 0 ? "E" : "W";
+  return `${Math.abs(lat).toFixed(4)}° ${latHemisphere} / ${Math.abs(lon).toFixed(4)}° ${lonHemisphere}`;
+}
 
 const distancePresets = [
   { label: "6km", value: 6000 },
@@ -170,8 +209,8 @@ const distancePresets = [
 ];
 
 const defaultValues: FormValues = {
-  city: "Paris",
-  country: "France",
+  city: "Antwerp",
+  country: "Belgium",
   latitude: "",
   longitude: "",
   countryLabel: "",
@@ -243,6 +282,8 @@ export function PosterGenerator() {
   const [lastPreviewPlaceId, setLastPreviewPlaceId] = useState<string | null>(
     null,
   );
+  const [selectedLocation, setSelectedLocation] =
+    useState<LocationSuggestion | null>(null);
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [activePreviewHint, setActivePreviewHint] =
     useState<AdvancedHelpFieldKey | null>(null);
@@ -253,6 +294,8 @@ export function PosterGenerator() {
     useState(locationQuery);
   const [locationAutocompleteOpen, setLocationAutocompleteOpen] =
     useState(false);
+  const previewCacheRef = useRef<Record<string, PreviewResult>>({});
+  const activePreviewRequestKeyRef = useRef<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -288,13 +331,21 @@ export function PosterGenerator() {
     }: {
       payload: PosterRequest;
       disableRateLimit: boolean;
+      requestKey: string;
     }) => fetchPreview(payload, { disableRateLimit }),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
+      if (activePreviewRequestKeyRef.current !== variables.requestKey) {
+        return;
+      }
+      previewCacheRef.current[variables.requestKey] = data;
       setPreviewUrl(data.previewUrl);
       setPreviewInfo({ cacheHit: data.cacheHit, expiresAt: data.expiresAt });
       setPreviewError(null);
     },
-    onError: (error) => {
+    onError: (error, variables) => {
+      if (activePreviewRequestKeyRef.current !== variables.requestKey) {
+        return;
+      }
       setPreviewError(extractErrorMessage(error));
     },
   });
@@ -391,6 +442,7 @@ export function PosterGenerator() {
 
     setLocationQuery(suggestion.displayName);
     setLocationAutocompleteOpen(false);
+    setSelectedLocation(suggestion);
     form.setValue("city", suggestion.city, { shouldValidate: true });
     form.setValue("country", suggestion.country, { shouldValidate: true });
     form.setValue("latitude", suggestion.latitude, { shouldValidate: true });
@@ -398,6 +450,25 @@ export function PosterGenerator() {
 
     setPreviewError(null);
     setLastPreviewPlaceId(suggestion.placeId);
+
+    const requestKey = [
+      suggestion.placeId,
+      values.theme,
+      values.distance,
+      values.width,
+      values.height,
+    ].join("|");
+    activePreviewRequestKeyRef.current = requestKey;
+
+    const cached = previewCacheRef.current[requestKey];
+    if (cached) {
+      setPreviewUrl(cached.previewUrl);
+      setPreviewInfo({
+        cacheHit: cached.cacheHit,
+        expiresAt: cached.expiresAt,
+      });
+      return;
+    }
 
     previewMutation.mutate({
       payload: {
@@ -411,14 +482,15 @@ export function PosterGenerator() {
         fontFamily: values.fontFamily?.trim() || undefined,
         theme: values.theme,
         allThemes: false,
-        includeWater: values.includeWater,
-        includeParks: values.includeParks,
+        includeWater: true,
+        includeParks: true,
         distance: values.distance,
         width: values.width,
         height: values.height,
         format: "png",
       },
       disableRateLimit: isDevBuild && disablePreviewRateLimit,
+      requestKey,
     });
   }
 
@@ -441,7 +513,88 @@ export function PosterGenerator() {
     };
   }
 
+  useEffect(() => {
+    if (!selectedLocation || !lastPreviewPlaceId) {
+      return;
+    }
+
+    const requestKey = [
+      selectedLocation.placeId,
+      values.theme,
+      values.distance,
+      values.width,
+      values.height,
+    ].join("|");
+    activePreviewRequestKeyRef.current = requestKey;
+
+    const cached = previewCacheRef.current[requestKey];
+    if (cached) {
+      setPreviewUrl(cached.previewUrl);
+      setPreviewInfo({
+        cacheHit: cached.cacheHit,
+        expiresAt: cached.expiresAt,
+      });
+      setPreviewError(null);
+      return;
+    }
+
+    if (
+      previewMutation.isPending &&
+      activePreviewRequestKeyRef.current === requestKey
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      previewMutation.mutate({
+        payload: {
+          city: selectedLocation.city,
+          country: selectedLocation.country,
+          latitude: selectedLocation.latitude,
+          longitude: selectedLocation.longitude,
+          theme: values.theme,
+          allThemes: false,
+          includeWater: true,
+          includeParks: true,
+          distance: values.distance,
+          width: values.width,
+          height: values.height,
+          format: "png",
+        },
+        disableRateLimit: isDevBuild && disablePreviewRateLimit,
+        requestKey,
+      });
+    }, 320);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    disablePreviewRateLimit,
+    isDevBuild,
+    lastPreviewPlaceId,
+    previewMutation.isPending,
+    selectedLocation,
+    values.distance,
+    values.height,
+    values.theme,
+    values.width,
+    previewMutation.mutate,
+  ]);
+
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const activeTheme = themesQuery.data?.find(
+    (theme) => theme.id === values.theme,
+  );
+  const previewTextColor = activeTheme?.colors.text ?? "#8C4A18";
+  const previewDisplayCity = formatPreviewCity(
+    values.displayCity?.trim() || values.city || "",
+  );
+  const previewDisplayCountry = (
+    values.displayCountry?.trim() ||
+    values.countryLabel?.trim() ||
+    values.country ||
+    ""
+  ).toUpperCase();
+  const previewCoords = formatPreviewCoords(values.latitude, values.longitude);
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6 lg:px-8">
@@ -502,6 +655,7 @@ export function PosterGenerator() {
                       onChange={(event) => {
                         setLocationQuery(event.currentTarget.value);
                         setLastPreviewPlaceId(null);
+                        setSelectedLocation(null);
                       }}
                     />
                     {locationAutocompleteOpen &&
@@ -649,7 +803,7 @@ export function PosterGenerator() {
                                   >
                                     <div className="relative aspect-[3/4] w-full bg-muted">
                                       <Image
-                                        src={`/theme-previews/${theme.id}.png`}
+                                        src={`/theme-previews/${theme.id}.svg`}
                                         alt={`${theme.name} preview`}
                                         fill
                                         className="object-cover"
@@ -1109,7 +1263,8 @@ export function PosterGenerator() {
                 Live Preview
               </CardTitle>
               <CardDescription>
-                Preview runs when a location is selected from autocomplete.
+                Map updates on location/theme, while text labels update
+                instantly without new API renders.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1152,6 +1307,39 @@ export function PosterGenerator() {
                     Select a location from autocomplete to render preview.
                   </div>
                 )}
+                {previewUrl ? (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0">
+                    <div className="bg-gradient-to-t from-background/70 via-background/40 to-transparent px-4 pb-3 pt-16">
+                      <div className="relative mx-auto w-[72%] text-center">
+                        <p
+                          className="font-heading text-[clamp(24px,6vw,58px)] font-bold leading-none tracking-[0.28em]"
+                          style={{ color: previewTextColor }}
+                        >
+                          {previewDisplayCity}
+                        </p>
+                        <p
+                          className="mt-1 text-[clamp(11px,2vw,25px)] leading-tight"
+                          style={{ color: previewTextColor }}
+                        >
+                          {previewDisplayCountry}
+                        </p>
+                        <p
+                          className="mt-1 text-[clamp(9px,1.5vw,15px)] opacity-80"
+                          style={{ color: previewTextColor }}
+                        >
+                          {previewCoords}
+                        </p>
+                        <div
+                          className="mx-auto mt-1 h-px w-24 opacity-70"
+                          style={{ backgroundColor: previewTextColor }}
+                        />
+                      </div>
+                    </div>
+                    <p className="absolute bottom-1 right-2 text-[9px] text-muted-foreground/80">
+                      © OpenStreetMap contributors
+                    </p>
+                  </div>
+                ) : null}
                 {activePreviewHint ? (
                   <div className="pointer-events-none absolute inset-0">
                     <div

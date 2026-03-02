@@ -13,7 +13,7 @@ CACHE_ROOT.mkdir(parents=True, exist_ok=True)
 
 _maptoposter: Any = None
 _load_fonts: Any = None
-PREVIEW_CACHE_VERSION = "v3"
+PREVIEW_CACHE_VERSION = "v4"
 
 
 def _init_renderer() -> tuple[Any, Any]:
@@ -73,6 +73,8 @@ def render_poster(
     network_type: str | None = None,
     include_water: bool = True,
     include_parks: bool = True,
+    include_labels: bool = True,
+    include_attribution: bool = True,
 ) -> None:
     maptoposter, load_fonts = _init_renderer()
     coords = resolve_coordinates(payload)
@@ -99,4 +101,6 @@ def render_poster(
         network_type=network_type or "all",
         include_water=include_water,
         include_parks=include_parks,
+        include_labels=include_labels,
+        include_attribution=include_attribution,
     )
