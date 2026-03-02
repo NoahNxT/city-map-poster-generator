@@ -554,7 +554,7 @@ export function PosterGenerator() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-h-8 items-center justify-between gap-3">
                       <Label>Theme</Label>
                       <Dialog
                         open={themeDialogOpen}
@@ -663,7 +663,9 @@ export function PosterGenerator() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Format</Label>
+                    <div className="flex min-h-8 items-center">
+                      <Label>Format</Label>
+                    </div>
                     <Select
                       value={values.format}
                       onValueChange={(value) =>
