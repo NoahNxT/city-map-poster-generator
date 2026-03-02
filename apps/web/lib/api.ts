@@ -50,7 +50,7 @@ export async function fetchLocations(
     {
       cache: "no-store",
       headers: options?.disableRateLimit
-        ? { "x-dev-preview-no-rate-limit": "1" }
+        ? { "x-dev-no-rate-limit": "1" }
         : undefined,
     },
   );
@@ -73,7 +73,7 @@ export async function fetchFonts(
   const response = await fetch(`${API_BASE}/v1/fonts?${params.toString()}`, {
     cache: "no-store",
     headers: options?.disableRateLimit
-      ? { "x-dev-preview-no-rate-limit": "1" }
+      ? { "x-dev-no-rate-limit": "1" }
       : undefined,
   });
   const payload = await parseResponse<{ suggestions: FontSuggestion[] }>(
@@ -92,9 +92,7 @@ export async function fetchPreview(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(options?.disableRateLimit
-        ? { "x-dev-preview-no-rate-limit": "1" }
-        : {}),
+      ...(options?.disableRateLimit ? { "x-dev-no-rate-limit": "1" } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -105,11 +103,15 @@ export async function fetchPreview(
 export async function createJob(
   payload: PosterRequest,
   captchaToken?: string,
+  options?: {
+    disableRateLimit?: boolean;
+  },
 ): Promise<{ jobId: string; status: string; createdAt: string }> {
   const response = await fetch(`${API_BASE}/v1/jobs`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(options?.disableRateLimit ? { "x-dev-no-rate-limit": "1" } : {}),
     },
     body: JSON.stringify({ payload, captchaToken }),
   });

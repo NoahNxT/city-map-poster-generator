@@ -48,11 +48,15 @@ class CreateJobRequest(BaseModel):
     captchaToken: str | None = None
 
 
-def _should_bypass_preview_rate_limit(request: Request) -> bool:
+def _should_bypass_rate_limit(request: Request) -> bool:
     if settings.app_env.strip().lower() == "production":
         return False
-    header = request.headers.get("x-dev-preview-no-rate-limit", "").strip().lower()
-    return header in {"1", "true", "yes", "on"}
+    header_candidates = (
+        request.headers.get("x-dev-no-rate-limit", ""),
+        request.headers.get("x-dev-preview-no-rate-limit", ""),
+        request.headers.get("x-dev-generate-no-rate-limit", ""),
+    )
+    return any(header.strip().lower() in {"1", "true", "yes", "on"} for header in header_candidates)
 
 
 def _preview_payload(payload: PosterRequest) -> PosterRequest:
@@ -98,7 +102,7 @@ async def get_locations(request: Request, q: str, limit: int = 8) -> dict:
 
     redis = get_redis()
     ip = request.client.host if request.client else "unknown"
-    if not _should_bypass_preview_rate_limit(request):
+    if not _should_bypass_rate_limit(request):
         check_window_limit(
             redis,
             key=f"ratelimit:locations:{ip}",
@@ -114,7 +118,7 @@ async def get_locations(request: Request, q: str, limit: int = 8) -> dict:
 async def get_fonts(request: Request, q: str = "", limit: int = 12) -> dict:
     redis = get_redis()
     ip = request.client.host if request.client else "unknown"
-    if not _should_bypass_preview_rate_limit(request):
+    if not _should_bypass_rate_limit(request):
         check_window_limit(
             redis,
             key=f"ratelimit:fonts:{ip}",
@@ -133,7 +137,7 @@ async def preview(request: Request, payload: PosterRequest) -> dict:
     redis = get_redis()
     ip = request.client.host if request.client else "unknown"
 
-    bypass_preview_rate_limit = _should_bypass_preview_rate_limit(request)
+    bypass_preview_rate_limit = _should_bypass_rate_limit(request)
     if not bypass_preview_rate_limit:
         check_window_limit(
             redis,
@@ -215,18 +219,20 @@ async def create_job(request: Request, body: CreateJobRequest) -> dict:
     redis = get_redis()
     ip = request.client.host if request.client else "unknown"
 
+    bypass_rate_limit = _should_bypass_rate_limit(request)
     try:
-        check_window_limit(
-            redis,
-            key=f"ratelimit:jobs:{ip}",
-            limit=settings.rate_limit_jobs_count,
-            window_seconds=settings.rate_limit_jobs_window_seconds,
-        )
-        check_concurrency_limit(
-            redis,
-            key=f"ratelimit:active:{ip}",
-            limit=settings.rate_limit_max_concurrent_jobs_per_ip,
-        )
+        if not bypass_rate_limit:
+            check_window_limit(
+                redis,
+                key=f"ratelimit:jobs:{ip}",
+                limit=settings.rate_limit_jobs_count,
+                window_seconds=settings.rate_limit_jobs_window_seconds,
+            )
+            check_concurrency_limit(
+                redis,
+                key=f"ratelimit:active:{ip}",
+                limit=settings.rate_limit_max_concurrent_jobs_per_ip,
+            )
     except RedisError as exc:
         logger.exception("Job queue unavailable: redis operation failed")
         raise HTTPException(

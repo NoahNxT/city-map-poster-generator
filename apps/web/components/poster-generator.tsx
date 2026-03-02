@@ -539,7 +539,7 @@ export function PosterGenerator() {
   const [activePreviewHint, setActivePreviewHint] =
     useState<AdvancedHelpFieldKey | null>(null);
   const [previewZoomEnabled, setPreviewZoomEnabled] = useState(false);
-  const [disablePreviewRateLimit, setDisablePreviewRateLimit] = useState(false);
+  const [disableRateLimit, setDisableRateLimit] = useState(false);
   const [previewZoomLevel, setPreviewZoomLevel] =
     useState(DEFAULT_PREVIEW_ZOOM);
   const [previewPointer, setPreviewPointer] = useState<PreviewPointer | null>(
@@ -581,20 +581,20 @@ export function PosterGenerator() {
     queryFn: fetchThemes,
   });
   const locationSuggestionsQuery = useQuery({
-    queryKey: ["locations", debouncedLocationQuery, disablePreviewRateLimit],
+    queryKey: ["locations", debouncedLocationQuery, disableRateLimit],
     queryFn: () =>
       fetchLocations(debouncedLocationQuery, {
-        disableRateLimit: disablePreviewRateLimit,
+        disableRateLimit,
       }),
     enabled: locationAutocompleteOpen && debouncedLocationQuery.length >= 3,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
   const fontSuggestionsQuery = useQuery({
-    queryKey: ["fonts", debouncedFontQuery, disablePreviewRateLimit],
+    queryKey: ["fonts", debouncedFontQuery, disableRateLimit],
     queryFn: () =>
       fetchFonts(debouncedFontQuery, {
-        disableRateLimit: disablePreviewRateLimit,
+        disableRateLimit,
       }),
     enabled: fontComboboxOpen,
     staleTime: 60 * 60_000,
@@ -605,10 +605,12 @@ export function PosterGenerator() {
     mutationFn: ({
       payload,
       token,
+      disableRateLimit,
     }: {
       payload: PosterRequest;
       token?: string;
-    }) => createJob(payload, token),
+      disableRateLimit: boolean;
+    }) => createJob(payload, token, { disableRateLimit }),
     onSuccess: (data) => {
       setJobId(data.jobId);
       setDownloadUrl(null);
@@ -695,9 +697,11 @@ export function PosterGenerator() {
     if (!showDevRateLimitToggle) {
       return;
     }
-    const rawValue = window.localStorage.getItem("disablePreviewRateLimit");
+    const rawValue =
+      window.localStorage.getItem("disableRateLimit") ??
+      window.localStorage.getItem("disablePreviewRateLimit");
     if (rawValue === "1") {
-      setDisablePreviewRateLimit(true);
+      setDisableRateLimit(true);
     }
   }, [showDevRateLimitToggle]);
 
@@ -706,10 +710,10 @@ export function PosterGenerator() {
       return;
     }
     window.localStorage.setItem(
-      "disablePreviewRateLimit",
-      disablePreviewRateLimit ? "1" : "0",
+      "disableRateLimit",
+      disableRateLimit ? "1" : "0",
     );
-  }, [disablePreviewRateLimit, showDevRateLimitToggle]);
+  }, [disableRateLimit, showDevRateLimitToggle]);
 
   const statusTone = useMemo(() => {
     const status = jobQuery.data?.status;
@@ -722,6 +726,7 @@ export function PosterGenerator() {
     createJobMutation.mutate({
       payload: toPayload(values),
       token: captchaToken,
+      disableRateLimit,
     });
   }
 
@@ -1781,16 +1786,16 @@ export function PosterGenerator() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        Disable preview rate limit
+                        Disable all API rate limits
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Development only.
+                        Development only. Disables all API throttling.
                       </p>
                     </div>
                     <Switch
-                      checked={disablePreviewRateLimit}
-                      onCheckedChange={setDisablePreviewRateLimit}
-                      aria-label="Disable preview rate limit in development"
+                      checked={disableRateLimit}
+                      onCheckedChange={setDisableRateLimit}
+                      aria-label="Disable all API rate limits in development"
                     />
                   </div>
                 </div>
