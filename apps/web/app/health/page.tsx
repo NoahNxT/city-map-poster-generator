@@ -1,6 +1,15 @@
+import type { Metadata } from "next";
+
 import { fetchApiHealth } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "Health",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function HealthPage() {
   try {
