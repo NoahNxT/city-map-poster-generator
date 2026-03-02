@@ -91,6 +91,7 @@ import { Switch } from "./ui/switch";
 
 type AdvancedHelpFieldKey = "fontFamily";
 type SizeUnit = "cm" | "in";
+type DimensionField = "width" | "height";
 
 const CM_PER_INCH = 2.54;
 const MIN_POSTER_INCHES = 1;
@@ -219,6 +220,31 @@ function inchesToCentimeters(inches: number): number {
 
 function centimetersToInches(centimeters: number): number {
   return centimeters / CM_PER_INCH;
+}
+
+function parseDecimalInput(rawValue: string): number | null {
+  const normalized = rawValue.trim().replace(/\s+/g, "").replace(",", ".");
+  if (!normalized) return null;
+  if (!/^[+-]?(\d+([.]\d*)?|[.]\d+)$/.test(normalized)) {
+    return null;
+  }
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatDimensionValue(
+  inches: number,
+  unit: SizeUnit,
+  locale: string,
+): string {
+  const safeInches = Number.isFinite(inches) ? inches : MIN_POSTER_INCHES;
+  const displayValue =
+    unit === "cm" ? inchesToCentimeters(safeInches) : safeInches;
+  const rounded = Number(displayValue.toFixed(2));
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(rounded);
 }
 
 function normalizeHexColor(value: string | undefined): string | null {
@@ -423,6 +449,14 @@ export function PosterGenerator({
   const [previewZoomEnabled, setPreviewZoomEnabled] = useState(false);
   const [disableRateLimit, setDisableRateLimit] = useState(false);
   const [sizeUnit, setSizeUnit] = useState<SizeUnit>("cm");
+  const [activeDimensionField, setActiveDimensionField] =
+    useState<DimensionField | null>(null);
+  const [widthInputValue, setWidthInputValue] = useState(() =>
+    formatDimensionValue(defaultValues.width, "cm", locale),
+  );
+  const [heightInputValue, setHeightInputValue] = useState(() =>
+    formatDimensionValue(defaultValues.height, "cm", locale),
+  );
   const [previewZoomLevel, setPreviewZoomLevel] =
     useState(DEFAULT_PREVIEW_ZOOM);
   const [debouncedSnapshotRequest, setDebouncedSnapshotRequest] =
@@ -803,6 +837,17 @@ export function PosterGenerator({
   }, [previewZoomEnabled]);
 
   useEffect(() => {
+    if (activeDimensionField !== "width") {
+      setWidthInputValue(formatDimensionValue(values.width, sizeUnit, locale));
+    }
+    if (activeDimensionField !== "height") {
+      setHeightInputValue(
+        formatDimensionValue(values.height, sizeUnit, locale),
+      );
+    }
+  }, [activeDimensionField, locale, sizeUnit, values.height, values.width]);
+
+  useEffect(() => {
     if (!showDevRateLimitToggle) {
       return;
     }
@@ -901,6 +946,79 @@ export function PosterGenerator({
     };
   }
 
+  function toInchesFromDisplayValue(displayValue: number): number {
+    return sizeUnit === "cm" ? centimetersToInches(displayValue) : displayValue;
+  }
+
+  function getDimensionFormValue(field: DimensionField): number {
+    return form.getValues(field);
+  }
+
+  function setDimensionInputText(field: DimensionField, value: string): void {
+    if (field === "width") {
+      setWidthInputValue(value);
+      return;
+    }
+    setHeightInputValue(value);
+  }
+
+  function syncDimensionInputWithFormValue(field: DimensionField): void {
+    const fallback =
+      field === "width" ? defaultValues.width : defaultValues.height;
+    const current = getDimensionFormValue(field);
+    const clamped = Number.isFinite(current)
+      ? clamp(current, MIN_POSTER_INCHES, MAX_POSTER_INCHES)
+      : fallback;
+    form.setValue(field, clamped, { shouldValidate: true, shouldDirty: true });
+    setDimensionInputText(
+      field,
+      formatDimensionValue(clamped, sizeUnit, locale),
+    );
+  }
+
+  function handleDimensionInputChange(
+    field: DimensionField,
+    rawValue: string,
+  ): void {
+    setDimensionInputText(field, rawValue);
+    const parsedDisplay = parseDecimalInput(rawValue);
+    if (parsedDisplay === null) {
+      return;
+    }
+    form.setValue(field, toInchesFromDisplayValue(parsedDisplay), {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  }
+
+  function handleDimensionInputBlur(
+    field: DimensionField,
+    rawValue: string,
+  ): void {
+    setActiveDimensionField((currentField) =>
+      currentField === field ? null : currentField,
+    );
+    const parsedDisplay = parseDecimalInput(rawValue);
+    if (parsedDisplay === null) {
+      syncDimensionInputWithFormValue(field);
+      return;
+    }
+    const clampedInches = clamp(
+      toInchesFromDisplayValue(parsedDisplay),
+      MIN_POSTER_INCHES,
+      MAX_POSTER_INCHES,
+    );
+    form.setValue(field, clampedInches, {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+    setDimensionInputText(
+      field,
+      formatDimensionValue(clampedInches, sizeUnit, locale),
+    );
+  }
+
   function updatePreviewPointer(clientX: number, clientY: number): void {
     const frame = previewFrameRef.current;
     if (!frame) return;
@@ -960,23 +1078,11 @@ export function PosterGenerator({
     fontBundleQuery.isFetching &&
     !fontBundleQuery.data;
   const dimensionUnitLabel = sizeUnit === "cm" ? "cm" : "in";
-  const dimensionDisplayMin =
-    sizeUnit === "cm"
-      ? Number(inchesToCentimeters(MIN_POSTER_INCHES).toFixed(2))
-      : MIN_POSTER_INCHES;
-  const dimensionDisplayMax =
-    sizeUnit === "cm"
-      ? Number(inchesToCentimeters(MAX_POSTER_INCHES).toFixed(2))
-      : MAX_POSTER_INCHES;
-  const dimensionDisplayStep = sizeUnit === "cm" ? 0.1 : 0.1;
-  const widthDisplayValue =
-    sizeUnit === "cm"
-      ? Number(inchesToCentimeters(values.width).toFixed(2))
-      : Number(values.width.toFixed(2));
-  const heightDisplayValue =
-    sizeUnit === "cm"
-      ? Number(inchesToCentimeters(values.height).toFixed(2))
-      : Number(values.height.toFixed(2));
+  const dimensionRangePlaceholder = `${formatDimensionValue(
+    MIN_POSTER_INCHES,
+    sizeUnit,
+    locale,
+  )} - ${formatDimensionValue(MAX_POSTER_INCHES, sizeUnit, locale)}`;
   const previewWidthInches =
     Number.isFinite(values.width) && values.width > 0
       ? values.width
@@ -1701,28 +1807,23 @@ export function PosterGenerator({
                               </Label>
                               <Input
                                 id="width"
-                                type="number"
-                                min={dimensionDisplayMin}
-                                max={dimensionDisplayMax}
-                                step={dimensionDisplayStep}
-                                value={widthDisplayValue}
-                                onChange={(event) => {
-                                  const nextRaw = Number(event.target.value);
-                                  if (!Number.isFinite(nextRaw)) return;
-                                  const nextInches =
-                                    sizeUnit === "cm"
-                                      ? centimetersToInches(nextRaw)
-                                      : nextRaw;
-                                  form.setValue(
+                                type="text"
+                                inputMode="decimal"
+                                placeholder={dimensionRangePlaceholder}
+                                value={widthInputValue}
+                                onFocus={() => setActiveDimensionField("width")}
+                                onChange={(event) =>
+                                  handleDimensionInputChange(
                                     "width",
-                                    clamp(
-                                      nextInches,
-                                      MIN_POSTER_INCHES,
-                                      MAX_POSTER_INCHES,
-                                    ),
-                                    { shouldValidate: true },
-                                  );
-                                }}
+                                    event.currentTarget.value,
+                                  )
+                                }
+                                onBlur={(event) =>
+                                  handleDimensionInputBlur(
+                                    "width",
+                                    event.currentTarget.value,
+                                  )
+                                }
                               />
                             </div>
                             <div className="space-y-2">
@@ -1731,28 +1832,25 @@ export function PosterGenerator({
                               </Label>
                               <Input
                                 id="height"
-                                type="number"
-                                min={dimensionDisplayMin}
-                                max={dimensionDisplayMax}
-                                step={dimensionDisplayStep}
-                                value={heightDisplayValue}
-                                onChange={(event) => {
-                                  const nextRaw = Number(event.target.value);
-                                  if (!Number.isFinite(nextRaw)) return;
-                                  const nextInches =
-                                    sizeUnit === "cm"
-                                      ? centimetersToInches(nextRaw)
-                                      : nextRaw;
-                                  form.setValue(
+                                type="text"
+                                inputMode="decimal"
+                                placeholder={dimensionRangePlaceholder}
+                                value={heightInputValue}
+                                onFocus={() =>
+                                  setActiveDimensionField("height")
+                                }
+                                onChange={(event) =>
+                                  handleDimensionInputChange(
                                     "height",
-                                    clamp(
-                                      nextInches,
-                                      MIN_POSTER_INCHES,
-                                      MAX_POSTER_INCHES,
-                                    ),
-                                    { shouldValidate: true },
-                                  );
-                                }}
+                                    event.currentTarget.value,
+                                  )
+                                }
+                                onBlur={(event) =>
+                                  handleDimensionInputBlur(
+                                    "height",
+                                    event.currentTarget.value,
+                                  )
+                                }
                               />
                             </div>
                           </div>
