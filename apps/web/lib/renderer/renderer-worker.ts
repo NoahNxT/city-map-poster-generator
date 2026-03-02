@@ -483,8 +483,8 @@ function computeLabelSpec(
     const textBlockHeight = Math.max(textBlockTop - textBlockBottom, 0.012);
     const scaleX = blurAxisScale(blurSizeX);
     const scaleY = blurAxisScale(blurSizeY);
-    // 50% means text bounds +15% on each side (total +30%) on that axis.
-    const panelW = clamp(textBlockWidth * 1.3 * scaleX, 0.12, 0.94);
+    // X gets a slightly wider baseline footprint than Y for better optical balance.
+    const panelW = clamp(textBlockWidth * 1.35 * scaleX, 0.12, 0.94);
     const panelH = clamp(textBlockHeight * 1.3 * scaleY, 0.04, 0.42);
     const centerY = (textBlockTop + textBlockBottom) / 2;
     blur = {

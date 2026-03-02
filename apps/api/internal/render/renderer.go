@@ -685,8 +685,8 @@ func computeLabelSpec(req types.GenerateRequest, pal palette, lat, lon float64) 
 		textBlockHeight := math.Max(textBlockTop-textBlockBottom, 0.012)
 		scaleX := blurAxisScale(blurSizeX)
 		scaleY := blurAxisScale(blurSizeY)
-		// 50% means text bounds +15% on each side (total +30%) on that axis.
-		panelW := clamp(textBlockWidth*1.3*scaleX, 0.12, 0.94)
+		// X gets a slightly wider baseline footprint than Y for better optical balance.
+		panelW := clamp(textBlockWidth*1.35*scaleX, 0.12, 0.94)
 		panelH := clamp(textBlockHeight*1.3*scaleY, 0.04, 0.42)
 		centerY := (textBlockTop + textBlockBottom) / 2.0
 		panelX := 0.5 - panelW/2
