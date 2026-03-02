@@ -2,7 +2,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: docker/web.Dockerfile
+      dockerfile: .docker/local/images/web.Dockerfile
     container_name: city-map-web
     environment:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
@@ -15,7 +15,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: docker/api.Dockerfile
+      dockerfile: .docker/local/images/api.Dockerfile
     container_name: city-map-api
     environment:
       APP_ENV: ${APP_ENV:-development}
@@ -72,7 +72,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: docker/api.Dockerfile
+      dockerfile: .docker/local/images/api.Dockerfile
     container_name: city-map-worker
     environment:
       APP_ENV: ${APP_ENV:-development}

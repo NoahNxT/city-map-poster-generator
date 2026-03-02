@@ -4,7 +4,8 @@ Public, no-auth city poster generator built with a **Bun + Turborepo** monorepo:
 
 - `apps/web`: Next.js (App Router) + Tailwind + `shadcn/ui`-style components + TanStack Query
 - `apps/api`: Go API + Redis queue + MinIO/S3 artifact storage + pure-Go renderer
-- `docker-compose.yml`: web, api, worker, redis, minio
+- `.docker/local`: local Docker compose stack
+- `.docker/production`: production deploy compose + env template
 
 ## Preview
 
@@ -44,7 +45,7 @@ cp .env.example .env
 3. Start full stack:
 
 ```bash
-docker compose up --build
+docker compose -f .docker/local/compose.yaml -f .docker/local/compose.dev.yaml up -d --build
 ```
 
 4. Open:
@@ -79,7 +80,7 @@ bun run dev:backend:down
 Production-like backend (compiled binaries, no HMR):
 
 ```bash
-docker compose up -d redis minio api worker
+docker compose -f .docker/local/compose.yaml up -d redis minio api worker
 ```
 
 ## Scripts
@@ -99,19 +100,13 @@ bun run format        # biome format
 
 Deployment files:
 
-- `.docker/staging/compose.yaml`
-- `.docker/staging/.env.example`
 - `.docker/production/compose.yaml`
 - `.docker/production/.env.example`
+- `.docker/production/images/api.Dockerfile`
+- `.docker/production/images/web.Dockerfile`
 
 Workflows:
 
-- `.github/workflows/staging-deploy.yml`
-  - Trigger: push to `main` (or manual `workflow_dispatch`)
-  - Builds and pushes:
-    - `ghcr.io/<owner>/city-map-api:staging`
-    - `ghcr.io/<owner>/city-map-web:staging`
-  - Deploys on VPS via SSH + `docker compose pull && up -d`
 - `.github/workflows/production-deploy.yml`
   - Trigger: push tag `v*` (for example `v1.0.0`) or manual `workflow_dispatch`
   - Builds and pushes:
@@ -124,11 +119,6 @@ Workflows:
 
 Required GitHub repository secrets:
 
-- `STAGING_HOST`
-- `STAGING_USER`
-- `STAGING_SSH_KEY`
-- `STAGING_PORT` (optional, defaults to `22`)
-- `STAGING_PATH` (example: `/opt/city-map-poster-generator`)
 - `PRODUCTION_HOST`
 - `PRODUCTION_USER`
 - `PRODUCTION_SSH_KEY`
@@ -139,9 +129,6 @@ Required GitHub repository secrets:
 
 Recommended GitHub repository variables (build-time web config):
 
-- `STAGING_NEXT_PUBLIC_API_BASE_URL`
-- `STAGING_NEXT_PUBLIC_TURNSTILE_SITE_KEY`
-- `STAGING_NEXT_PUBLIC_SITE_URL`
 - `PRODUCTION_NEXT_PUBLIC_API_BASE_URL`
 - `PRODUCTION_NEXT_PUBLIC_TURNSTILE_SITE_KEY`
 - `PRODUCTION_NEXT_PUBLIC_SITE_URL`
@@ -149,11 +136,10 @@ Recommended GitHub repository variables (build-time web config):
 First-time VPS bootstrap:
 
 ```bash
-mkdir -p /opt/city-map-poster-generator/.docker/staging
 mkdir -p /opt/city-map-poster-generator/.docker/production
 ```
 
-On first deploy run, each workflow copies `.env.example` to `.env` on the VPS and stops once so you can fill real values before re-running.
+On first deploy run, the production workflow copies `.env.example` to `.env` on the VPS and stops once so you can fill real values before re-running.
 
 ## API Endpoints
 

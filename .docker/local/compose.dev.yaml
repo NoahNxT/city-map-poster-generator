@@ -2,7 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: docker/api-dev.Dockerfile
+      dockerfile: .docker/local/images/api-dev.Dockerfile
     command: ["air", "-c", ".air.api.toml"]
     volumes:
       - ./apps/api:/app
@@ -13,7 +13,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: docker/api-dev.Dockerfile
+      dockerfile: .docker/local/images/api-dev.Dockerfile
     command: ["air", "-c", ".air.worker.toml"]
     volumes:
       - ./apps/api:/app
