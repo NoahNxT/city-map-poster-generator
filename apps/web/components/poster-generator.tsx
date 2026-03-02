@@ -211,8 +211,8 @@ const distancePresets = [
 const defaultValues: FormValues = {
   city: "Antwerp",
   country: "Belgium",
-  latitude: "",
-  longitude: "",
+  latitude: "51.2211097",
+  longitude: "4.3997081",
   countryLabel: "",
   displayCity: "",
   displayCountry: "",
@@ -225,6 +225,16 @@ const defaultValues: FormValues = {
   width: 12,
   height: 16,
   format: "png",
+};
+
+const defaultLocationSuggestion: LocationSuggestion = {
+  placeId: "default-antwerp-belgium",
+  displayName: "Antwerp, Belgium",
+  city: "Antwerp",
+  country: "Belgium",
+  latitude: "51.2211097",
+  longitude: "4.3997081",
+  countryCode: "be",
 };
 
 function toPayload(values: FormValues): PosterRequest {
@@ -280,10 +290,10 @@ export function PosterGenerator() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [disablePreviewRateLimit, setDisablePreviewRateLimit] = useState(false);
   const [lastPreviewPlaceId, setLastPreviewPlaceId] = useState<string | null>(
-    null,
+    defaultLocationSuggestion.placeId,
   );
   const [selectedLocation, setSelectedLocation] =
-    useState<LocationSuggestion | null>(null);
+    useState<LocationSuggestion | null>(defaultLocationSuggestion);
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [activePreviewHint, setActivePreviewHint] =
     useState<AdvancedHelpFieldKey | null>(null);
@@ -1304,7 +1314,9 @@ export function PosterGenerator() {
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                    Select a location from autocomplete to render preview.
+                    {selectedLocation
+                      ? "Loading default preview..."
+                      : "Select a location from autocomplete to render preview."}
                   </div>
                 )}
                 {previewUrl ? (
