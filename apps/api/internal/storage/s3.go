@@ -46,20 +46,16 @@ func newS3Client(ctx context.Context, cfg config.Config, endpointURL string) (*s
 		ctx,
 		awsconfig.WithRegion(cfg.S3Region),
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.S3AccessKeyID, cfg.S3SecretAccessKey, "")),
-		awsconfig.WithEndpointResolverWithOptions(
-			aws.EndpointResolverWithOptionsFunc(func(service, region string, _ ...interface{}) (aws.Endpoint, error) {
-				if service == s3.ServiceID {
-					return aws.Endpoint{URL: endpointURL, HostnameImmutable: true}, nil
-				}
-				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-			}),
-		),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("load aws config: %w", err)
 	}
 
+	endpointURL = strings.TrimSpace(endpointURL)
 	return s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+		if endpointURL != "" {
+			o.BaseEndpoint = aws.String(endpointURL)
+		}
 		o.UsePathStyle = true
 		// MinIO/S3-compatible providers may reject optional checksum query params
 		// on presigned GET URLs; keep checksums only when an operation requires it.

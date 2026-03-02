@@ -85,6 +85,7 @@ func (s *Server) Router() http.Handler {
 	r.Get("/v2/fonts", s.handleFonts)
 	r.Get("/v2/fonts/{family}/bundle", s.handleFontBundle)
 	r.Post("/v2/preview", s.handlePreview)
+	r.Get("/v2/previews/{previewId}", s.handlePreviewAsset)
 	r.Post("/v2/render/snapshot", s.handleRenderSnapshot)
 	r.Post("/v2/jobs", s.handleCreateJob)
 	r.Get("/v2/jobs/{jobId}", s.handleJobStatus)
@@ -341,13 +342,8 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 	cachedObjectKey, err := s.store.GetPreviewCache(r.Context(), cacheKey)
 	if err == nil && cachedObjectKey != "" && s.storage.ObjectExists(r.Context(), s.cfg.S3BucketPreviews, cachedObjectKey) {
-		url, err := s.storage.SignedURL(r.Context(), s.cfg.S3BucketPreviews, cachedObjectKey, s.cfg.PresignedURLTTLSeconds)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"previewUrl": url,
+			"previewUrl": s.previewProxyURL(r, cachedObjectKey),
 			"cacheHit":   true,
 			"expiresAt":  time.Now().UTC().Add(time.Duration(s.cfg.PreviewTTLSeconds) * time.Second).Format(time.RFC3339),
 		})
@@ -370,16 +366,29 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.store.SetPreviewCache(r.Context(), cacheKey, objectKey, s.cfg.PreviewTTLSeconds)
-	url, err := s.storage.SignedURL(r.Context(), s.cfg.S3BucketPreviews, objectKey, s.cfg.PresignedURLTTLSeconds)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"previewUrl": url,
+		"previewUrl": s.previewProxyURL(r, objectKey),
 		"cacheHit":   false,
 		"expiresAt":  time.Now().UTC().Add(time.Duration(s.cfg.PreviewTTLSeconds) * time.Second).Format(time.RFC3339),
 	})
+}
+
+func (s *Server) handlePreviewAsset(w http.ResponseWriter, r *http.Request) {
+	previewID := strings.TrimSpace(chi.URLParam(r, "previewId"))
+	if previewID == "" || strings.Contains(previewID, "/") || strings.Contains(previewID, "..") {
+		writeError(w, http.StatusBadRequest, "invalid preview id")
+		return
+	}
+	objectKey := fmt.Sprintf("preview/%s", previewID)
+	content, err := s.storage.GetObjectBytes(r.Context(), s.cfg.S3BucketPreviews, objectKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "preview not found")
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(content)
 }
 
 func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
@@ -793,6 +802,25 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func writeError(w http.ResponseWriter, status int, detail string) {
 	writeJSON(w, status, map[string]string{"detail": detail})
+}
+
+func (s *Server) previewProxyURL(r *http.Request, objectKey string) string {
+	previewID := strings.TrimSpace(filepath.Base(strings.TrimSpace(objectKey)))
+	if previewID == "" || previewID == "." || previewID == "/" {
+		return ""
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if forwarded := strings.TrimSpace(r.Header.Get("x-forwarded-proto")); forwarded != "" {
+		scheme = forwarded
+	}
+	host := strings.TrimSpace(r.Host)
+	if host == "" {
+		return fmt.Sprintf("/v2/previews/%s", previewID)
+	}
+	return fmt.Sprintf("%s://%s/v2/previews/%s", scheme, host, previewID)
 }
 
 func parseFontWeights(raw string) []string {
