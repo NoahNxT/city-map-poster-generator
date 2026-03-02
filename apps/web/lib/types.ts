@@ -11,6 +11,8 @@ export type PosterRequest = {
   fontFamily?: string;
   theme: string;
   allThemes: boolean;
+  includeWater: boolean;
+  includeParks: boolean;
   distance: number;
   width: number;
   height: number;

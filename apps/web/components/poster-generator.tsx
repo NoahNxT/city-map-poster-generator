@@ -7,9 +7,12 @@ import { motion } from "framer-motion";
 import {
   AlertCircle,
   CheckCircle2,
+  CircleHelp,
   Download,
+  Eye,
   LoaderCircle,
   MapIcon,
+  Palette,
   Sparkles,
   WandSparkles,
 } from "lucide-react";
@@ -26,7 +29,7 @@ import {
   fetchPreview,
   fetchThemes,
 } from "@/lib/api";
-import type { LocationSuggestion, PosterRequest } from "@/lib/types";
+import type { LocationSuggestion, PosterRequest, Theme } from "@/lib/types";
 import {
   Accordion,
   AccordionContent,
@@ -42,8 +45,17 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Progress } from "./ui/progress";
 import {
   Select,
@@ -54,6 +66,70 @@ import {
 } from "./ui/select";
 import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
+
+type AdvancedHelpFieldKey =
+  | "displayCity"
+  | "displayCountry"
+  | "countryLabel"
+  | "fontFamily";
+
+const advancedFieldHelp: Record<
+  AdvancedHelpFieldKey,
+  {
+    title: string;
+    description: string;
+    previewLabel: string;
+  }
+> = {
+  displayCity: {
+    title: "Display city text",
+    description:
+      "Overrides the large city title at the bottom of the poster. Useful for i18n labels like native scripts.",
+    previewLabel: "City title",
+  },
+  displayCountry: {
+    title: "Display country text",
+    description:
+      "Overrides the country line under the city title. This has higher priority than Country Label Override.",
+    previewLabel: "Country line",
+  },
+  countryLabel: {
+    title: "Fallback country text",
+    description:
+      "Used when Display Country is empty. It updates the same country line under the main city title.",
+    previewLabel: "Country fallback",
+  },
+  fontFamily: {
+    title: "Typography family",
+    description:
+      "Downloads and applies a Google Font family to city, country, and coordinate labels in the final render.",
+    previewLabel: "Typography block",
+  },
+};
+
+const previewHintBoxes: Record<
+  AdvancedHelpFieldKey,
+  {
+    className: string;
+  }
+> = {
+  displayCity: {
+    className:
+      "left-[15%] top-[72%] h-[11%] w-[70%] border-amber-700/90 bg-amber-100/25",
+  },
+  displayCountry: {
+    className:
+      "left-[29%] top-[82%] h-[5%] w-[42%] border-sky-700/90 bg-sky-100/30",
+  },
+  countryLabel: {
+    className:
+      "left-[29%] top-[82%] h-[5%] w-[42%] border-emerald-700/90 bg-emerald-100/30",
+  },
+  fontFamily: {
+    className:
+      "left-[14%] top-[70%] h-[22%] w-[72%] border-cyan-700/90 bg-cyan-100/25",
+  },
+};
 
 const schema = z
   .object({
@@ -67,6 +143,8 @@ const schema = z
     fontFamily: z.string().optional(),
     theme: z.string().min(1),
     allThemes: z.boolean(),
+    includeWater: z.boolean(),
+    includeParks: z.boolean(),
     distance: z.number().min(1000).max(50000),
     width: z.number().min(1).max(20),
     height: z.number().min(1).max(20),
@@ -102,6 +180,8 @@ const defaultValues: FormValues = {
   fontFamily: "",
   theme: "terracotta",
   allThemes: false,
+  includeWater: true,
+  includeParks: true,
   distance: 12000,
   width: 12,
   height: 16,
@@ -120,6 +200,8 @@ function toPayload(values: FormValues): PosterRequest {
     fontFamily: values.fontFamily?.trim() || undefined,
     theme: values.theme,
     allThemes: values.allThemes,
+    includeWater: values.includeWater,
+    includeParks: values.includeParks,
     distance: values.distance,
     width: values.width,
     height: values.height,
@@ -161,6 +243,9 @@ export function PosterGenerator() {
   const [lastPreviewPlaceId, setLastPreviewPlaceId] = useState<string | null>(
     null,
   );
+  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+  const [activePreviewHint, setActivePreviewHint] =
+    useState<AdvancedHelpFieldKey | null>(null);
   const [locationQuery, setLocationQuery] = useState(
     `${defaultValues.city}, ${defaultValues.country}`,
   );
@@ -326,6 +411,8 @@ export function PosterGenerator() {
         fontFamily: values.fontFamily?.trim() || undefined,
         theme: values.theme,
         allThemes: false,
+        includeWater: values.includeWater,
+        includeParks: values.includeParks,
         distance: values.distance,
         width: values.width,
         height: values.height,
@@ -333,6 +420,25 @@ export function PosterGenerator() {
       },
       disableRateLimit: isDevBuild && disablePreviewRateLimit,
     });
+  }
+
+  function handleThemeSelect(theme: Theme) {
+    form.setValue("theme", theme.id, { shouldValidate: true });
+    setThemeDialogOpen(false);
+  }
+
+  function getHintTriggerHandlers(field: AdvancedHelpFieldKey): {
+    onMouseEnter: () => void;
+    onMouseLeave: () => void;
+    onFocus: () => void;
+    onBlur: () => void;
+  } {
+    return {
+      onMouseEnter: () => setActivePreviewHint(field),
+      onMouseLeave: () => setActivePreviewHint(null),
+      onFocus: () => setActivePreviewHint(field),
+      onBlur: () => setActivePreviewHint(null),
+    };
   }
 
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
@@ -497,7 +603,96 @@ export function PosterGenerator() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Theme</Label>
+                    <div className="flex items-center justify-between gap-3">
+                      <Label>Theme</Label>
+                      <Dialog
+                        open={themeDialogOpen}
+                        onOpenChange={setThemeDialogOpen}
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2 text-xs"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Browse themes
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                              <Palette className="h-4 w-4 text-amber-700" />
+                              Theme Explorer
+                            </DialogTitle>
+                            <DialogDescription>
+                              Compare all built-in styles and pick the look that
+                              fits your poster outcome.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="max-h-[68vh] overflow-y-auto px-5 pb-5">
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              {themesQuery.data?.map((theme) => {
+                                const selected = values.theme === theme.id;
+                                return (
+                                  <button
+                                    key={theme.id}
+                                    type="button"
+                                    onClick={() => handleThemeSelect(theme)}
+                                    className={[
+                                      "overflow-hidden rounded-lg border bg-card text-left transition-all",
+                                      selected
+                                        ? "border-amber-700 shadow-[0_0_0_1px_hsl(var(--primary))]"
+                                        : "border-border hover:border-amber-600/60 hover:shadow-sm",
+                                    ].join(" ")}
+                                  >
+                                    <div className="relative aspect-[3/4] w-full bg-muted">
+                                      <Image
+                                        src={`/theme-previews/${theme.id}.png`}
+                                        alt={`${theme.name} preview`}
+                                        fill
+                                        className="object-cover"
+                                        unoptimized
+                                      />
+                                    </div>
+                                    <div className="space-y-2 px-3 py-3">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <p className="text-sm font-semibold text-foreground">
+                                          {theme.name}
+                                        </p>
+                                        {selected ? (
+                                          <Badge className="bg-amber-700/90 text-amber-50">
+                                            Selected
+                                          </Badge>
+                                        ) : null}
+                                      </div>
+                                      <p className="min-h-8 text-xs text-muted-foreground">
+                                        {theme.description}
+                                      </p>
+                                      <div className="flex items-center gap-1">
+                                        {Object.entries(theme.colors)
+                                          .slice(0, 5)
+                                          .map(([colorKey, colorValue]) => (
+                                            <span
+                                              key={colorKey}
+                                              title={`${colorKey}: ${colorValue}`}
+                                              className="h-4 w-4 rounded-full border border-black/10"
+                                              style={{
+                                                backgroundColor: colorValue,
+                                              }}
+                                            />
+                                          ))}
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                     <Select
                       value={values.theme}
                       onValueChange={(value) =>
@@ -632,9 +827,41 @@ export function PosterGenerator() {
 
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="space-y-2">
-                            <Label htmlFor="displayCity">
-                              Display City (i18n label)
-                            </Label>
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="displayCity">
+                                Display City (i18n label)
+                              </Label>
+                              <Popover
+                                open={activePreviewHint === "displayCity"}
+                              >
+                                <PopoverTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label="Explain Display City"
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    {...getHintTriggerHandlers("displayCity")}
+                                  >
+                                    <CircleHelp className="h-3.5 w-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  align="start"
+                                  className="w-72"
+                                  side="top"
+                                >
+                                  <p className="text-xs font-semibold text-foreground">
+                                    {advancedFieldHelp.displayCity.title}
+                                  </p>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {advancedFieldHelp.displayCity.description}
+                                  </p>
+                                  <p className="mt-2 text-[11px] text-amber-700">
+                                    Highlighting:{" "}
+                                    {advancedFieldHelp.displayCity.previewLabel}
+                                  </p>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                             <Input
                               id="displayCity"
                               placeholder="東京"
@@ -642,9 +869,49 @@ export function PosterGenerator() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="displayCountry">
-                              Display Country (i18n label)
-                            </Label>
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="displayCountry">
+                                Display Country (i18n label)
+                              </Label>
+                              <Popover
+                                open={activePreviewHint === "displayCountry"}
+                              >
+                                <PopoverTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label="Explain Display Country"
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    {...getHintTriggerHandlers(
+                                      "displayCountry",
+                                    )}
+                                  >
+                                    <CircleHelp className="h-3.5 w-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  align="start"
+                                  className="w-72"
+                                  side="top"
+                                >
+                                  <p className="text-xs font-semibold text-foreground">
+                                    {advancedFieldHelp.displayCountry.title}
+                                  </p>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {
+                                      advancedFieldHelp.displayCountry
+                                        .description
+                                    }
+                                  </p>
+                                  <p className="mt-2 text-[11px] text-amber-700">
+                                    Highlighting:{" "}
+                                    {
+                                      advancedFieldHelp.displayCountry
+                                        .previewLabel
+                                    }
+                                  </p>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                             <Input
                               id="displayCountry"
                               placeholder="日本"
@@ -653,10 +920,90 @@ export function PosterGenerator() {
                           </div>
                         </div>
 
+                        <div className="rounded-lg border border-dashed px-3 py-3">
+                          <p className="text-sm font-medium text-foreground">
+                            Map Layers (Export)
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Applies to final generation only. Preview remains on
+                            fast server defaults.
+                          </p>
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2">
+                              <div>
+                                <p className="text-sm font-medium text-foreground">
+                                  Include water
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Rivers, lakes, canals.
+                                </p>
+                              </div>
+                              <Switch
+                                checked={values.includeWater}
+                                onCheckedChange={(checked) =>
+                                  form.setValue("includeWater", checked, {
+                                    shouldValidate: true,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2">
+                              <div>
+                                <p className="text-sm font-medium text-foreground">
+                                  Include parks/greens
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Parks and grass areas.
+                                </p>
+                              </div>
+                              <Switch
+                                checked={values.includeParks}
+                                onCheckedChange={(checked) =>
+                                  form.setValue("includeParks", checked, {
+                                    shouldValidate: true,
+                                  })
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+
                         <div className="space-y-2">
-                          <Label htmlFor="countryLabel">
-                            Country Label Override
-                          </Label>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="countryLabel">
+                              Country Label Override
+                            </Label>
+                            <Popover
+                              open={activePreviewHint === "countryLabel"}
+                            >
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label="Explain Country Label Override"
+                                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  {...getHintTriggerHandlers("countryLabel")}
+                                >
+                                  <CircleHelp className="h-3.5 w-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                align="start"
+                                className="w-72"
+                                side="top"
+                              >
+                                <p className="text-xs font-semibold text-foreground">
+                                  {advancedFieldHelp.countryLabel.title}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {advancedFieldHelp.countryLabel.description}
+                                </p>
+                                <p className="mt-2 text-[11px] text-amber-700">
+                                  Highlighting:{" "}
+                                  {advancedFieldHelp.countryLabel.previewLabel}
+                                </p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <Input
                             id="countryLabel"
                             placeholder="FRANCE"
@@ -665,7 +1012,39 @@ export function PosterGenerator() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="fontFamily">Google Font Family</Label>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="fontFamily">
+                              Google Font Family
+                            </Label>
+                            <Popover open={activePreviewHint === "fontFamily"}>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label="Explain Google Font Family"
+                                  className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  {...getHintTriggerHandlers("fontFamily")}
+                                >
+                                  <CircleHelp className="h-3.5 w-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                align="start"
+                                className="w-72"
+                                side="top"
+                              >
+                                <p className="text-xs font-semibold text-foreground">
+                                  {advancedFieldHelp.fontFamily.title}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {advancedFieldHelp.fontFamily.description}
+                                </p>
+                                <p className="mt-2 text-[11px] text-amber-700">
+                                  Highlighting:{" "}
+                                  {advancedFieldHelp.fontFamily.previewLabel}
+                                </p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <Input
                             id="fontFamily"
                             placeholder="Noto Sans JP"
@@ -773,6 +1152,19 @@ export function PosterGenerator() {
                     Select a location from autocomplete to render preview.
                   </div>
                 )}
+                {activePreviewHint ? (
+                  <div className="pointer-events-none absolute inset-0">
+                    <div
+                      className={[
+                        "absolute rounded-md border-2 transition-all duration-150 ease-out",
+                        previewHintBoxes[activePreviewHint].className,
+                      ].join(" ")}
+                    />
+                    <span className="absolute right-2 top-2 rounded-md bg-background/85 px-2 py-1 text-[11px] font-medium text-foreground shadow-sm">
+                      {advancedFieldHelp[activePreviewHint].previewLabel}
+                    </span>
+                  </div>
+                ) : null}
               </div>
               {previewInfo ? (
                 <p className="mt-2 text-xs text-muted-foreground">
