@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,6 +24,23 @@ type Client struct {
 }
 
 func New(ctx context.Context, cfg config.Config) (*Client, error) {
+	internalClient, err := newS3Client(ctx, cfg, strings.TrimSpace(cfg.S3EndpointURL))
+	if err != nil {
+		return nil, err
+	}
+	presignClient, err := newS3Client(ctx, cfg, presignEndpoint(cfg.S3EndpointURL, cfg.S3PublicEndpointURL))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		cfg:     cfg,
+		s3:      internalClient,
+		presign: s3.NewPresignClient(presignClient),
+	}, nil
+}
+
+func newS3Client(ctx context.Context, cfg config.Config, endpointURL string) (*s3.Client, error) {
 	awsCfg, err := awsconfig.LoadDefaultConfig(
 		ctx,
 		awsconfig.WithRegion(cfg.S3Region),
@@ -32,7 +48,7 @@ func New(ctx context.Context, cfg config.Config) (*Client, error) {
 		awsconfig.WithEndpointResolverWithOptions(
 			aws.EndpointResolverWithOptionsFunc(func(service, region string, _ ...interface{}) (aws.Endpoint, error) {
 				if service == s3.ServiceID {
-					return aws.Endpoint{URL: cfg.S3EndpointURL, HostnameImmutable: true}, nil
+					return aws.Endpoint{URL: endpointURL, HostnameImmutable: true}, nil
 				}
 				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
 			}),
@@ -42,15 +58,21 @@ func New(ctx context.Context, cfg config.Config) (*Client, error) {
 		return nil, fmt.Errorf("load aws config: %w", err)
 	}
 
-	s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+	return s3.NewFromConfig(awsCfg, func(o *s3.Options) {
 		o.UsePathStyle = true
-	})
+		// MinIO/S3-compatible providers may reject optional checksum query params
+		// on presigned GET URLs; keep checksums only when an operation requires it.
+		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
+		o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
+	}), nil
+}
 
-	return &Client{
-		cfg:     cfg,
-		s3:      s3Client,
-		presign: s3.NewPresignClient(s3Client),
-	}, nil
+func presignEndpoint(internalURL, publicURL string) string {
+	publicURL = strings.TrimSpace(publicURL)
+	if publicURL != "" {
+		return publicURL
+	}
+	return strings.TrimSpace(internalURL)
 }
 
 func (c *Client) EnsureBuckets(ctx context.Context) error {
@@ -115,22 +137,5 @@ func (c *Client) SignedURL(ctx context.Context, bucket, key string, ttlSeconds i
 	if err != nil {
 		return "", err
 	}
-	return rewritePublicURL(resp.URL, c.cfg.S3PublicEndpointURL), nil
-}
-
-func rewritePublicURL(rawURL, publicBase string) string {
-	if strings.TrimSpace(publicBase) == "" {
-		return rawURL
-	}
-	source, err := url.Parse(rawURL)
-	if err != nil {
-		return rawURL
-	}
-	target, err := url.Parse(publicBase)
-	if err != nil || target.Scheme == "" || target.Host == "" {
-		return rawURL
-	}
-	source.Scheme = target.Scheme
-	source.Host = target.Host
-	return source.String()
+	return resp.URL, nil
 }
