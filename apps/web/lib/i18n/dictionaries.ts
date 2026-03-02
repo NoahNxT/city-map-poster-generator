@@ -124,6 +124,8 @@ export type Dictionary = {
   preview: {
     title: string;
     description: string;
+    devSettingsTitle: string;
+    devSettingsToggleLabel: string;
     disableRateLimitTitle: string;
     disableRateLimitDescription: string;
     disableCaptchaTitle: string;
@@ -322,6 +324,8 @@ const en: Dictionary = {
     title: "Live Preview",
     description:
       "Preview uses the same renderer pipeline as the final exported poster.",
+    devSettingsTitle: "Development settings",
+    devSettingsToggleLabel: "Dev settings",
     disableRateLimitTitle: "Disable all API rate limits",
     disableRateLimitDescription:
       "Development only. Disables all API throttling.",
@@ -598,6 +602,8 @@ const nl: Dictionary = {
     title: "Live voorbeeld",
     description:
       "De preview gebruikt dezelfde renderer als de uiteindelijke export.",
+    devSettingsTitle: "Ontwikkelaarsinstellingen",
+    devSettingsToggleLabel: "Dev-instellingen",
     disableRateLimitTitle: "Alle API-rate limits uitschakelen",
     disableRateLimitDescription:
       "Alleen voor development. Schakelt alle API-throttling uit.",
@@ -879,6 +885,8 @@ const fr: Dictionary = {
     ...en.preview,
     title: "Aperçu en direct",
     description: "L'aperçu utilise le même moteur de rendu que l'export final.",
+    devSettingsTitle: "Paramètres de développement",
+    devSettingsToggleLabel: "Paramètres dev",
     disableRateLimitTitle: "Désactiver toutes les limites API",
     disableRateLimitDescription:
       "Développement uniquement. Désactive toute limitation API.",
@@ -1163,6 +1171,8 @@ const de: Dictionary = {
     title: "Live-Vorschau",
     description:
       "Die Vorschau nutzt dieselbe Render-Pipeline wie der finale Export.",
+    devSettingsTitle: "Entwicklungseinstellungen",
+    devSettingsToggleLabel: "Dev-Einstellungen",
     disableRateLimitTitle: "Alle API-Rate-Limits deaktivieren",
     disableRateLimitDescription:
       "Nur für Development. Deaktiviert sämtliche API-Drosselungen.",
@@ -1446,6 +1456,8 @@ const es: Dictionary = {
     title: "Vista previa en vivo",
     description:
       "La vista previa usa el mismo renderizador que la exportación final.",
+    devSettingsTitle: "Ajustes de desarrollo",
+    devSettingsToggleLabel: "Ajustes dev",
     disableRateLimitTitle: "Desactivar todos los límites de API",
     disableRateLimitDescription:
       "Solo para desarrollo. Desactiva toda limitación de API.",

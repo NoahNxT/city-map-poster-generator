@@ -581,6 +581,7 @@ export function PosterGenerator({
   const includeWaterId = "include-water-switch";
   const includeParksId = "include-parks-switch";
   const blurEnabledId = "text-blur-switch";
+  const devSettingsToggleId = "dev-settings-switch";
   const rateLimitToggleId = "dev-rate-limit-switch";
   const captchaToggleId = "dev-captcha-switch";
   const zoomToggleId = "preview-zoom-switch";
@@ -604,6 +605,7 @@ export function PosterGenerator({
   const [activePreviewHint, setActivePreviewHint] =
     useState<AdvancedHelpFieldKey | null>(null);
   const [previewZoomEnabled, setPreviewZoomEnabled] = useState(false);
+  const [showDevSettingsCard, setShowDevSettingsCard] = useState(false);
   const [disableRateLimit, setDisableRateLimit] = useState(false);
   const [disableCaptchaCheck, setDisableCaptchaCheck] = useState(false);
   const [turnstileRenderKey, setTurnstileRenderKey] = useState(0);
@@ -1103,6 +1105,12 @@ export function PosterGenerator({
     if (rawCaptchaBypassValue === "1") {
       setDisableCaptchaCheck(true);
     }
+    const rawShowDevSettingsValue = window.localStorage.getItem(
+      "showDevSettingsCard",
+    );
+    if (rawShowDevSettingsValue === "1") {
+      setShowDevSettingsCard(true);
+    }
   }, [showDevRateLimitToggle]);
 
   useEffect(() => {
@@ -1124,6 +1132,16 @@ export function PosterGenerator({
       disableCaptchaCheck ? "1" : "0",
     );
   }, [disableCaptchaCheck, showDevRateLimitToggle]);
+
+  useEffect(() => {
+    if (!showDevRateLimitToggle) {
+      return;
+    }
+    window.localStorage.setItem(
+      "showDevSettingsCard",
+      showDevSettingsCard ? "1" : "0",
+    );
+  }, [showDevRateLimitToggle, showDevSettingsCard]);
 
   useEffect(() => {
     if (!turnstileSiteKey) {
@@ -1637,25 +1655,43 @@ export function PosterGenerator({
           <Badge className="bg-amber-700/90 text-amber-50">
             {d.header.badge}
           </Badge>
-          <div className="flex min-w-[180px] items-center gap-2">
-            <Label
-              htmlFor="language-select"
-              className="text-xs text-muted-foreground"
-            >
-              {d.languageLabel}
-            </Label>
-            <Select value={locale} onValueChange={handleLocaleChange}>
-              <SelectTrigger id="language-select" className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {locales.map((entry) => (
-                  <SelectItem key={entry} value={entry}>
-                    {localeLabels[entry]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="flex min-w-[180px] items-center gap-2">
+              <Label
+                htmlFor="language-select"
+                className="text-xs text-muted-foreground"
+              >
+                {d.languageLabel}
+              </Label>
+              <Select value={locale} onValueChange={handleLocaleChange}>
+                <SelectTrigger id="language-select" className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {locales.map((entry) => (
+                    <SelectItem key={entry} value={entry}>
+                      {localeLabels[entry]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {showDevRateLimitToggle ? (
+              <div className="flex items-center gap-2">
+                <Label
+                  htmlFor={devSettingsToggleId}
+                  className="text-xs text-muted-foreground"
+                >
+                  {d.preview.devSettingsToggleLabel}
+                </Label>
+                <Switch
+                  id={devSettingsToggleId}
+                  checked={showDevSettingsCard}
+                  onCheckedChange={setShowDevSettingsCard}
+                  aria-label={d.preview.devSettingsToggleLabel}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
         <h1 className="font-heading text-4xl tracking-tight text-foreground sm:text-5xl">
@@ -1678,12 +1714,12 @@ export function PosterGenerator({
             delay: shouldReduceMotion ? 0 : 0.05,
           }}
         >
-          {showDevRateLimitToggle ? (
-            <section aria-label="Development toggles" className="mb-4">
+          {showDevRateLimitToggle && showDevSettingsCard ? (
+            <section aria-label={d.preview.devSettingsTitle} className="mb-4">
               <Card>
                 <CardHeader>
                   <h3 className="font-semibold tracking-tight text-sm uppercase text-muted-foreground">
-                    Development
+                    {d.preview.devSettingsTitle}
                   </h3>
                 </CardHeader>
                 <CardContent className="space-y-3">
