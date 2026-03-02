@@ -25,3 +25,8 @@ bun run --cwd apps/api-go test
 
 - Redis (queue, state, rate limits)
 - S3-compatible object storage (previews/artifacts)
+
+## Fonts
+
+- Search works with Google Fonts metadata/API.
+- Rendering custom Google fonts in PNG/PDF uses downloadable font files from the Google Webfonts Developer API and therefore requires `GOOGLE_FONTS_API_KEY`.

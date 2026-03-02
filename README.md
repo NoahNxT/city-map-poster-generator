@@ -104,6 +104,7 @@ bun run format        # biome format
 - `allThemes`: generate every theme + ZIP output
 - Preview caching + artifact storage with presigned downloads
 - Google Fonts searchable picker for `fontFamily`
+- Custom Google-font rendering for PNG/PDF when `GOOGLE_FONTS_API_KEY` is configured
 
 ## Theme Gallery Previews
 

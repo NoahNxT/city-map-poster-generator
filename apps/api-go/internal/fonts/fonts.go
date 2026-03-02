@@ -396,8 +396,8 @@ func (s *Service) loadTTFURLsFromCSS(ctx context.Context, family string) (map[st
 	css := string(cssBytes)
 
 	blockRe := regexp.MustCompile(`(?s)@font-face\s*\{(.*?)\}`)
-	weightRe := regexp.MustCompile(`font-weight:\s*([0-9]+)`) 
-	srcRe := regexp.MustCompile(`src:\s*url\(([^)]+)\)\s*format\('([^']+)'\)`) 
+	weightRe := regexp.MustCompile(`font-weight:\s*([0-9]+)`)
+	srcRe := regexp.MustCompile(`src:\s*url\(([^)]+)\)\s*format\('([^']+)'\)`)
 
 	out := map[string]string{}
 	for _, block := range blockRe.FindAllStringSubmatch(css, -1) {
