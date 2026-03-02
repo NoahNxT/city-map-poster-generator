@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
@@ -31,6 +31,7 @@ import {
   fetchJob,
   fetchLocations,
   fetchPreview,
+  fetchRenderSnapshot,
   fetchThemes,
 } from "@/lib/api";
 import {
@@ -40,7 +41,13 @@ import {
   locales,
 } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
-import type { LocationSuggestion, PosterRequest, Theme } from "@/lib/types";
+import type {
+  LocationSuggestion,
+  PosterRequest,
+  RenderSnapshotPayload,
+  RenderSnapshotRequest,
+  Theme,
+} from "@/lib/types";
 import {
   Accordion,
   AccordionContent,
@@ -129,7 +136,40 @@ type PreviewPointer = {
   y: number;
 };
 
+type RendererMode = "local-wasm" | "server-fallback";
+
+type WorkerRenderResponse =
+  | {
+      type: "rendered";
+      id: string;
+      dataUrl: string;
+    }
+  | {
+      type: "error";
+      id: string;
+      message: string;
+    };
+
+type WorkerRenderRequest = {
+  type: "render";
+  id: string;
+  payload: PosterRequest;
+  snapshot: RenderSnapshotPayload;
+  theme: Theme;
+  pixelWidth: number;
+  pixelHeight: number;
+};
+
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const PREVIEW_RENDER_DPI = 120;
+
+function supportsLocalRenderer(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof Worker !== "undefined" &&
+    typeof OffscreenCanvas !== "undefined"
+  );
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -278,6 +318,20 @@ function toPayload(values: FormValues): PosterRequest {
   };
 }
 
+function toSnapshotRequest(values: FormValues): RenderSnapshotRequest {
+  return {
+    city: values.city.trim(),
+    country: values.country.trim(),
+    latitude: values.latitude?.trim() || undefined,
+    longitude: values.longitude?.trim() || undefined,
+    distance: values.distance,
+    width: values.width,
+    height: values.height,
+    includeWater: values.includeWater,
+    includeParks: values.includeParks,
+  };
+}
+
 export function PosterGenerator({
   locale,
   dictionary,
@@ -311,7 +365,11 @@ export function PosterGenerator({
     undefined,
   );
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [rendererMode, setRendererMode] = useState<RendererMode>("local-wasm");
+  const [rendererReason, setRendererReason] = useState("initializing");
   const [latestPreviewUrl, setLatestPreviewUrl] = useState<string | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const [localRenderPending, setLocalRenderPending] = useState(true);
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [activePreviewHint, setActivePreviewHint] =
     useState<AdvancedHelpFieldKey | null>(null);
@@ -319,6 +377,8 @@ export function PosterGenerator({
   const [disableRateLimit, setDisableRateLimit] = useState(false);
   const [previewZoomLevel, setPreviewZoomLevel] =
     useState(DEFAULT_PREVIEW_ZOOM);
+  const [debouncedSnapshotRequest, setDebouncedSnapshotRequest] =
+    useState<RenderSnapshotRequest>(() => toSnapshotRequest(defaultValues));
   const [debouncedPreviewPayload, setDebouncedPreviewPayload] =
     useState<PosterRequest>(() => toPayload(defaultValues));
   const [previewPointer, setPreviewPointer] = useState<PreviewPointer | null>(
@@ -340,6 +400,8 @@ export function PosterGenerator({
   );
   const [activeLocationIndex, setActiveLocationIndex] = useState<number>(-1);
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const latestWorkerRenderIdRef = useRef<string>("");
   const pathname = usePathname();
   const router = useRouter();
 
@@ -358,7 +420,54 @@ export function PosterGenerator({
     [watchedValues],
   );
   const previewPayload = useMemo(() => toPayload(values), [values]);
+  const {
+    city: snapshotCity,
+    country: snapshotCountry,
+    latitude: snapshotLatitude,
+    longitude: snapshotLongitude,
+    distance: snapshotDistance,
+    width: snapshotWidth,
+    height: snapshotHeight,
+    includeWater: snapshotIncludeWater,
+    includeParks: snapshotIncludeParks,
+  } = values;
+  const snapshotRequest = useMemo(
+    (): RenderSnapshotRequest => ({
+      city: snapshotCity.trim(),
+      country: snapshotCountry.trim(),
+      latitude: snapshotLatitude?.trim() || undefined,
+      longitude: snapshotLongitude?.trim() || undefined,
+      distance: snapshotDistance,
+      width: snapshotWidth,
+      height: snapshotHeight,
+      includeWater: snapshotIncludeWater,
+      includeParks: snapshotIncludeParks,
+    }),
+    [
+      snapshotCity,
+      snapshotCountry,
+      snapshotLatitude,
+      snapshotLongitude,
+      snapshotDistance,
+      snapshotWidth,
+      snapshotHeight,
+      snapshotIncludeWater,
+      snapshotIncludeParks,
+    ],
+  );
   const d = dictionary;
+
+  const fallbackToServer = useCallback((reason: string) => {
+    const worker = workerRef.current;
+    if (worker) {
+      worker.terminate();
+      workerRef.current = null;
+    }
+    setRendererMode("server-fallback");
+    setRendererReason(reason);
+    setLocalRenderPending(false);
+    setLocalPreviewUrl(null);
+  }, []);
 
   const themesQuery = useQuery({
     queryKey: ["themes"],
@@ -384,6 +493,20 @@ export function PosterGenerator({
     staleTime: 60 * 60_000,
     refetchOnWindowFocus: false,
   });
+  const snapshotQuery = useQuery({
+    queryKey: ["render-snapshot", debouncedSnapshotRequest, disableRateLimit],
+    queryFn: () =>
+      fetchRenderSnapshot(debouncedSnapshotRequest, {
+        disableRateLimit,
+      }),
+    enabled:
+      rendererMode === "local-wasm" &&
+      debouncedSnapshotRequest.city.trim().length > 0 &&
+      debouncedSnapshotRequest.country.trim().length > 0,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
   const previewQuery = useQuery({
     queryKey: ["preview", debouncedPreviewPayload, disableRateLimit],
     queryFn: () =>
@@ -391,6 +514,7 @@ export function PosterGenerator({
         disableRateLimit,
       }),
     enabled:
+      rendererMode === "server-fallback" &&
       debouncedPreviewPayload.city.trim().length > 0 &&
       debouncedPreviewPayload.country.trim().length > 0,
     staleTime: 30_000,
@@ -433,6 +557,60 @@ export function PosterGenerator({
   });
 
   useEffect(() => {
+    if (!supportsLocalRenderer()) {
+      setRendererMode("server-fallback");
+      setRendererReason("unsupported-browser");
+      setLocalRenderPending(false);
+      return;
+    }
+
+    let disposed = false;
+    let worker: Worker | null = null;
+    try {
+      worker = new Worker(
+        new URL("../lib/renderer/renderer-worker.ts", import.meta.url),
+        { type: "module" },
+      );
+      workerRef.current = worker;
+      setRendererMode("local-wasm");
+      setRendererReason("ok");
+      worker.onmessage = (event: MessageEvent<WorkerRenderResponse>) => {
+        if (disposed) {
+          return;
+        }
+        const message = event.data;
+        if (!message || message.id !== latestWorkerRenderIdRef.current) {
+          return;
+        }
+        if (message.type === "rendered") {
+          setLocalPreviewUrl(message.dataUrl || null);
+          setLocalRenderPending(false);
+          return;
+        }
+        fallbackToServer("worker-render-error");
+      };
+      worker.onerror = () => {
+        if (disposed) {
+          return;
+        }
+        fallbackToServer("worker-runtime-error");
+      };
+    } catch {
+      setRendererMode("server-fallback");
+      setRendererReason("worker-init-failed");
+      setLocalRenderPending(false);
+    }
+
+    return () => {
+      disposed = true;
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+    };
+  }, [fallbackToServer]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedLocationQuery(locationQuery.trim());
       setActiveLocationIndex(-1);
@@ -449,6 +627,13 @@ export function PosterGenerator({
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      setDebouncedSnapshotRequest(snapshotRequest);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [snapshotRequest]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
       setDebouncedPreviewPayload(previewPayload);
     }, 450);
     return () => clearTimeout(timer);
@@ -460,6 +645,12 @@ export function PosterGenerator({
       setLatestPreviewUrl(nextUrl);
     }
   }, [previewQuery.data?.previewUrl]);
+
+  useEffect(() => {
+    if (rendererMode === "local-wasm" && snapshotQuery.isError) {
+      fallbackToServer("snapshot-fetch-failed");
+    }
+  }, [rendererMode, snapshotQuery.isError, fallbackToServer]);
 
   useEffect(() => {
     if (!fontComboboxOpen) {
@@ -657,8 +848,6 @@ export function PosterGenerator({
   );
   const themeTextColor = activeTheme?.colors.text ?? "#8C4A18";
   const selectedFontFamily = values.fontFamily?.trim() ?? "";
-  const previewUrl = latestPreviewUrl;
-  const hasServerPreview = Boolean(previewUrl);
   const previewWidthInches =
     Number.isFinite(values.width) && values.width > 0
       ? values.width
@@ -667,6 +856,21 @@ export function PosterGenerator({
     Number.isFinite(values.height) && values.height > 0
       ? values.height
       : defaultValues.height;
+  const previewPixelWidth = Math.max(
+    320,
+    Math.round(previewWidthInches * PREVIEW_RENDER_DPI),
+  );
+  const previewPixelHeight = Math.max(
+    320,
+    Math.round(previewHeightInches * PREVIEW_RENDER_DPI),
+  );
+  const previewUrl =
+    rendererMode === "local-wasm" ? localPreviewUrl : latestPreviewUrl;
+  const hasPreview = Boolean(previewUrl);
+  const isPreviewLoading =
+    rendererMode === "local-wasm"
+      ? snapshotQuery.isFetching || localRenderPending || !hasPreview
+      : previewQuery.isFetching;
   const previewViewboxWidth = previewWidthInches * 100;
   const previewViewboxHeight = previewHeightInches * 100;
   const previewZoomAnchor = previewPointer ?? { x: 0.5, y: 0.5 };
@@ -688,6 +892,38 @@ export function PosterGenerator({
   const zoomLensTop = (zoomViewY / previewViewboxHeight) * 100;
   const zoomLensWidth = (zoomViewWidth / previewViewboxWidth) * 100;
   const zoomLensHeight = (zoomViewHeight / previewViewboxHeight) * 100;
+
+  useEffect(() => {
+    if (rendererMode !== "local-wasm") {
+      return;
+    }
+    const worker = workerRef.current;
+    if (!worker || !snapshotQuery.data || !activeTheme) {
+      return;
+    }
+
+    const renderId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    latestWorkerRenderIdRef.current = renderId;
+    setLocalRenderPending(true);
+    const message: WorkerRenderRequest = {
+      type: "render",
+      id: renderId,
+      payload: previewPayload,
+      snapshot: snapshotQuery.data,
+      theme: activeTheme,
+      pixelWidth: previewPixelWidth,
+      pixelHeight: previewPixelHeight,
+    };
+    worker.postMessage(message);
+  }, [
+    rendererMode,
+    snapshotQuery.data,
+    activeTheme,
+    previewPayload,
+    previewPixelWidth,
+    previewPixelHeight,
+  ]);
+
   const fallbackFontSuggestions = useMemo(() => {
     const query = fontSearchQuery.trim().toLowerCase();
     if (!query) {
@@ -1937,6 +2173,15 @@ export function PosterGenerator({
                     </div>
                   ) : null}
                 </div>
+                {showDevRateLimitToggle ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Renderer mode:{" "}
+                    <span className="font-medium text-foreground">
+                      {rendererMode}
+                    </span>
+                    {rendererReason !== "ok" ? ` (${rendererReason})` : ""}
+                  </p>
+                ) : null}
                 <figure
                   id={previewFrameId}
                   ref={previewFrameRef}
@@ -1979,20 +2224,21 @@ export function PosterGenerator({
                       <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                         <LoaderCircle
                           className={
-                            previewQuery.isFetching
+                            isPreviewLoading
                               ? "h-4 w-4 animate-spin"
                               : "h-4 w-4"
                           }
                         />
                         <span>
-                          {previewQuery.isError
+                          {rendererMode === "server-fallback" &&
+                          previewQuery.isError
                             ? d.themeExplorer.previewUnavailable
                             : d.themeExplorer.loadingPreview}
                         </span>
                       </div>
                     </div>
                   )}
-                  {previewZoomEnabled && hasServerPreview ? (
+                  {previewZoomEnabled && hasPreview ? (
                     <>
                       <div
                         className="pointer-events-none absolute z-20 rounded-sm border border-amber-700/80 bg-amber-200/10 shadow-[0_0_0_1px_rgba(255,255,255,0.35)]"
@@ -2040,12 +2286,12 @@ export function PosterGenerator({
                 <p id={previewKeyboardHintId} className="sr-only">
                   {d.accessibility.previewKeyboardHint}
                 </p>
-                {previewQuery.isFetching ? (
+                {isPreviewLoading ? (
                   <p className="text-xs text-muted-foreground">
                     {d.themeExplorer.loadingPreview}
                   </p>
                 ) : null}
-                {previewQuery.isError ? (
+                {rendererMode === "server-fallback" && previewQuery.isError ? (
                   <p className="text-xs text-destructive">
                     {d.themeExplorer.previewUnavailable}
                   </p>
