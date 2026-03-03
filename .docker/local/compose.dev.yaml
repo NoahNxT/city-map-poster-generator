@@ -1,22 +1,22 @@
 services:
   api:
     build:
-      context: .
+      context: ../..
       dockerfile: .docker/local/images/api-dev.Dockerfile
     command: ["air", "-c", ".air.api.toml"]
     volumes:
-      - ./apps/api:/app
+      - ../../apps/api:/app
       - map_cache:/tmp/map-cache
       - go_mod_cache:/go/pkg/mod
       - go_build_cache:/root/.cache/go-build
 
   worker:
     build:
-      context: .
+      context: ../..
       dockerfile: .docker/local/images/api-dev.Dockerfile
     command: ["air", "-c", ".air.worker.toml"]
     volumes:
-      - ./apps/api:/app
+      - ../../apps/api:/app
       - map_cache:/tmp/map-cache
       - go_mod_cache:/go/pkg/mod
       - go_build_cache:/root/.cache/go-build

@@ -1,7 +1,7 @@
 services:
   web:
     build:
-      context: .
+      context: ../..
       dockerfile: .docker/local/images/web.Dockerfile
     container_name: city-map-web
     environment:
@@ -14,7 +14,7 @@ services:
 
   api:
     build:
-      context: .
+      context: ../..
       dockerfile: .docker/local/images/api.Dockerfile
     container_name: city-map-api
     environment:
@@ -71,7 +71,7 @@ services:
 
   worker:
     build:
-      context: .
+      context: ../..
       dockerfile: .docker/local/images/api.Dockerfile
     container_name: city-map-worker
     environment:
