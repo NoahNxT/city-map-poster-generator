@@ -68,6 +68,7 @@ jobs:
             NEXT_PUBLIC_API_BASE_URL=${{ vars.PRODUCTION_NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000' }}
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.PRODUCTION_NEXT_PUBLIC_TURNSTILE_SITE_KEY || '' }}
             NEXT_PUBLIC_SITE_URL=${{ vars.PRODUCTION_NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+            NEXT_PUBLIC_PREVIEW_ENGINE=${{ vars.PRODUCTION_NEXT_PUBLIC_PREVIEW_ENGINE || 'snapshot' }}
           tags: |
             ${{ steps.image_vars.outputs.web_image }}:production
             ${{ steps.image_vars.outputs.web_image }}:${{ github.sha }}
