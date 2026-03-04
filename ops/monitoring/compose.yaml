@@ -1,0 +1,18 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: city-map-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - default
+
+volumes:
+  prometheus_data:
