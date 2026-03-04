@@ -1,28 +1,17 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Turnstile } from "@marsidev/react-turnstile";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { motion, useReducedMotion } from "framer-motion";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import {
-  AlertCircle,
-  Check,
-  CheckCircle2,
-  ChevronsUpDown,
   CircleHelp,
-  Download,
   Eye,
   LoaderCircle,
   MapIcon,
-  Palette,
-  Sparkles,
   WandSparkles,
 } from "lucide-react";
-import Image from "next/image";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { z } from "zod";
 
 import {
   createJob,
@@ -41,7 +30,7 @@ import {
   localeLabels,
   locales,
 } from "@/lib/i18n/config";
-import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { HomeDictionary } from "@/lib/i18n/dictionaries";
 import type {
   LocationSuggestion,
   PosterRequest,
@@ -49,6 +38,8 @@ import type {
   RenderSnapshotRequest,
   Theme,
 } from "@/lib/types";
+import { LocationSearchField } from "./poster-generator/location-search-field";
+import { PreviewPanel } from "./poster-generator/preview-panel";
 import {
   Accordion,
   AccordionContent,
@@ -58,27 +49,9 @@ import {
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "./ui/card";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "./ui/command";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Progress } from "./ui/progress";
 import {
   Select,
   SelectContent,
@@ -135,48 +108,29 @@ const PREVIEW_FRAME_MAX_HEIGHT_PX = 560;
 const DEFAULT_CITY_FONT_SIZE = 60;
 const DEFAULT_COUNTRY_FONT_SIZE = 22;
 
-const schema = z
-  .object({
-    city: z.string().trim().min(1, "City is required"),
-    country: z.string().trim().min(1, "Country is required"),
-    latitude: z.string().optional(),
-    longitude: z.string().optional(),
-    fontFamily: z.string().optional(),
-    theme: z.string().min(1),
-    allThemes: z.boolean(),
-    includeWater: z.boolean(),
-    includeParks: z.boolean(),
-    cityFontSize: z.number().min(8).max(120).optional(),
-    countryFontSize: z.number().min(6).max(80).optional(),
-    textColor: z
-      .string()
-      .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
-      .optional(),
-    labelPaddingScale: z.number().min(0.5).max(3),
-    textBlurEnabled: z.boolean(),
-    textBlurSizeX: z.number().min(MIN_TEXT_BLUR_SIZE).max(MAX_TEXT_BLUR_SIZE),
-    textBlurSizeY: z.number().min(MIN_TEXT_BLUR_SIZE).max(MAX_TEXT_BLUR_SIZE),
-    textBlurStrength: z
-      .number()
-      .min(MIN_TEXT_BLUR_STRENGTH)
-      .max(MAX_TEXT_BLUR_STRENGTH),
-    distance: z.number().min(MIN_DISTANCE_METERS).max(MAX_DISTANCE_METERS),
-    width: z.number().min(MIN_POSTER_INCHES).max(MAX_POSTER_INCHES),
-    height: z.number().min(MIN_POSTER_INCHES).max(MAX_POSTER_INCHES),
-    format: z.enum(["png", "svg", "pdf"]),
-  })
-  .superRefine((data, ctx) => {
-    const hasLat = Boolean(data.latitude?.trim());
-    const hasLon = Boolean(data.longitude?.trim());
-    if (hasLat !== hasLon) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Latitude and longitude must be set together",
-      });
-    }
-  });
-
-type FormValues = z.infer<typeof schema>;
+type FormValues = {
+  city: string;
+  country: string;
+  latitude?: string;
+  longitude?: string;
+  fontFamily?: string;
+  theme: string;
+  allThemes: boolean;
+  includeWater: boolean;
+  includeParks: boolean;
+  cityFontSize?: number;
+  countryFontSize?: number;
+  textColor?: string;
+  labelPaddingScale: number;
+  textBlurEnabled: boolean;
+  textBlurSizeX: number;
+  textBlurSizeY: number;
+  textBlurStrength: number;
+  distance: number;
+  width: number;
+  height: number;
+  format: "png" | "svg" | "pdf";
+};
 
 const DEFAULT_PREVIEW_ZOOM = 2.5;
 
@@ -186,6 +140,7 @@ type PreviewPointer = {
 };
 
 type RendererMode = "local-wasm" | "server-fallback";
+type PreviewEngine = "hybrid" | "snapshot";
 
 type WorkerRenderResponse =
   | {
@@ -218,6 +173,24 @@ const PREVIEW_RENDER_DPI = 120;
 const SNAPSHOT_FETCH_TIMEOUT_MS = 60_000;
 const WORKER_RENDER_TIMEOUT_MS = 8_000;
 const WORKER_RENDER_DEBOUNCE_MS = 120;
+const TurnstileWidget = dynamic(
+  () => import("@marsidev/react-turnstile").then((module) => module.Turnstile),
+  { ssr: false },
+);
+const ThemeExplorerDialog = dynamic(
+  () =>
+    import("./poster-generator/theme-explorer-dialog").then(
+      (module) => module.ThemeExplorerDialog,
+    ),
+  { loading: () => null },
+);
+const FontFamilyPicker = dynamic(
+  () =>
+    import("./poster-generator/font-family-picker").then(
+      (module) => module.FontFamilyPicker,
+    ),
+  { ssr: false, loading: () => null },
+);
 
 function supportsLocalRenderer(): boolean {
   return (
@@ -427,55 +400,6 @@ function buildGoogleFontsStylesheetUrl(
   return `https://fonts.googleapis.com/css2?family=${encodedFamily}:wght@300;400;700&display=swap`;
 }
 
-function ThemePreviewImage({
-  themeId,
-  themeName,
-  loadingLabel,
-  unavailableLabel,
-  priority = false,
-}: {
-  themeId: string;
-  themeName: string;
-  loadingLabel: string;
-  unavailableLabel: string;
-  priority?: boolean;
-}) {
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">(
-    "loading",
-  );
-
-  return (
-    <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
-      {status !== "loaded" ? (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-card/80">
-          <LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
-          <p className="text-[11px] text-muted-foreground">{loadingLabel}</p>
-        </div>
-      ) : null}
-      <Image
-        src={`/theme-previews/${themeId}.svg`}
-        alt={`${themeName} preview`}
-        fill
-        priority={priority}
-        sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 28vw"
-        className={
-          status === "loaded"
-            ? "object-cover opacity-100 transition-opacity duration-200"
-            : "object-cover opacity-0 transition-opacity duration-200"
-        }
-        unoptimized
-        onLoad={() => setStatus("loaded")}
-        onError={() => setStatus("error")}
-      />
-      {status === "error" ? (
-        <div className="absolute inset-x-3 bottom-3 z-20 rounded-sm bg-background/85 px-2 py-1 text-center text-[11px] text-muted-foreground">
-          {unavailableLabel}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 const distancePresets = [
   { label: "6km", value: 6000 },
   { label: "12km", value: 12000 },
@@ -532,7 +456,7 @@ function toPayload(values: FormValues): PosterRequest {
     includeParks: values.includeParks,
     cityFontSize: values.cityFontSize,
     countryFontSize: values.countryFontSize,
-    textColor: values.textColor?.trim() || undefined,
+    textColor: normalizeHexColor(values.textColor) ?? undefined,
     labelPaddingScale: values.labelPaddingScale,
     textBlurEnabled: values.textBlurEnabled,
     textBlurSizeX: values.textBlurSizeX,
@@ -564,9 +488,18 @@ export function PosterGenerator({
   dictionary,
 }: {
   locale: Locale;
-  dictionary: Dictionary;
+  dictionary: HomeDictionary;
 }) {
   const showDevRateLimitToggle = process.env.NODE_ENV !== "production";
+  const configuredPreviewEngine =
+    process.env.NEXT_PUBLIC_PREVIEW_ENGINE?.trim().toLowerCase();
+  const previewEngine: PreviewEngine =
+    configuredPreviewEngine === "hybrid" ||
+    configuredPreviewEngine === "snapshot"
+      ? configuredPreviewEngine
+      : process.env.NODE_ENV === "production"
+        ? "snapshot"
+        : "hybrid";
   const locationInputId = "location-search";
   const locationHintId = "location-search-help";
   const locationStatusId = "location-search-status";
@@ -590,18 +523,24 @@ export function PosterGenerator({
   const previewKeyboardHintId = "preview-keyboard-hint";
   const previewFrameId = "live-preview-frame";
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-  const shouldReduceMotion = useReducedMotion();
   const [jobId, setJobId] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(
     undefined,
   );
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [rendererMode, setRendererMode] = useState<RendererMode>("local-wasm");
-  const [rendererReason, setRendererReason] = useState("initializing");
+  const [rendererMode, setRendererMode] = useState<RendererMode>(
+    previewEngine === "snapshot" ? "server-fallback" : "local-wasm",
+  );
+  const [rendererReason, setRendererReason] = useState(
+    previewEngine === "snapshot" ? "snapshot-engine" : "initializing",
+  );
   const [latestPreviewUrl, setLatestPreviewUrl] = useState<string | null>(null);
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const [localRenderPending, setLocalRenderPending] = useState(true);
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+  const [themeDialogMounted, setThemeDialogMounted] = useState(false);
+  const [advancedAccordionValue, setAdvancedAccordionValue] =
+    useState<string>("");
   const [activePreviewHint, setActivePreviewHint] =
     useState<AdvancedHelpFieldKey | null>(null);
   const [previewZoomEnabled, setPreviewZoomEnabled] = useState(false);
@@ -672,9 +611,9 @@ export function PosterGenerator({
   const router = useRouter();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
     defaultValues,
-    mode: "onChange",
+    mode: "onBlur",
+    reValidateMode: "onBlur",
   });
 
   const watchedValues = useWatch({ control: form.control });
@@ -685,6 +624,7 @@ export function PosterGenerator({
     }),
     [watchedValues],
   );
+  const advancedOptionsOpen = advancedAccordionValue === "advanced";
   const selectedFontFamily = values.fontFamily?.trim() ?? "";
   const previewPayload = useMemo(() => toPayload(values), [values]);
   const {
@@ -758,12 +698,18 @@ export function PosterGenerator({
   const themesQuery = useQuery({
     queryKey: ["themes"],
     queryFn: fetchThemes,
+    staleTime: 12 * 60 * 60_000,
+    gcTime: 24 * 60 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
   const locationSuggestionsQuery = useQuery({
     queryKey: ["locations", debouncedLocationQuery, disableRateLimit],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       fetchLocations(debouncedLocationQuery, {
         disableRateLimit,
+        signal,
       }),
     enabled: locationAutocompleteOpen && debouncedLocationQuery.length >= 3,
     staleTime: 5 * 60_000,
@@ -771,9 +717,10 @@ export function PosterGenerator({
   });
   const fontSuggestionsQuery = useQuery({
     queryKey: ["fonts", debouncedFontQuery, disableRateLimit],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       fetchFonts(debouncedFontQuery, {
         disableRateLimit,
+        signal,
       }),
     enabled: fontComboboxOpen,
     staleTime: 60 * 60_000,
@@ -789,10 +736,11 @@ export function PosterGenerator({
   });
   const snapshotQuery = useQuery({
     queryKey: ["render-snapshot", debouncedSnapshotRequest, disableRateLimit],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       withTimeout(
         fetchRenderSnapshot(debouncedSnapshotRequest, {
           disableRateLimit,
+          signal,
         }),
         SNAPSHOT_FETCH_TIMEOUT_MS,
         "snapshot-timeout",
@@ -804,19 +752,23 @@ export function PosterGenerator({
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
+    placeholderData: keepPreviousData,
   });
   const previewQuery = useQuery({
     queryKey: ["preview", debouncedPreviewPayload, disableRateLimit],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       fetchPreview(debouncedPreviewPayload, {
         disableRateLimit,
+        signal,
       }),
     enabled:
-      rendererMode === "server-fallback" &&
+      (rendererMode === "server-fallback" || previewEngine === "hybrid") &&
       debouncedPreviewPayload.city.trim().length > 0 &&
       debouncedPreviewPayload.country.trim().length > 0,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
+    retry: 1,
+    placeholderData: keepPreviousData,
   });
 
   const createJobMutation = useMutation({
@@ -868,6 +820,14 @@ export function PosterGenerator({
   });
 
   useEffect(() => {
+    if (previewEngine === "snapshot") {
+      setRendererMode("server-fallback");
+      setRendererReason("snapshot-engine");
+      setLocalRenderPending(false);
+      setLocalPreviewUrl(null);
+      return;
+    }
+
     if (!supportsLocalRenderer()) {
       setRendererMode("server-fallback");
       setRendererReason("unsupported-browser");
@@ -925,7 +885,12 @@ export function PosterGenerator({
         workerRef.current = null;
       }
     };
-  }, [clearWorkerRenderSchedule, clearWorkerRenderTimeout, fallbackToServer]);
+  }, [
+    clearWorkerRenderSchedule,
+    clearWorkerRenderTimeout,
+    fallbackToServer,
+    previewEngine,
+  ]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1182,6 +1147,15 @@ export function PosterGenerator({
   function handleThemeSelect(theme: Theme) {
     form.setValue("theme", theme.id, { shouldValidate: true });
     setThemeDialogOpen(false);
+  }
+
+  function prepareThemeExplorerDialog() {
+    setThemeDialogMounted(true);
+  }
+
+  function openThemeExplorerDialog() {
+    setThemeDialogMounted(true);
+    setThemeDialogOpen(true);
   }
 
   function handleFontSelect(family: string) {
@@ -1462,15 +1436,21 @@ export function PosterGenerator({
     Math.round(rawPreviewPixelHeight * previewScale),
   );
   const previewUrl =
-    rendererMode === "local-wasm" ? localPreviewUrl : latestPreviewUrl;
+    rendererMode === "local-wasm"
+      ? previewEngine === "hybrid"
+        ? (localPreviewUrl ?? latestPreviewUrl)
+        : localPreviewUrl
+      : latestPreviewUrl;
   const hasPreview = Boolean(previewUrl);
+  const localLaneLoading =
+    rendererMode === "local-wasm" &&
+    (snapshotQuery.isFetching || localRenderPending || localFontBundlePending);
   const isPreviewLoading =
     rendererMode === "local-wasm"
-      ? snapshotQuery.isFetching ||
-        localRenderPending ||
-        localFontBundlePending ||
-        !hasPreview
-      : previewQuery.isFetching;
+      ? previewEngine === "hybrid"
+        ? !hasPreview && (localLaneLoading || previewQuery.isFetching)
+        : localLaneLoading || !hasPreview
+      : previewQuery.isFetching || !hasPreview;
   const previewAspect = previewWidthInches / previewHeightInches;
   const previewFrameMaxWidth = Math.min(
     PREVIEW_FRAME_MAX_WIDTH_PX,
@@ -1645,12 +1625,7 @@ export function PosterGenerator({
       className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6 lg:px-8"
       aria-describedby={pageDescriptionId}
     >
-      <motion.header
-        className="mb-8"
-        initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: shouldReduceMotion ? 0 : 0.35 }}
-      >
+      <header className="mb-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <Badge className="bg-amber-700/90 text-amber-50">
             {d.header.badge}
@@ -1703,7 +1678,7 @@ export function PosterGenerator({
         >
           {d.header.subtitle}
         </p>
-      </motion.header>
+      </header>
 
       {showDevRateLimitToggle && showDevSettingsCard ? (
         <section aria-label={d.preview.devSettingsTitle} className="mb-6">
@@ -1762,14 +1737,7 @@ export function PosterGenerator({
       ) : null}
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <motion.div
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: shouldReduceMotion ? 0 : 0.35,
-            delay: shouldReduceMotion ? 0 : 0.05,
-          }}
-        >
+        <div>
           <section aria-labelledby="map-controls-title">
             <Card>
               <CardHeader>
@@ -1789,113 +1757,30 @@ export function PosterGenerator({
                   aria-busy={createJobMutation.isPending}
                   noValidate
                 >
-                  <div className="space-y-2">
-                    <Label htmlFor={locationInputId}>
-                      {d.controls.location}
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id={locationInputId}
-                        value={locationQuery}
-                        placeholder={d.controls.locationPlaceholder}
-                        role="combobox"
-                        aria-autocomplete="list"
-                        aria-expanded={
-                          locationAutocompleteOpen &&
-                          debouncedLocationQuery.length >= 3
-                        }
-                        aria-controls={
-                          locationAutocompleteOpen &&
-                          debouncedLocationQuery.length >= 3
-                            ? locationListboxId
-                            : undefined
-                        }
-                        aria-activedescendant={
-                          activeLocationSuggestion
-                            ? `location-option-${activeLocationSuggestion.placeId}`
-                            : undefined
-                        }
-                        aria-describedby={`${locationHintId} ${locationStatusId}`}
-                        onFocus={() => {
-                          setLocationAutocompleteOpen(true);
-                        }}
-                        onBlur={() =>
-                          setTimeout(() => {
-                            setLocationAutocompleteOpen(false);
-                            setActiveLocationIndex(-1);
-                          }, 120)
-                        }
-                        onKeyDown={handleLocationInputKeyDown}
-                        onChange={(event) => {
-                          setLocationQuery(event.currentTarget.value);
-                          setLocationAutocompleteOpen(true);
-                          setActiveLocationIndex(-1);
-                        }}
-                      />
-                      {locationAutocompleteOpen &&
-                      debouncedLocationQuery.length >= 3 ? (
-                        <div
-                          id={locationListboxId}
-                          role="listbox"
-                          aria-label={d.controls.location}
-                          className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg"
-                        >
-                          {locationSuggestionsQuery.isLoading ? (
-                            <p className="px-3 py-2 text-xs text-muted-foreground">
-                              {d.controls.searchingLocations}
-                            </p>
-                          ) : locationSuggestions.length ? (
-                            locationSuggestions.map((suggestion, index) => (
-                              <button
-                                key={suggestion.placeId}
-                                type="button"
-                                id={`location-option-${suggestion.placeId}`}
-                                role="option"
-                                aria-selected={index === activeLocationIndex}
-                                tabIndex={-1}
-                                className={`w-full rounded-sm px-3 py-2 text-left text-sm ${
-                                  index === activeLocationIndex
-                                    ? "bg-muted text-foreground"
-                                    : "hover:bg-muted"
-                                }`}
-                                onMouseEnter={() =>
-                                  setActiveLocationIndex(index)
-                                }
-                                onMouseDown={(event) => {
-                                  event.preventDefault();
-                                  handleLocationSelect(suggestion);
-                                }}
-                              >
-                                <p className="truncate font-medium">
-                                  {suggestion.city}, {suggestion.country}
-                                </p>
-                                <p className="truncate text-xs text-muted-foreground">
-                                  {suggestion.displayName}
-                                </p>
-                              </button>
-                            ))
-                          ) : (
-                            <p className="px-3 py-2 text-xs text-muted-foreground">
-                              {d.controls.noLocationResults}
-                            </p>
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                    <p
-                      id={locationHintId}
-                      className="text-xs text-muted-foreground"
-                    >
-                      {d.controls.locationHelp}
-                    </p>
-                    <p
-                      id={locationStatusId}
-                      className="sr-only"
-                      aria-live="polite"
-                    >
-                      {locationStatusMessage}
-                    </p>
-                  </div>
+                  <LocationSearchField
+                    inputId={locationInputId}
+                    hintId={locationHintId}
+                    statusId={locationStatusId}
+                    listboxId={locationListboxId}
+                    label={d.controls.location}
+                    placeholder={d.controls.locationPlaceholder}
+                    helpText={d.controls.locationHelp}
+                    searchingText={d.controls.searchingLocations}
+                    noResultsText={d.controls.noLocationResults}
+                    locationQuery={locationQuery}
+                    setLocationQuery={setLocationQuery}
+                    locationAutocompleteOpen={locationAutocompleteOpen}
+                    setLocationAutocompleteOpen={setLocationAutocompleteOpen}
+                    debouncedLocationQuery={debouncedLocationQuery}
+                    locationSuggestions={locationSuggestions}
+                    activeLocationIndex={activeLocationIndex}
+                    setActiveLocationIndex={setActiveLocationIndex}
+                    activeLocationSuggestion={activeLocationSuggestion ?? null}
+                    onLocationSelect={handleLocationSelect}
+                    onLocationInputKeyDown={handleLocationInputKeyDown}
+                    isLoading={locationSuggestionsQuery.isLoading}
+                    locationStatusMessage={locationStatusMessage}
+                  />
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
@@ -1907,7 +1792,9 @@ export function PosterGenerator({
                         aria-describedby={
                           form.formState.errors.city ? "city-error" : undefined
                         }
-                        {...form.register("city")}
+                        {...form.register("city", {
+                          required: d.controls.cityRequired,
+                        })}
                       />
                       {form.formState.errors.city ? (
                         <p id="city-error" className="text-xs text-destructive">
@@ -1926,7 +1813,9 @@ export function PosterGenerator({
                             ? "country-error"
                             : undefined
                         }
-                        {...form.register("country")}
+                        {...form.register("country", {
+                          required: d.controls.countryRequired,
+                        })}
                       />
                       {form.formState.errors.country ? (
                         <p
@@ -1997,96 +1886,37 @@ export function PosterGenerator({
                         <Label htmlFor={themeSelectId}>
                           {d.controls.theme}
                         </Label>
-                        <Dialog
-                          open={themeDialogOpen}
-                          onOpenChange={setThemeDialogOpen}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 text-xs"
+                          onMouseEnter={prepareThemeExplorerDialog}
+                          onFocus={prepareThemeExplorerDialog}
+                          onClick={openThemeExplorerDialog}
                         >
-                          <DialogTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-8 px-2 text-xs"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              {d.controls.browseThemes}
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent
+                          <Eye className="h-3.5 w-3.5" />
+                          {d.controls.browseThemes}
+                        </Button>
+                        {themeDialogMounted ? (
+                          <ThemeExplorerDialog
+                            open={themeDialogOpen}
+                            onOpenChange={setThemeDialogOpen}
                             closeLabel={d.accessibility.closeDialog}
-                          >
-                            <DialogHeader>
-                              <DialogTitle className="flex items-center gap-2">
-                                <Palette className="h-4 w-4 text-amber-700" />
-                                {d.themeExplorer.title}
-                              </DialogTitle>
-                              <DialogDescription>
-                                {d.themeExplorer.description}
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="max-h-[68vh] overflow-y-auto px-5 pb-5">
-                              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                {themesQuery.data?.map((theme, index) => {
-                                  const selected = values.theme === theme.id;
-                                  return (
-                                    <button
-                                      key={theme.id}
-                                      type="button"
-                                      onClick={() => handleThemeSelect(theme)}
-                                      className={[
-                                        "overflow-hidden rounded-lg border bg-card text-left transition-all",
-                                        selected
-                                          ? "border-amber-700 shadow-[0_0_0_1px_hsl(var(--primary))]"
-                                          : "border-border hover:border-amber-600/60 hover:shadow-sm",
-                                      ].join(" ")}
-                                    >
-                                      <ThemePreviewImage
-                                        themeId={theme.id}
-                                        themeName={theme.name}
-                                        loadingLabel={
-                                          d.themeExplorer.loadingPreview
-                                        }
-                                        unavailableLabel={
-                                          d.themeExplorer.previewUnavailable
-                                        }
-                                        priority={index < 6}
-                                      />
-                                      <div className="space-y-2 px-3 py-3">
-                                        <div className="flex items-center justify-between gap-2">
-                                          <p className="text-sm font-semibold text-foreground">
-                                            {theme.name}
-                                          </p>
-                                          {selected ? (
-                                            <Badge className="bg-amber-700/90 text-amber-50">
-                                              {d.themeExplorer.selected}
-                                            </Badge>
-                                          ) : null}
-                                        </div>
-                                        <p className="min-h-8 text-xs text-muted-foreground">
-                                          {theme.description}
-                                        </p>
-                                        <div className="flex items-center gap-1">
-                                          {Object.entries(theme.colors)
-                                            .slice(0, 5)
-                                            .map(([colorKey, colorValue]) => (
-                                              <span
-                                                key={colorKey}
-                                                title={`${colorKey}: ${colorValue}`}
-                                                className="h-4 w-4 rounded-full border border-black/10"
-                                                style={{
-                                                  backgroundColor: colorValue,
-                                                }}
-                                              />
-                                            ))}
-                                        </div>
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                            browseThemesLabel={d.controls.browseThemes}
+                            title={d.themeExplorer.title}
+                            description={d.themeExplorer.description}
+                            loadingPreviewLabel={d.themeExplorer.loadingPreview}
+                            previewUnavailableLabel={
+                              d.themeExplorer.previewUnavailable
+                            }
+                            selectedLabel={d.themeExplorer.selected}
+                            themes={themesQuery.data}
+                            selectedThemeId={values.theme}
+                            onThemeSelect={handleThemeSelect}
+                            showTrigger={false}
+                          />
+                        ) : null}
                       </div>
                       <Select
                         value={values.theme}
@@ -2167,7 +1997,8 @@ export function PosterGenerator({
                   <Accordion
                     type="single"
                     collapsible
-                    defaultValue="advanced"
+                    value={advancedAccordionValue}
+                    onValueChange={setAdvancedAccordionValue}
                     className="w-full"
                   >
                     <AccordionItem value="advanced">
@@ -2697,234 +2528,39 @@ export function PosterGenerator({
                             </div>
                           </div>
 
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Label htmlFor="fontFamily">
-                                {d.controls.googleFontFamily}
-                              </Label>
-                              <Popover
-                                open={activePreviewHint === "fontFamily"}
-                              >
-                                <PopoverTrigger asChild>
-                                  <button
-                                    type="button"
-                                    aria-label={
-                                      d.controls.explainGoogleFontFamily
-                                    }
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-amber-700 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                    {...getHintTriggerHandlers("fontFamily")}
-                                  >
-                                    <CircleHelp className="h-3.5 w-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                  align="start"
-                                  className="w-72"
-                                  side="top"
-                                >
-                                  <p className="text-xs font-semibold text-foreground">
-                                    {d.controls.googleFontHelpTitle}
-                                  </p>
-                                  <p className="mt-1 text-xs text-muted-foreground">
-                                    {d.controls.googleFontHelpDescription}
-                                  </p>
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <Popover
-                              open={fontComboboxOpen}
-                              onOpenChange={(open) => {
-                                setFontComboboxOpen(open);
-                                if (open) {
-                                  setFontSearchQuery(selectedFontFamily);
-                                }
-                              }}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  id="fontFamily"
-                                  type="button"
-                                  variant="outline"
-                                  role="combobox"
-                                  aria-expanded={fontComboboxOpen}
-                                  aria-describedby={fontDescriptionId}
-                                  className="w-full justify-between font-normal hover:bg-muted hover:text-foreground"
-                                >
-                                  <span
-                                    className={
-                                      selectedFontFamily
-                                        ? "truncate text-left"
-                                        : "truncate text-left text-muted-foreground"
-                                    }
-                                  >
-                                    {selectedFontFamily ||
-                                      d.controls.selectGoogleFont}
-                                  </span>
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                align="start"
-                                className="w-[var(--radix-popover-trigger-width)] p-0"
-                              >
-                                <Command shouldFilter={false}>
-                                  <CommandInput
-                                    value={fontSearchQuery}
-                                    placeholder={d.controls.searchGoogleFonts}
-                                    aria-label={
-                                      d.controls.searchGoogleFontsAria
-                                    }
-                                    onValueChange={setFontSearchQuery}
-                                  />
-                                  <CommandList>
-                                    {fontSuggestionsQuery.isLoading ? (
-                                      <p className="px-3 py-3 text-xs text-muted-foreground">
-                                        {d.controls.searchingFonts}
-                                      </p>
-                                    ) : (
-                                      <>
-                                        <CommandGroup
-                                          heading={d.controls.selection}
-                                        >
-                                          <CommandItem
-                                            className={fontCommandItemClassName}
-                                            value="theme-default-font"
-                                            onSelect={clearFontSelection}
-                                          >
-                                            <Check
-                                              className={`mr-2 h-4 w-4 ${
-                                                selectedFontFamily
-                                                  ? "opacity-0"
-                                                  : "opacity-100"
-                                              }`}
-                                            />
-                                            {d.controls.themeDefaultFont}
-                                          </CommandItem>
-                                        </CommandGroup>
-                                        <CommandSeparator />
-                                        {fontSuggestionsQuery.isError ? (
-                                          <>
-                                            <p className="px-3 py-2 text-xs text-red-700">
-                                              {d.controls.fontSearchUnavailable}
-                                            </p>
-                                            <CommandGroup
-                                              heading={d.controls.fallbackFonts}
-                                            >
-                                              {fallbackFontSuggestions.length ? (
-                                                fallbackFontSuggestions.map(
-                                                  (font) => {
-                                                    const isSelected =
-                                                      selectedFontFamily.toLowerCase() ===
-                                                      font.family.toLowerCase();
-                                                    return (
-                                                      <CommandItem
-                                                        className={
-                                                          fontCommandItemClassName
-                                                        }
-                                                        key={font.family}
-                                                        value={`fallback-${font.family.toLowerCase()}`}
-                                                        onSelect={() =>
-                                                          handleFontSelect(
-                                                            font.family,
-                                                          )
-                                                        }
-                                                      >
-                                                        <Check
-                                                          className={`mr-2 h-4 w-4 ${
-                                                            isSelected
-                                                              ? "opacity-100"
-                                                              : "opacity-0"
-                                                          }`}
-                                                        />
-                                                        <div className="min-w-0">
-                                                          <p className="truncate font-medium">
-                                                            {font.family}
-                                                          </p>
-                                                          <p className="truncate text-xs text-muted-foreground">
-                                                            {font.category}
-                                                          </p>
-                                                        </div>
-                                                      </CommandItem>
-                                                    );
-                                                  },
-                                                )
-                                              ) : (
-                                                <CommandEmpty>
-                                                  {d.controls.noFallbackFonts}
-                                                </CommandEmpty>
-                                              )}
-                                            </CommandGroup>
-                                          </>
-                                        ) : fontSuggestionsQuery.data
-                                            ?.length ? (
-                                          <CommandGroup
-                                            heading={d.controls.googleFonts}
-                                          >
-                                            {fontSuggestionsQuery.data.map(
-                                              (font) => {
-                                                const isSelected =
-                                                  selectedFontFamily.toLowerCase() ===
-                                                  font.family.toLowerCase();
-                                                return (
-                                                  <CommandItem
-                                                    className={
-                                                      fontCommandItemClassName
-                                                    }
-                                                    key={font.family}
-                                                    value={`google-${font.family.toLowerCase()}`}
-                                                    onSelect={() =>
-                                                      handleFontSelect(
-                                                        font.family,
-                                                      )
-                                                    }
-                                                  >
-                                                    <Check
-                                                      className={`mr-2 h-4 w-4 ${
-                                                        isSelected
-                                                          ? "opacity-100"
-                                                          : "opacity-0"
-                                                      }`}
-                                                    />
-                                                    <div className="min-w-0">
-                                                      <p className="truncate font-medium">
-                                                        {font.family}
-                                                      </p>
-                                                      <p className="truncate text-xs text-muted-foreground">
-                                                        {font.category ??
-                                                          d.controls
-                                                            .googleFonts}
-                                                      </p>
-                                                    </div>
-                                                  </CommandItem>
-                                                );
-                                              },
-                                            )}
-                                          </CommandGroup>
-                                        ) : (
-                                          <CommandEmpty>
-                                            {d.controls.noFontsFound}
-                                          </CommandEmpty>
-                                        )}
-                                      </>
-                                    )}
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                            <p
-                              id={fontDescriptionId}
-                              className="text-xs text-muted-foreground"
-                            >
-                              {d.controls.searchGoogleFontsHelp}
-                            </p>
-                          </div>
+                          {advancedOptionsOpen ? (
+                            <FontFamilyPicker
+                              controls={d.controls}
+                              activePreviewHintField={activePreviewHint}
+                              getHintTriggerHandlers={getHintTriggerHandlers}
+                              fontComboboxOpen={fontComboboxOpen}
+                              setFontComboboxOpen={setFontComboboxOpen}
+                              selectedFontFamily={selectedFontFamily}
+                              fontDescriptionId={fontDescriptionId}
+                              fontSearchQuery={fontSearchQuery}
+                              setFontSearchQuery={setFontSearchQuery}
+                              fontSuggestionsLoading={
+                                fontSuggestionsQuery.isLoading
+                              }
+                              fontSuggestionsError={
+                                fontSuggestionsQuery.isError
+                              }
+                              fontSuggestions={fontSuggestionsQuery.data}
+                              fallbackFontSuggestions={fallbackFontSuggestions}
+                              clearFontSelection={clearFontSelection}
+                              handleFontSelect={handleFontSelect}
+                              fontCommandItemClassName={
+                                fontCommandItemClassName
+                              }
+                            />
+                          ) : null}
                         </div>
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
 
                   {turnstileSiteKey && !disableCaptchaCheck ? (
-                    <Turnstile
+                    <TurnstileWidget
                       key={turnstileRenderKey}
                       siteKey={turnstileSiteKey}
                       options={{ theme: "light" }}
@@ -2972,303 +2608,61 @@ export function PosterGenerator({
               </CardContent>
             </Card>
           </section>
-        </motion.div>
+        </div>
 
-        <motion.aside
-          initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: shouldReduceMotion ? 0 : 0.35,
-            delay: shouldReduceMotion ? 0 : 0.1,
+        <PreviewPanel
+          dictionary={d}
+          showDevRateLimitToggle={showDevRateLimitToggle}
+          rendererMode={rendererMode}
+          rendererReason={rendererReason}
+          zoomToggleId={zoomToggleId}
+          previewZoomEnabled={previewZoomEnabled}
+          setPreviewZoomEnabled={setPreviewZoomEnabled}
+          previewFrameId={previewFrameId}
+          zoomSliderId={zoomSliderId}
+          previewZoomSliderValue={previewZoomSliderValue}
+          setPreviewZoomSliderValue={setPreviewZoomSliderValue}
+          setPreviewZoomLevel={setPreviewZoomLevel}
+          previewWidthInches={previewWidthInches}
+          previewHeightInches={previewHeightInches}
+          previewFrameMaxWidth={previewFrameMaxWidth}
+          city={values.city}
+          country={values.country}
+          previewKeyboardHintId={previewKeyboardHintId}
+          previewFrameRef={previewFrameRef}
+          updatePreviewPointer={updatePreviewPointer}
+          setPreviewPointer={setPreviewPointer}
+          handlePreviewFrameKeyDown={handlePreviewFrameKeyDown}
+          previewUrl={previewUrl}
+          isPreviewLoading={isPreviewLoading}
+          previewQueryIsError={previewQuery.isError}
+          localPreviewUrl={localPreviewUrl}
+          hasPreview={hasPreview}
+          zoomLensLeft={zoomLensLeft}
+          zoomLensTop={zoomLensTop}
+          zoomLensWidth={zoomLensWidth}
+          zoomLensHeight={zoomLensHeight}
+          previewZoomLevel={previewZoomLevel}
+          zoomViewX={zoomViewX}
+          zoomViewY={zoomViewY}
+          zoomViewWidth={zoomViewWidth}
+          zoomViewHeight={zoomViewHeight}
+          previewViewboxWidth={previewViewboxWidth}
+          previewViewboxHeight={previewViewboxHeight}
+          generationStatusTitleId={generationStatusTitleId}
+          generationStatusLiveId={generationStatusLiveId}
+          jobId={jobId}
+          jobData={jobQuery.data}
+          jobIsFetching={jobQuery.isFetching}
+          statusTone={statusTone}
+          onDownload={() => {
+            if (!jobId) return;
+            downloadMutation.mutate(jobId);
           }}
-          className="space-y-6 lg:sticky lg:top-6 lg:self-start"
-        >
-          <section aria-labelledby="live-preview-title">
-            <Card>
-              <CardHeader>
-                <h2
-                  id="live-preview-title"
-                  className="font-semibold tracking-tight flex items-center gap-2 text-lg"
-                >
-                  <Sparkles className="h-4 w-4 text-amber-700" />
-                  {d.preview.title}
-                </h2>
-                <CardDescription>{d.preview.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-lg border border-dashed px-3 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <Label
-                        htmlFor={zoomToggleId}
-                        className="text-sm font-medium text-foreground"
-                      >
-                        {d.preview.zoomTitle}
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        {d.preview.zoomDescription}
-                      </p>
-                    </div>
-                    <Switch
-                      id={zoomToggleId}
-                      checked={previewZoomEnabled}
-                      onCheckedChange={setPreviewZoomEnabled}
-                      aria-label={d.preview.zoomTitle}
-                      aria-controls={previewFrameId}
-                    />
-                  </div>
-                  {previewZoomEnabled ? (
-                    <div className="mt-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{d.preview.zoomLevel}</span>
-                        <span>
-                          {d.preview.zoomLevelValue.replace(
-                            "{value}",
-                            previewZoomSliderValue.toFixed(1),
-                          )}
-                        </span>
-                      </div>
-                      <Slider
-                        id={zoomSliderId}
-                        aria-label={d.preview.zoomLevel}
-                        min={1.5}
-                        max={6}
-                        step={0.5}
-                        value={[previewZoomSliderValue]}
-                        onValueChange={(nextValue) =>
-                          setPreviewZoomSliderValue(
-                            nextValue[0] ?? previewZoomSliderValue,
-                          )
-                        }
-                        onValueCommit={(nextValue) =>
-                          setPreviewZoomLevel(
-                            nextValue[0] ?? previewZoomSliderValue,
-                          )
-                        }
-                      />
-                    </div>
-                  ) : null}
-                </div>
-                {showDevRateLimitToggle ? (
-                  <p className="text-[11px] text-muted-foreground">
-                    Renderer mode:{" "}
-                    <span className="font-medium text-foreground">
-                      {rendererMode}
-                    </span>
-                    {rendererReason !== "ok" ? ` (${rendererReason})` : ""}
-                  </p>
-                ) : null}
-                <figure
-                  id={previewFrameId}
-                  ref={previewFrameRef}
-                  className="group relative mx-auto w-full touch-none select-none overflow-hidden rounded-lg border bg-gradient-to-b from-amber-50 to-orange-100"
-                  style={{
-                    aspectRatio: `${previewWidthInches} / ${previewHeightInches}`,
-                    maxWidth: `${previewFrameMaxWidth}px`,
-                  }}
-                  tabIndex={previewZoomEnabled ? 0 : -1}
-                  aria-label={`${d.preview.title}: ${values.city}, ${values.country}`}
-                  aria-describedby={previewKeyboardHintId}
-                  onPointerMove={(event) => {
-                    if (!previewZoomEnabled) return;
-                    updatePreviewPointer(event.clientX, event.clientY);
-                  }}
-                  onPointerEnter={(event) => {
-                    if (!previewZoomEnabled) return;
-                    updatePreviewPointer(event.clientX, event.clientY);
-                  }}
-                  onPointerDown={(event) => {
-                    if (!previewZoomEnabled) return;
-                    updatePreviewPointer(event.clientX, event.clientY);
-                  }}
-                  onPointerLeave={() => {
-                    if (!previewZoomEnabled) return;
-                    setPreviewPointer(null);
-                  }}
-                  onKeyDown={handlePreviewFrameKeyDown}
-                >
-                  {previewUrl ? (
-                    <Image
-                      src={previewUrl}
-                      alt={d.preview.posterAlt}
-                      fill
-                      priority
-                      className="h-full w-full object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/65">
-                      <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                        <LoaderCircle
-                          className={
-                            isPreviewLoading
-                              ? "h-4 w-4 animate-spin"
-                              : "h-4 w-4"
-                          }
-                        />
-                        <span>
-                          {rendererMode === "server-fallback" &&
-                          previewQuery.isError
-                            ? d.themeExplorer.previewUnavailable
-                            : d.themeExplorer.loadingPreview}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  {previewZoomEnabled && hasPreview ? (
-                    <div
-                      className="pointer-events-none absolute z-20 rounded-sm border border-amber-700/80 bg-amber-200/10 shadow-[0_0_0_1px_rgba(255,255,255,0.35)]"
-                      style={{
-                        left: `${zoomLensLeft}%`,
-                        top: `${zoomLensTop}%`,
-                        width: `${zoomLensWidth}%`,
-                        height: `${zoomLensHeight}%`,
-                      }}
-                    />
-                  ) : null}
-                  {previewZoomEnabled && hasPreview ? (
-                    <div className="pointer-events-none absolute right-2 top-2 z-30 w-32 overflow-hidden rounded-md border border-border bg-card/95 shadow-lg sm:w-36">
-                      <div className="absolute left-2 top-2 z-20 rounded bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-                        {d.preview.zoomValue.replace(
-                          "{value}",
-                          previewZoomLevel.toFixed(1),
-                        )}
-                      </div>
-                      <div
-                        className="relative"
-                        style={{
-                          aspectRatio: `${previewWidthInches} / ${previewHeightInches}`,
-                        }}
-                      >
-                        <svg
-                          className="absolute inset-0 h-full w-full"
-                          viewBox={`${zoomViewX} ${zoomViewY} ${zoomViewWidth} ${zoomViewHeight}`}
-                          preserveAspectRatio="none"
-                          aria-hidden="true"
-                        >
-                          <title>{d.preview.magnifiedTitle}</title>
-                          <image
-                            href={previewUrl ?? ""}
-                            x={0}
-                            y={0}
-                            width={previewViewboxWidth}
-                            height={previewViewboxHeight}
-                            preserveAspectRatio="none"
-                          />
-                        </svg>
-                      </div>
-                    </div>
-                  ) : null}
-                </figure>
-                <p id={previewKeyboardHintId} className="sr-only">
-                  {d.accessibility.previewKeyboardHint}
-                </p>
-                {isPreviewLoading ? (
-                  <p className="text-xs text-muted-foreground">
-                    {d.themeExplorer.loadingPreview}
-                  </p>
-                ) : null}
-                {rendererMode === "server-fallback" && previewQuery.isError ? (
-                  <p className="text-xs text-destructive">
-                    {d.themeExplorer.previewUnavailable}
-                  </p>
-                ) : null}
-
-                <section
-                  className="rounded-lg border border-dashed px-3 py-3"
-                  aria-labelledby={generationStatusTitleId}
-                  aria-live="polite"
-                  aria-atomic="true"
-                  id={generationStatusLiveId}
-                  aria-busy={Boolean(jobId) && jobQuery.isFetching}
-                >
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <p
-                      id={generationStatusTitleId}
-                      className="text-sm font-semibold text-foreground"
-                    >
-                      {d.status.title}
-                    </p>
-                    {jobId ? (
-                      <Badge variant={statusTone}>
-                        {jobQuery.data?.status ?? d.status.queuedBadge}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">{d.status.idleBadge}</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {d.status.description}
-                  </p>
-                  <div className="mt-3 space-y-3">
-                    {jobId ? (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">
-                            {d.status.jobLabel}: {jobId.slice(0, 8)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {jobQuery.data?.progress ?? 0}%
-                          </span>
-                        </div>
-                        <Progress value={jobQuery.data?.progress ?? 0} />
-                        <ul className="space-y-1 text-xs text-muted-foreground">
-                          {(jobQuery.data?.steps ?? [])
-                            .slice(-4)
-                            .map((step) => (
-                              <li key={step}>• {step}</li>
-                            ))}
-                        </ul>
-                        {jobQuery.data?.status === "failed" ? (
-                          <p className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                            <AlertCircle className="h-4 w-4" />
-                            {jobQuery.data.error ?? d.status.generationFailed}
-                          </p>
-                        ) : null}
-                        {jobQuery.data?.status === "complete" ? (
-                          <div className="space-y-2">
-                            <p className="flex items-center gap-2 text-xs text-emerald-700">
-                              <CheckCircle2 className="h-4 w-4" />
-                              {d.status.generationComplete}
-                            </p>
-                            <div className="space-y-1 text-xs text-muted-foreground">
-                              {jobQuery.data.artifacts.map((artifact) => (
-                                <p key={artifact.key}>{artifact.fileName}</p>
-                              ))}
-                            </div>
-                            <Button
-                              variant="secondary"
-                              className="w-full"
-                              onClick={() => downloadMutation.mutate(jobId)}
-                              disabled={downloadMutation.isPending}
-                            >
-                              <Download className="h-4 w-4" />
-                              {downloadMutation.isPending
-                                ? d.status.preparingDownload
-                                : d.status.download}
-                            </Button>
-                            {downloadUrl ? (
-                              <p className="break-all text-xs text-muted-foreground">
-                                {downloadUrl}
-                              </p>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {d.status.idle}
-                      </p>
-                    )}
-                  </div>
-                </section>
-                <output className="sr-only" aria-live="assertive">
-                  {statusAnnouncement}
-                </output>
-              </CardContent>
-            </Card>
-          </section>
-        </motion.aside>
+          downloadPending={downloadMutation.isPending}
+          downloadUrl={downloadUrl}
+          statusAnnouncement={statusAnnouncement}
+        />
       </section>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 p-4 backdrop-blur lg:hidden">

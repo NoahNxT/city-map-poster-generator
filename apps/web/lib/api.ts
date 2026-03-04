@@ -15,6 +15,91 @@ import type {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+const CLIENT_CACHE_PREFIX = "cmpg:api-cache:v1:";
+const THEMES_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const LOCATIONS_CACHE_TTL_MS = 10 * 60 * 1000;
+const FONTS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const FONT_BUNDLE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+type ClientCacheEntry<T> = {
+  expiresAt: number;
+  value: T;
+  etag?: string;
+};
+
+const memoryCache = new Map<string, ClientCacheEntry<unknown>>();
+
+function hasLocalStorage(): boolean {
+  return (
+    typeof window !== "undefined" && typeof window.localStorage !== "undefined"
+  );
+}
+
+function buildStorageKey(cacheKey: string): string {
+  return `${CLIENT_CACHE_PREFIX}${cacheKey}`;
+}
+
+function readCacheEntry<T>(cacheKey: string): ClientCacheEntry<T> | null {
+  const now = Date.now();
+  const inMemory = memoryCache.get(cacheKey) as ClientCacheEntry<T> | undefined;
+  if (inMemory) {
+    if (inMemory.expiresAt > now) {
+      return inMemory;
+    }
+    memoryCache.delete(cacheKey);
+  }
+
+  if (!hasLocalStorage()) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(buildStorageKey(cacheKey));
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as ClientCacheEntry<T>;
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      typeof parsed.expiresAt !== "number" ||
+      parsed.expiresAt <= now
+    ) {
+      window.localStorage.removeItem(buildStorageKey(cacheKey));
+      return null;
+    }
+    memoryCache.set(cacheKey, parsed as ClientCacheEntry<unknown>);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeCacheEntry<T>(
+  cacheKey: string,
+  value: T,
+  ttlMs: number,
+  etag?: string,
+): void {
+  const entry: ClientCacheEntry<T> = {
+    value,
+    expiresAt: Date.now() + ttlMs,
+    etag,
+  };
+  memoryCache.set(cacheKey, entry as ClientCacheEntry<unknown>);
+  if (!hasLocalStorage()) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(
+      buildStorageKey(cacheKey),
+      JSON.stringify(entry),
+    );
+  } catch {
+    // Ignore storage quota errors.
+  }
+}
+
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const contentType = response.headers.get("content-type") ?? "";
@@ -35,9 +120,52 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function fetchJSONWithClientCache<T>({
+  cacheKey,
+  ttlMs,
+  url,
+  requestInit,
+  transform,
+}: {
+  cacheKey: string;
+  ttlMs: number;
+  url: string;
+  requestInit?: RequestInit;
+  transform?: (payload: T) => T;
+}): Promise<T> {
+  const cached = readCacheEntry<T>(cacheKey);
+  const headers = new Headers(requestInit?.headers ?? {});
+  if (cached?.etag) {
+    headers.set("If-None-Match", cached.etag);
+  }
+
+  const response = await fetch(url, {
+    ...requestInit,
+    cache: "default",
+    headers,
+  });
+
+  if (response.status === 304 && cached) {
+    return cached.value;
+  }
+
+  const payload = await parseResponse<T>(response);
+  const value = transform ? transform(payload) : payload;
+  writeCacheEntry(
+    cacheKey,
+    value,
+    ttlMs,
+    response.headers.get("etag") ?? undefined,
+  );
+  return value;
+}
+
 export async function fetchThemes(): Promise<Theme[]> {
-  const response = await fetch(`${API_BASE}/v2/themes`, { cache: "no-store" });
-  const payload = await parseResponse<{ themes: Theme[] }>(response);
+  const payload = await fetchJSONWithClientCache<{ themes: Theme[] }>({
+    cacheKey: "themes",
+    ttlMs: THEMES_CACHE_TTL_MS,
+    url: `${API_BASE}/v2/themes`,
+  });
   return payload.themes;
 }
 
@@ -45,24 +173,40 @@ export async function fetchLocations(
   query: string,
   options?: {
     disableRateLimit?: boolean;
+    signal?: AbortSignal;
   },
 ): Promise<LocationSuggestion[]> {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return [];
+  }
+
   const params = new URLSearchParams({
     q: query,
     limit: "8",
   });
-  const response = await fetch(
-    `${API_BASE}/v2/locations?${params.toString()}`,
-    {
-      cache: "no-store",
-      headers: options?.disableRateLimit
-        ? { "x-dev-no-rate-limit": "1" }
-        : undefined,
-    },
-  );
-  const payload = await parseResponse<{ suggestions: LocationSuggestion[] }>(
-    response,
-  );
+  const shouldCache = !options?.disableRateLimit;
+  if (!shouldCache) {
+    const response = await fetch(
+      `${API_BASE}/v2/locations?${params.toString()}`,
+      {
+        headers: { "x-dev-no-rate-limit": "1" },
+        signal: options?.signal,
+      },
+    );
+    const payload = await parseResponse<{ suggestions: LocationSuggestion[] }>(
+      response,
+    );
+    return payload.suggestions;
+  }
+  const payload = await fetchJSONWithClientCache<{
+    suggestions: LocationSuggestion[];
+  }>({
+    cacheKey: `locations:${normalizedQuery}`,
+    ttlMs: LOCATIONS_CACHE_TTL_MS,
+    url: `${API_BASE}/v2/locations?${params.toString()}`,
+    requestInit: options?.signal ? { signal: options.signal } : undefined,
+  });
   return payload.suggestions;
 }
 
@@ -70,21 +214,33 @@ export async function fetchFonts(
   query: string,
   options?: {
     disableRateLimit?: boolean;
+    signal?: AbortSignal;
   },
 ): Promise<FontSuggestion[]> {
+  const normalizedQuery = query.trim().toLowerCase();
   const params = new URLSearchParams({
     q: query,
     limit: "12",
   });
-  const response = await fetch(`${API_BASE}/v2/fonts?${params.toString()}`, {
-    cache: "no-store",
-    headers: options?.disableRateLimit
-      ? { "x-dev-no-rate-limit": "1" }
-      : undefined,
+  const shouldCache = !options?.disableRateLimit;
+  if (!shouldCache) {
+    const response = await fetch(`${API_BASE}/v2/fonts?${params.toString()}`, {
+      headers: { "x-dev-no-rate-limit": "1" },
+      signal: options?.signal,
+    });
+    const payload = await parseResponse<{ suggestions: FontSuggestion[] }>(
+      response,
+    );
+    return payload.suggestions;
+  }
+  const payload = await fetchJSONWithClientCache<{
+    suggestions: FontSuggestion[];
+  }>({
+    cacheKey: `fonts:${normalizedQuery}`,
+    ttlMs: FONTS_CACHE_TTL_MS,
+    url: `${API_BASE}/v2/fonts?${params.toString()}`,
+    requestInit: options?.signal ? { signal: options.signal } : undefined,
   });
-  const payload = await parseResponse<{ suggestions: FontSuggestion[] }>(
-    response,
-  );
   return payload.suggestions;
 }
 
@@ -92,6 +248,7 @@ export async function fetchPreview(
   payload: PosterRequest,
   options?: {
     disableRateLimit?: boolean;
+    signal?: AbortSignal;
   },
 ): Promise<{ previewUrl: string; cacheHit: boolean; expiresAt: string }> {
   const response = await fetch(`${API_BASE}/v2/preview`, {
@@ -101,6 +258,7 @@ export async function fetchPreview(
       ...(options?.disableRateLimit ? { "x-dev-no-rate-limit": "1" } : {}),
     },
     body: JSON.stringify(payload),
+    signal: options?.signal,
   });
 
   return parseResponse(response);
@@ -174,6 +332,7 @@ export async function fetchRenderSnapshot(
   payload: RenderSnapshotRequest,
   options?: {
     disableRateLimit?: boolean;
+    signal?: AbortSignal;
   },
 ): Promise<RenderSnapshotPayload> {
   const headers = {
@@ -185,6 +344,7 @@ export async function fetchRenderSnapshot(
     method: "POST",
     headers,
     body: JSON.stringify(payload),
+    signal: options?.signal,
   });
   if (!response.ok) {
     return parseResponse<RenderSnapshotPayload>(response);
@@ -204,6 +364,7 @@ export async function fetchRenderSnapshot(
         method: "POST",
         headers,
         body: JSON.stringify(payload),
+        signal: options?.signal,
       },
     );
     return parseResponse<RenderSnapshotPayload>(jsonResponse);
@@ -240,15 +401,14 @@ export async function fetchFontBundleData(
   family: string,
   weights = "300,400,700",
 ): Promise<FontBundleData> {
-  const encodedFamily = encodeURIComponent(family.trim());
+  const normalizedFamily = family.trim();
+  const encodedFamily = encodeURIComponent(normalizedFamily);
   const params = new URLSearchParams({ weights, encoding: "json" });
-  const response = await fetch(
-    `${API_BASE}/v2/fonts/${encodedFamily}/bundle?${params.toString()}`,
-    {
-      cache: "no-store",
-    },
-  );
-  return parseResponse<FontBundleData>(response);
+  return fetchJSONWithClientCache<FontBundleData>({
+    cacheKey: `font-bundle:${normalizedFamily.toLowerCase()}:${weights}`,
+    ttlMs: FONT_BUNDLE_CACHE_TTL_MS,
+    url: `${API_BASE}/v2/fonts/${encodedFamily}/bundle?${params.toString()}`,
+  });
 }
 
 export async function initExport(

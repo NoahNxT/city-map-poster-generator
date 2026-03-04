@@ -180,6 +180,15 @@ export type Dictionary = {
   };
 };
 
+export type HomeDictionary = Omit<Dictionary, "policies">;
+
+export type PolicyDictionary = Pick<Dictionary, "seo" | "policies">;
+
+export type CookieBannerDictionary = Pick<
+  Dictionary,
+  "cookieBanner" | "footer"
+>;
+
 const en: Dictionary = {
   seo: {
     siteName: "City Map Poster Generator",
@@ -1601,4 +1610,27 @@ const dictionaries: Record<Locale, Dictionary> = {
 
 export function getDictionary(locale: Locale): Dictionary {
   return dictionaries[locale];
+}
+
+export function getHomeDictionary(locale: Locale): HomeDictionary {
+  const { policies: _policies, ...homeDictionary } = dictionaries[locale];
+  return homeDictionary;
+}
+
+export function getPolicyDictionary(locale: Locale): PolicyDictionary {
+  const dictionary = dictionaries[locale];
+  return {
+    seo: dictionary.seo,
+    policies: dictionary.policies,
+  };
+}
+
+export function getCookieBannerDictionary(
+  locale: Locale,
+): CookieBannerDictionary {
+  const dictionary = dictionaries[locale];
+  return {
+    cookieBanner: dictionary.cookieBanner,
+    footer: dictionary.footer,
+  };
 }

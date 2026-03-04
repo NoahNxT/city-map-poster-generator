@@ -10,7 +10,10 @@ import {
   type Locale,
   locales,
 } from "@/lib/i18n/config";
-import { getDictionary } from "@/lib/i18n/dictionaries";
+import {
+  getCookieBannerDictionary,
+  getDictionary,
+} from "@/lib/i18n/dictionaries";
 import { getSiteUrl } from "@/lib/site";
 
 type LocaleLayoutProps = {
@@ -83,6 +86,7 @@ export default async function LocaleLayout({
   }
   const locale: Locale = localeRaw;
   const dictionary = getDictionary(locale);
+  const cookieBannerDictionary = getCookieBannerDictionary(locale);
 
   return (
     <>
@@ -107,7 +111,7 @@ export default async function LocaleLayout({
           </Link>
         </div>
       </footer>
-      <CookieBanner locale={locale} dictionary={dictionary} />
+      <CookieBanner locale={locale} dictionary={cookieBannerDictionary} />
     </>
   );
 }
