@@ -140,6 +140,14 @@ func (s *Store) RemoveActiveJob(ctx context.Context, key string, jobID string) {
 }
 
 func (s *Store) GetPreviewCache(ctx context.Context, key string) (string, error) {
+	return s.GetCache(ctx, key)
+}
+
+func (s *Store) SetPreviewCache(ctx context.Context, key, objectKey string, ttlSeconds int) error {
+	return s.SetCache(ctx, key, objectKey, ttlSeconds)
+}
+
+func (s *Store) GetCache(ctx context.Context, key string) (string, error) {
 	result, err := s.redis.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return "", nil
@@ -150,8 +158,8 @@ func (s *Store) GetPreviewCache(ctx context.Context, key string) (string, error)
 	return result, nil
 }
 
-func (s *Store) SetPreviewCache(ctx context.Context, key, objectKey string, ttlSeconds int) error {
-	return s.redis.SetEx(ctx, key, objectKey, time.Duration(ttlSeconds)*time.Second).Err()
+func (s *Store) SetCache(ctx context.Context, key, value string, ttlSeconds int) error {
+	return s.redis.SetEx(ctx, key, value, time.Duration(ttlSeconds)*time.Second).Err()
 }
 
 func (s *Store) GetExportState(ctx context.Context, exportID string) (*types.ExportState, error) {

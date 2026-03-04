@@ -55,6 +55,13 @@ type Config struct {
 	GoogleFontsMetadataURL     string
 	GoogleFontsCacheTTLSeconds int
 
+	ThemesCacheTTLSeconds    int
+	FontsCacheTTLSeconds     int
+	LocationsCacheTTLSeconds int
+	GeocodeCacheTTLSeconds   int
+	OverpassCacheTTLSeconds  int
+	WorkerThemeParallelism   int
+
 	CacheDir  string
 	AssetsDir string
 }
@@ -106,6 +113,13 @@ func Load() (Config, error) {
 		GoogleFontsAPIKey:          getEnv("GOOGLE_FONTS_API_KEY", ""),
 		GoogleFontsMetadataURL:     getEnv("GOOGLE_FONTS_METADATA_URL", "https://fonts.google.com/metadata/fonts"),
 		GoogleFontsCacheTTLSeconds: getEnvInt("GOOGLE_FONTS_CACHE_TTL_SECONDS", 60*60*24),
+
+		ThemesCacheTTLSeconds:    getEnvInt("THEMES_CACHE_TTL_SECONDS", 60*60),
+		FontsCacheTTLSeconds:     getEnvInt("FONTS_CACHE_TTL_SECONDS", 15*60),
+		LocationsCacheTTLSeconds: getEnvInt("LOCATIONS_CACHE_TTL_SECONDS", 5*60),
+		GeocodeCacheTTLSeconds:   getEnvInt("GEOCODE_CACHE_TTL_SECONDS", 30*60),
+		OverpassCacheTTLSeconds:  getEnvInt("OVERPASS_CACHE_TTL_SECONDS", 60*60),
+		WorkerThemeParallelism:   getEnvInt("WORKER_THEME_PARALLELISM", 2),
 
 		CacheDir:  getEnv("CACHE_DIR", "/tmp/map-cache"),
 		AssetsDir: getEnv("ASSETS_DIR", "/app/assets"),
