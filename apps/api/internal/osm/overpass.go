@@ -13,9 +13,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"city-map-poster-generator/apps/api/internal/config"
+	"github.com/redis/go-redis/v9"
 )
 
 type Node struct {
@@ -39,14 +41,29 @@ type FeatureSet struct {
 }
 
 type Client struct {
-	cfg  config.Config
-	http *http.Client
+	cfg       config.Config
+	http      *http.Client
+	redis     *redis.Client
+	inflight  map[string]*fetchCall
+	inflightM sync.Mutex
+}
+
+type fetchCall struct {
+	done chan struct{}
+	body []byte
+	err  error
 }
 
 func New(cfg config.Config) *Client {
+	var redisClient *redis.Client
+	if opts, err := redis.ParseURL(cfg.RedisURL); err == nil {
+		redisClient = redis.NewClient(opts)
+	}
 	return &Client{
-		cfg:  cfg,
-		http: &http.Client{Timeout: time.Duration(cfg.RequestTimeoutSeconds) * time.Second},
+		cfg:      cfg,
+		http:     &http.Client{Timeout: time.Duration(cfg.RequestTimeoutSeconds) * time.Second},
+		redis:    redisClient,
+		inflight: map[string]*fetchCall{},
 	}
 }
 
@@ -56,50 +73,122 @@ func (c *Client) cachePath(query string) string {
 	return filepath.Join(c.cfg.CacheDir, name)
 }
 
+func (c *Client) sharedCacheKey(query string) string {
+	h := sha256.Sum256([]byte(query))
+	return fmt.Sprintf("cache:overpass:%s", hex.EncodeToString(h[:]))
+}
+
 func (c *Client) Fetch(ctx context.Context, lat, lon float64, dist int, targetAspect float64, includeWater bool, includeParks bool, networkType string) (*FeatureSet, error) {
 	if networkType == "" {
 		networkType = "all"
 	}
 	query := buildQuery(lat, lon, dist, targetAspect, includeWater, includeParks, networkType)
+	sharedKey := c.sharedCacheKey(query)
 
 	if err := os.MkdirAll(c.cfg.CacheDir, 0o755); err != nil {
 		return nil, err
 	}
 	cachePath := c.cachePath(query)
-	var body []byte
-	if cached, err := os.ReadFile(cachePath); err == nil && len(cached) > 0 {
-		body = cached
-	} else {
-		u, err := url.Parse(c.cfg.OverpassURL)
-		if err != nil {
-			return nil, err
-		}
-		form := url.Values{}
-		form.Set("data", query)
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), strings.NewReader(form.Encode()))
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("User-Agent", c.cfg.NominatimUserAgent)
 
-		resp, err := c.http.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			raw, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-			return nil, fmt.Errorf("overpass returned %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
-		}
-		body, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		_ = os.WriteFile(cachePath, body, 0o644)
+	if sharedCached, err := c.readSharedCache(ctx, sharedKey); err == nil && len(sharedCached) > 0 {
+		_ = os.WriteFile(cachePath, sharedCached, 0o644)
+		return parseFeatureSet(sharedCached, lat, lon), nil
 	}
 
+	if diskCached, err := os.ReadFile(cachePath); err == nil && len(diskCached) > 0 {
+		_ = c.writeSharedCache(ctx, sharedKey, diskCached)
+		return parseFeatureSet(diskCached, lat, lon), nil
+	}
+
+	body, err := c.fetchWithSingleflight(ctx, sharedKey, query)
+	if err != nil {
+		return nil, err
+	}
+	_ = os.WriteFile(cachePath, body, 0o644)
+	_ = c.writeSharedCache(ctx, sharedKey, body)
+
 	return parseFeatureSet(body, lat, lon), nil
+}
+
+func (c *Client) fetchWithSingleflight(ctx context.Context, key string, query string) ([]byte, error) {
+	c.inflightM.Lock()
+	if existing, ok := c.inflight[key]; ok {
+		c.inflightM.Unlock()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-existing.done:
+			return existing.body, existing.err
+		}
+	}
+	call := &fetchCall{done: make(chan struct{})}
+	c.inflight[key] = call
+	c.inflightM.Unlock()
+
+	body, err := c.fetchNetwork(ctx, query)
+
+	c.inflightM.Lock()
+	call.body = body
+	call.err = err
+	close(call.done)
+	delete(c.inflight, key)
+	c.inflightM.Unlock()
+	return body, err
+}
+
+func (c *Client) fetchNetwork(ctx context.Context, query string) ([]byte, error) {
+	u, err := url.Parse(c.cfg.OverpassURL)
+	if err != nil {
+		return nil, err
+	}
+	form := url.Values{}
+	form.Set("data", query)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", c.cfg.NominatimUserAgent)
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return nil, fmt.Errorf("overpass returned %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+func (c *Client) readSharedCache(ctx context.Context, key string) ([]byte, error) {
+	if c.redis == nil {
+		return nil, nil
+	}
+	body, err := c.redis.Get(ctx, key).Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+func (c *Client) writeSharedCache(ctx context.Context, key string, body []byte) error {
+	if c.redis == nil || len(body) == 0 {
+		return nil
+	}
+	ttlSeconds := c.cfg.OverpassCacheTTLSeconds
+	if ttlSeconds <= 0 {
+		ttlSeconds = 3600
+	}
+	return c.redis.SetEx(ctx, key, body, time.Duration(ttlSeconds)*time.Second).Err()
 }
 
 func buildQuery(lat, lon float64, dist int, targetAspect float64, includeWater, includeParks bool, networkType string) string {

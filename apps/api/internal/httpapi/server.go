@@ -38,6 +38,7 @@ import (
 	"city-map-poster-generator/apps/api/internal/util"
 	"city-map-poster-generator/apps/api/internal/validation"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 )
 
@@ -52,6 +53,7 @@ type Server struct {
 	store    *state.Store
 	storage  *storage.Client
 	renderer *render.Renderer
+	metrics  *apiMetrics
 	geocoder interface {
 		Search(ctx context.Context, query string, limit int) ([]types.LocationSuggestion, error)
 	}
@@ -75,6 +77,7 @@ func New(cfg config.Config, store *state.Store, storageClient *storage.Client, r
 		store:     store,
 		storage:   storageClient,
 		renderer:  renderer,
+		metrics:   newAPIMetrics(),
 		geocoder:  geocoder,
 		fontsSvc:  fontsSvc,
 		captcha:   captchaVerifier,
@@ -88,7 +91,10 @@ func New(cfg config.Config, store *state.Store, storageClient *storage.Client, r
 func (s *Server) Router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(corsMiddleware)
+	r.Use(middleware.Compress(5, "application/json", "text/plain", "image/svg+xml"))
+	r.Use(s.metrics.middleware)
 	r.Get("/health", s.handleHealth)
+	r.Handle("/metrics", s.metrics.handler())
 	r.Get("/v2/themes", s.handleThemes)
 	r.Get("/v2/locations", s.handleLocations)
 	r.Get("/v2/fonts", s.handleFonts)
@@ -118,15 +124,15 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleThemes(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"themes": s.themes})
+func (s *Server) handleThemes(w http.ResponseWriter, r *http.Request) {
+	writeCacheableJSON(w, r, http.StatusOK, map[string]any{"themes": s.themes}, cacheControlHeader(s.cfg.ThemesCacheTTLSeconds))
 }
 
 func (s *Server) handleLocations(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	limit := parseQueryInt(r, "limit", 8)
 	if len(query) < 2 {
-		writeJSON(w, http.StatusOK, map[string]any{"suggestions": []types.LocationSuggestion{}})
+		writeCacheableJSON(w, r, http.StatusOK, map[string]any{"suggestions": []types.LocationSuggestion{}}, cacheControlHeader(s.cfg.LocationsCacheTTLSeconds))
 		return
 	}
 	if !s.shouldBypassRateLimit(r) {
@@ -135,12 +141,25 @@ func (s *Server) handleLocations(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	cacheKey := fmt.Sprintf("cache:locations:%s:%d", normalizeSearchQuery(query), limit)
+	if cachedRaw, err := s.store.GetCache(r.Context(), cacheKey); err == nil && strings.TrimSpace(cachedRaw) != "" {
+		var cachedSuggestions []types.LocationSuggestion
+		if err := json.Unmarshal([]byte(cachedRaw), &cachedSuggestions); err == nil {
+			s.metrics.observeCache("geocode", true)
+			writeCacheableJSON(w, r, http.StatusOK, map[string]any{"suggestions": cachedSuggestions}, cacheControlHeader(s.cfg.LocationsCacheTTLSeconds))
+			return
+		}
+	}
+	s.metrics.observeCache("geocode", false)
 	suggestions, err := s.geocoder.Search(r.Context(), query, limit)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"suggestions": suggestions})
+	if encoded, err := json.Marshal(suggestions); err == nil {
+		_ = s.store.SetCache(r.Context(), cacheKey, string(encoded), s.cfg.GeocodeCacheTTLSeconds)
+	}
+	writeCacheableJSON(w, r, http.StatusOK, map[string]any{"suggestions": suggestions}, cacheControlHeader(s.cfg.LocationsCacheTTLSeconds))
 }
 
 func (s *Server) handleFonts(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +175,7 @@ func (s *Server) handleFonts(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("font search fallback: %v", err)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"suggestions": suggestions})
+	writeCacheableJSON(w, r, http.StatusOK, map[string]any{"suggestions": suggestions}, cacheControlHeader(s.cfg.FontsCacheTTLSeconds))
 }
 
 func (s *Server) handleFontBundle(w http.ResponseWriter, r *http.Request) {
@@ -200,11 +219,11 @@ func (s *Server) handleFontBundle(w http.ResponseWriter, r *http.Request) {
 			}
 			files[weight] = base64.StdEncoding.EncodeToString(content)
 		}
-		writeJSON(w, http.StatusOK, map[string]any{
+		writeCacheableJSON(w, r, http.StatusOK, map[string]any{
 			"family":  family,
 			"weights": weights,
 			"files":   files,
-		})
+		}, cacheControlHeader(86400))
 		return
 	}
 
@@ -266,9 +285,17 @@ func (s *Server) handleFontBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sum := sha256.Sum256(out.Bytes())
+	etag := fmt.Sprintf(`"%s"`, hex.EncodeToString(sum[:16]))
+	if ifNoneMatchSatisfied(r, etag) {
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", cacheControlHeader(86400))
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("X-Font-Bundle-Sha256", hex.EncodeToString(sum[:]))
-	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Header().Set("Cache-Control", cacheControlHeader(86400))
+	w.Header().Set("ETag", etag)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-font-bundle.zip"`, slugForKey(family)))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(out.Bytes())
@@ -316,6 +343,7 @@ func (s *Server) handleRenderSnapshot(w http.ResponseWriter, r *http.Request) {
 	if err == nil && cachedObjectKey != "" && s.storage.ObjectExists(r.Context(), s.cfg.S3BucketPreviews, cachedObjectKey) {
 		content, err := s.storage.GetObjectBytes(r.Context(), s.cfg.S3BucketPreviews, cachedObjectKey)
 		if err == nil {
+			s.metrics.observeCache("snapshot", true)
 			if wantJSON {
 				rawJSON, err := ungzipBytes(content)
 				if err == nil {
@@ -327,6 +355,7 @@ func (s *Server) handleRenderSnapshot(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	s.metrics.observeCache("snapshot", false)
 
 	features, err := s.renderer.FetchFeaturesForSnapshot(r.Context(), payload, lat, lon)
 	if err != nil {
@@ -389,6 +418,7 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 	cachedObjectKey, err := s.store.GetPreviewCache(r.Context(), cacheKey)
 	if err == nil && cachedObjectKey != "" && s.storage.ObjectExists(r.Context(), s.cfg.S3BucketPreviews, cachedObjectKey) {
+		s.metrics.observeCache("preview", true)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"previewUrl": s.previewProxyURL(r, cachedObjectKey),
 			"cacheHit":   true,
@@ -396,6 +426,7 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	s.metrics.observeCache("preview", false)
 
 	lat, lon, err := s.processor.ResolveCoordinates(r.Context(), payload)
 	if err != nil {
@@ -865,8 +896,75 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
+func writeCacheableJSON(w http.ResponseWriter, r *http.Request, status int, payload any, cacheControl string) {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	etag := etagForBytes(encoded)
+	if ifNoneMatchSatisfied(r, etag) {
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", cacheControl)
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", cacheControl)
+	w.WriteHeader(status)
+	_, _ = w.Write(encoded)
+}
+
 func writeError(w http.ResponseWriter, status int, detail string) {
 	writeJSON(w, status, map[string]string{"detail": detail})
+}
+
+func cacheControlHeader(maxAgeSeconds int) string {
+	if maxAgeSeconds <= 0 {
+		return "public, max-age=0, must-revalidate"
+	}
+	staleWhileRevalidate := maxAgeSeconds * 2
+	return fmt.Sprintf("public, max-age=%d, stale-while-revalidate=%d", maxAgeSeconds, staleWhileRevalidate)
+}
+
+func etagForBytes(raw []byte) string {
+	sum := sha256.Sum256(raw)
+	return fmt.Sprintf(`"%s"`, hex.EncodeToString(sum[:16]))
+}
+
+func ifNoneMatchSatisfied(r *http.Request, currentETag string) bool {
+	if currentETag == "" {
+		return false
+	}
+	raw := strings.TrimSpace(r.Header.Get("If-None-Match"))
+	if raw == "" {
+		return false
+	}
+	if raw == "*" {
+		return true
+	}
+	current := normalizeETag(currentETag)
+	for _, candidate := range strings.Split(raw, ",") {
+		if normalizeETag(candidate) == current {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeETag(value string) string {
+	trimmed := strings.TrimSpace(value)
+	trimmed = strings.TrimPrefix(trimmed, "W/")
+	return strings.Trim(trimmed, `"`)
+}
+
+func normalizeSearchQuery(query string) string {
+	trimmed := strings.TrimSpace(strings.ToLower(query))
+	if trimmed == "" {
+		return ""
+	}
+	return strings.Join(strings.Fields(trimmed), " ")
 }
 
 func (s *Server) previewProxyURL(r *http.Request, objectKey string) string {

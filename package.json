@@ -15,9 +15,14 @@
     "lint": "turbo run lint --filter=web --filter=api",
     "format": "biome format --write .",
     "check-types": "turbo run check-types --filter=web --filter=api",
-    "check": "biome check ."
+    "check": "biome check .",
+    "perf:budget:web": "bun run --cwd apps/web perf:budget",
+    "perf:lighthouse:web": "bunx --package @lhci/cli lhci autorun --config=apps/web/lighthouserc.json",
+    "perf:k6:locations": "k6 run apps/api/perf/k6/locations.js",
+    "perf:k6:snapshot": "k6 run apps/api/perf/k6/snapshot.js"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
     "@biomejs/biome": "^2.2.4",
     "turbo": "^2.8.12",
     "typescript": "5.9.2"

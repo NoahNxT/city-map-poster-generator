@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PosterGenerator } from "@/components/poster-generator";
 import { defaultLocale, isLocale, locales } from "@/lib/i18n/config";
-import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getDictionary, getHomeDictionary } from "@/lib/i18n/dictionaries";
 import { getSiteUrl } from "@/lib/site";
 
 type LocalePageProps = {
@@ -39,6 +39,7 @@ export default async function LocaleHomePage({ params }: LocalePageProps) {
   }
   const locale = localeRaw;
   const dictionary = getDictionary(locale);
+  const homeDictionary = getHomeDictionary(locale);
   const siteUrl = getSiteUrl();
 
   const structuredData = [
@@ -68,7 +69,7 @@ export default async function LocaleHomePage({ params }: LocalePageProps) {
 
   return (
     <>
-      <PosterGenerator locale={locale} dictionary={dictionary} />
+      <PosterGenerator locale={locale} dictionary={homeDictionary} />
       <script type="application/ld+json">
         {JSON.stringify(structuredData)}
       </script>

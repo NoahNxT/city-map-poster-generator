@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { defaultLocale, isLocale, locales } from "@/lib/i18n/config";
-import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getPolicyDictionary } from "@/lib/i18n/dictionaries";
 
 type PolicyPageProps = {
   params: Promise<{ locale: string }>;
@@ -13,7 +13,7 @@ export async function generateMetadata({
 }: PolicyPageProps): Promise<Metadata> {
   const { locale: localeRaw } = await params;
   const locale = isLocale(localeRaw) ? localeRaw : defaultLocale;
-  const dictionary = getDictionary(locale);
+  const dictionary = getPolicyDictionary(locale);
   const languageAlternates = Object.fromEntries(
     locales.map((entry) => [entry, `/${entry}/cookie-policy`]),
   );
@@ -40,7 +40,7 @@ export default async function CookiePolicyPage({ params }: PolicyPageProps) {
     notFound();
   }
 
-  const dictionary = getDictionary(localeRaw);
+  const dictionary = getPolicyDictionary(localeRaw);
   const policy = dictionary.policies.cookies;
 
   return (

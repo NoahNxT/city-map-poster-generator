@@ -9,7 +9,7 @@ import {
   LOCALE_COOKIE_NAME,
   type Locale,
 } from "@/lib/i18n/config";
-import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { CookieBannerDictionary } from "@/lib/i18n/dictionaries";
 
 function getCookieValue(name: string): string | null {
   const cookies = document.cookie.split(";").map((cookie) => cookie.trim());
@@ -32,7 +32,7 @@ export function CookieBanner({
   dictionary,
 }: {
   locale: Locale;
-  dictionary: Dictionary;
+  dictionary: CookieBannerDictionary;
 }) {
   const [visible, setVisible] = useState(false);
 
