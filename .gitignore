@@ -11,6 +11,8 @@ node_modules
 .env.development.local
 .env.test.local
 .env.production.local
+.docker/production/.env
+.docker/local/.env
 
 # Testing
 coverage
@@ -40,6 +42,15 @@ yarn-error.log*
 .DS_Store
 *.pem
 cache/
+
+# Lighthouse CI artifacts
+.lighthouseci/
+**/.lighthouseci/
+lhci_reports/
+lhr-*.html
+lhr-*.json
+lighthouse-report.html
+lighthouse-report.json
 
 # Python / FastAPI / UV
 __pycache__/

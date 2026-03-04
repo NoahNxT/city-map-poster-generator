@@ -1,0 +1,31 @@
+{
+  "ci": {
+    "collect": {
+      "startServerCommand": "PORT=3000 NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 bun run --cwd apps/web start",
+      "startServerReadyPattern": "Ready",
+      "startServerReadyTimeout": 120000,
+      "url": ["http://127.0.0.1:3000/en"],
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop",
+        "onlyCategories": [
+          "performance",
+          "seo",
+          "accessibility",
+          "best-practices"
+        ]
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:seo": ["error", { "minScore": 0.98 }],
+        "categories:performance": ["error", { "minScore": 0.85 }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+        "largest-contentful-paint": ["warn", { "maxNumericValue": 3000 }]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}
