@@ -13,14 +13,9 @@ export function getSiteUrl(): string {
     return DEFAULT_SITE_URL;
   }
 
+  let parsed: URL;
   try {
-    const parsed = new URL(raw);
-    if (isProduction && PROHIBITED_PRODUCTION_HOSTS.has(parsed.hostname)) {
-      throw new Error(
-        `NEXT_PUBLIC_SITE_URL cannot use localhost in production (received ${parsed.hostname}).`,
-      );
-    }
-    return parsed.toString().replace(/\/$/, "");
+    parsed = new URL(raw);
   } catch {
     if (isProduction) {
       throw new Error(
@@ -29,4 +24,12 @@ export function getSiteUrl(): string {
     }
     return DEFAULT_SITE_URL;
   }
+
+  if (isProduction && PROHIBITED_PRODUCTION_HOSTS.has(parsed.hostname)) {
+    throw new Error(
+      `NEXT_PUBLIC_SITE_URL cannot use localhost in production (received ${parsed.hostname}).`,
+    );
+  }
+
+  return parsed.toString().replace(/\/$/, "");
 }

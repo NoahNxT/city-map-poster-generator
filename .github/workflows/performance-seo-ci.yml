@@ -20,7 +20,7 @@ jobs:
   budgets-and-lighthouse:
     runs-on: ubuntu-latest
     env:
-      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SITE_URL: https://example.com
       PERF_BUDGET_HOME_HTML_GZIP_BYTES: 11500
       PERF_BUDGET_HOME_SCRIPT_COUNT: 16
       PERF_BUDGET_LOCALE_INITIAL_JS_GZIP_BYTES: 275000

@@ -1,7 +1,7 @@
 {
   "ci": {
     "collect": {
-      "startServerCommand": "PORT=3000 NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 bun run --cwd apps/web start",
+      "startServerCommand": "PORT=3000 NEXT_PUBLIC_SITE_URL=https://example.com bun run --cwd apps/web start",
       "startServerReadyPattern": "Ready",
       "startServerReadyTimeout": 120000,
       "url": ["http://127.0.0.1:3000/en"],
